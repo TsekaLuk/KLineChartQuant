@@ -17,6 +17,10 @@ import {
     wrapPaneInfo,
     type PaneRole,
     type PaneCapabilities,
+    type YAxisLabel,
+    type XAxisLabel,
+    type YAxisRange,
+    type XAxisRange,
 } from '@/plugin'
 import { createSubIndicatorRenderer, type SubIndicatorType } from '@/core/renderers/Indicator'
 import { DrawingStore } from '@/core/drawing'
@@ -361,6 +365,12 @@ export class Chart {
         this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
 
         // 5. 遍历所有 Pane 渲染
+        // 共享的标签数组，所有 pane 的渲染器都会向其中添加标签
+        const sharedYAxisLabels: YAxisLabel[] = []
+        const sharedXAxisLabels: XAxisLabel[] = []
+        const sharedYAxisRanges: YAxisRange[] = []
+        const sharedXAxisRanges: XAxisRange[] = []
+
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
             const plotCtx = renderer.getDom().plotCanvas.getContext('2d')
@@ -410,6 +420,10 @@ export class Chart {
                     plotHeight: vp.plotHeight,
                 },
                 settings: this.settings,
+                yAxisLabels: sharedYAxisLabels,
+                xAxisLabels: sharedXAxisLabels,
+                yAxisRanges: sharedYAxisRanges,
+                xAxisRanges: sharedXAxisRanges,
             }
 
             // 插件渲染器绘制
@@ -424,6 +438,8 @@ export class Chart {
         }
 
         // 6. 渲染时间轴（通过插件管理器的特殊方法）
+        // 使用共享的 X 轴标签数组，包含所有 pane 渲染器添加的标签
+
         const xAxisCtx = this.dom.xAxisCanvas.getContext('2d')
         if (xAxisCtx) {
             const timeAxisContext: RenderContext = {
@@ -465,6 +481,9 @@ export class Chart {
                     plotWidth: vp.plotWidth,
                     plotHeight: vp.plotHeight,
                 },
+                yAxisLabels: [],
+                xAxisLabels: sharedXAxisLabels,
+                xAxisRanges: sharedXAxisRanges,
             }
             const errors = this.rendererPluginManager.renderPlugin('timeAxis', timeAxisContext)
             if (errors.length > 0) {

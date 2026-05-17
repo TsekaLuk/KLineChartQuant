@@ -433,3 +433,142 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         }
     }
 }
+
+/** ============ 轴标签绘制函数 ============ */
+
+export interface AxisPriceLabelOptions {
+    x: number
+    y: number
+    width: number
+    height: number
+    priceY: number
+    price: number
+    dpr: number
+    bgColor?: string
+    borderColor?: string
+    textColor?: string
+    fontSize?: number
+}
+
+/**
+ * 在右侧价格轴上绘制价格标签
+ * 与 drawCrosshairPriceLabel 类似，但简化了参数（价格直接传入，无需计算）
+ */
+export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPriceLabelOptions) {
+    const {
+        x,
+        y,
+        width,
+        height,
+        priceY,
+        price,
+        dpr,
+        bgColor = 'rgba(0, 0, 0, 0.8)',
+        borderColor,
+        textColor = '#ffffff',
+        fontSize = 12,
+    } = opts
+
+    const priceText = price.toFixed(2)
+
+    ctx.save()
+    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+
+    const textH = fontSize + 4
+    const rectH = textH
+
+    const yy = Math.min(Math.max(priceY, y + rectH / 2), y + height - rectH / 2)
+    const rectY = yy - rectH / 2
+
+    // 背景条
+    const rx = x
+    const ry = roundToPhysicalPixel(rectY, dpr)
+    const rw = width
+    const rh = roundToPhysicalPixel(rectH, dpr)
+    ctx.fillStyle = bgColor
+    ctx.fillRect(rx, ry, rw, rh)
+
+    if (borderColor) {
+        ctx.strokeStyle = borderColor
+        ctx.lineWidth = 1
+        ctx.strokeRect(
+            alignToPhysicalPixelCenter(rx, dpr),
+            alignToPhysicalPixelCenter(ry, dpr),
+            Math.max(0, rw - 1 / dpr),
+            Math.max(0, rh - 1 / dpr)
+        )
+    }
+
+    // 绘制价格文字
+    const centerX = x + width / 2
+    ctx.fillStyle = textColor
+    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(yy, dpr))
+
+    ctx.restore()
+}
+
+export interface AxisTimeLabelOptions {
+    x: number
+    y: number
+    width: number
+    height: number
+    labelX: number
+    timestamp: number
+    dpr: number
+    bgColor?: string
+    textColor?: string
+    fontSize?: number
+    paddingX?: number
+}
+
+/**
+ * 在底部时间轴上绘制时间标签
+ * 与 drawCrosshairTimeLabel 类似，但 labelX 是屏幕坐标（已处理 scrollLeft）
+ */
+export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeLabelOptions) {
+    const {
+        x,
+        y,
+        width,
+        height,
+        labelX,
+        timestamp,
+        dpr,
+        fontSize = 12,
+        paddingX = 8,
+    } = opts
+
+    const text = formatYMDShanghai(timestamp)
+
+    ctx.save()
+    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+
+    const tw = Math.round(ctx.measureText(text).width)
+    const rectW = Math.min(width, tw + paddingX * 2)
+    const rectH = height
+
+    const centerX = Math.min(Math.max(labelX, x + rectW / 2), x + width - rectW / 2)
+    const centerY = y + height / 2
+
+    const rectX = centerX - rectW / 2
+    const rectY = y
+
+    // 背景条（使用传入颜色或默认黑色）
+    ctx.fillStyle = opts.bgColor ?? 'rgba(0, 0, 0, 0.8)'
+    ctx.fillRect(
+        roundToPhysicalPixel(rectX, dpr),
+        roundToPhysicalPixel(rectY, dpr),
+        roundToPhysicalPixel(rectW, dpr),
+        roundToPhysicalPixel(rectH, dpr),
+    )
+
+    // 文字（使用传入颜色或默认白色）
+    ctx.fillStyle = opts.textColor ?? '#ffffff'
+    ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(centerY, dpr))
+
+    ctx.restore()
+}

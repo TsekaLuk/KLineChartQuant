@@ -53,6 +53,33 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
                 return kLineCenters[localIdx]!
             }
 
+            // 注册Y轴标签（供轴渲染器绘制）
+            if (!context.yAxisLabels) context.yAxisLabels = []
+
+            // 最高价标签
+            context.yAxisLabels.push({
+                dataIndex: maxIndex,
+                price: max,
+                y: pane.yAxis.priceToY(max),
+                style: {
+                    bgColor: 'rgba(255, 247, 248, 0.98)',
+                    borderColor: PRICE_COLORS.LAST_PRICE,
+                    textColor: PRICE_COLORS.LAST_PRICE,
+                }
+            })
+
+            // 最低价标签
+            context.yAxisLabels.push({
+                dataIndex: minIndex,
+                price: min,
+                y: pane.yAxis.priceToY(min),
+                style: {
+                    bgColor: 'rgba(255, 247, 248, 0.98)',
+                    borderColor: PRICE_COLORS.LAST_PRICE,
+                    textColor: PRICE_COLORS.LAST_PRICE,
+                }
+            })
+
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             drawPriceMarker(ctx, getCenterX(maxIndex), pane.yAxis.priceToY(max), max, dpr, paneWidth, scrollLeft)

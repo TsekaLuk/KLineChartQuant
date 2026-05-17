@@ -463,6 +463,14 @@ export function createParallelChannelDefinition(): DrawingDefinition {
       const p4 = { x: p3.x + dx, y: p3.y + dy }
       const extend = (drawing.params as { extend?: LinePrimitive['extend'] } | undefined)?.extend ?? 'none'
 
+      // 计算 p4 对应的锚点信息（用于轴标签注册）
+      const p4Index = third.index + (second.index - first.index)
+      const p4Time = third.time
+        ? (typeof third.time === 'string' ? new Date(third.time).getTime() : third.time) +
+          ((typeof second.time === 'string' ? new Date(second.time).getTime() : second.time ?? 0) -
+           (typeof first.time === 'string' ? new Date(first.time).getTime() : first.time ?? 0))
+        : undefined
+
       return {
         primitives: [
           {
@@ -473,6 +481,9 @@ export function createParallelChannelDefinition(): DrawingDefinition {
           },
           { kind: 'line', a: p1, b: p2, extend, style: drawing.style },
           { kind: 'line', a: p3, b: p4, extend, style: drawing.style },
+        ],
+        computedAnchors: [
+          { id: `${drawing.id}-p4`, index: p4Index, time: p4Time, price: third.price + (second.price - first.price) },
         ],
       }
     },
@@ -507,6 +518,10 @@ export function createFlatLineDefinition(): DrawingDefinition {
           { kind: 'point', point: h1, style: drawing.style },
           { kind: 'point', point: h2, style: drawing.style },
         ],
+        computedAnchors: [
+          { id: `${drawing.id}-h1`, index: first.index, time: first.time, price: third.price },
+          { id: `${drawing.id}-h2`, index: second.index, time: second.time, price: third.price },
+        ],
       }
     },
   }
@@ -530,6 +545,15 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
       const dy = p2.y - p1.y
       const p4 = { x: p3.x + dx, y: p3.y - dy }
 
+      // 计算 p4 对应的锚点信息（用于轴标签注册）
+      const p4Index = third.index + (second.index - first.index)
+      const p4Price = third.price - (second.price - first.price)
+      const p4Time = third.time
+        ? (typeof third.time === 'string' ? new Date(third.time).getTime() : third.time) -
+          ((typeof second.time === 'string' ? new Date(second.time).getTime() : second.time ?? 0) -
+           (typeof first.time === 'string' ? new Date(first.time).getTime() : first.time ?? 0))
+        : undefined
+
       return {
         primitives: [
           // 填充区域
@@ -543,6 +567,9 @@ export function createDisjointChannelDefinition(): DrawingDefinition {
           { kind: 'line', a: p1, b: p2, style: drawing.style },
           // 斜率 -k 的线
           { kind: 'line', a: p3, b: p4, style: drawing.style },
+        ],
+        computedAnchors: [
+          { id: `${drawing.id}-p4`, index: p4Index, time: p4Time, price: p4Price },
         ],
       }
     },
@@ -596,10 +623,12 @@ export function createRegressionChannelDefinition(): DrawingDefinition {
             closed: true,
             style: drawing.style,
           },
-          { kind: 'line', a: middleA, b: middleB, style: drawing.style },
+          // 中间回归线使用虚线
+          { kind: 'line', a: middleA, b: middleB, style: { ...drawing.style, strokeStyle: 'dashed' } },
           { kind: 'line', a: upperA, b: upperB, style: drawing.style },
           { kind: 'line', a: lowerA, b: lowerB, style: drawing.style },
         ],
+        computedAnchors: [startAnchor, endAnchor],
         meta: { sigma, stdDev: regression.stdDev, slope: regression.slope },
       }
     },

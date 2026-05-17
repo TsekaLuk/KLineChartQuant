@@ -1,6 +1,6 @@
 import type { RendererPlugin, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
-import { drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
+import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/axis'
 import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
 import { PRICE_COLORS } from '@/core/theme/colors'
 import type { KLineData } from '@/types/price'
@@ -43,6 +43,39 @@ export function createYAxisRendererPlugin(options: {
           decimals: 2,
           hideEdgeTicks: false,
         })
+      }
+
+      // 绘制价格范围带（先于标签，使标签覆盖在范围带之上）
+      if (context.yAxisRanges && pane.role === 'price') {
+        for (const range of context.yAxisRanges) {
+          const topY = range.topY + pane.top
+          const bandHeight = range.bottomY - range.topY
+          if (bandHeight <= 0) continue
+          targetCtx.save()
+          targetCtx.globalAlpha = range.opacity
+          targetCtx.fillStyle = range.color
+          targetCtx.fillRect(0, topY, axisWidth, bandHeight)
+          targetCtx.restore()
+        }
+      }
+
+      // 绘制来自 yAxisLabels 的标签（极值点、绘图锚点等）
+      if (context.yAxisLabels && pane.role === 'price') {
+        for (const label of context.yAxisLabels) {
+          drawAxisPriceLabel(targetCtx, {
+            x: 0,
+            y: pane.top,
+            width: axisWidth,
+            height: pane.height,
+            priceY: label.y + pane.top,
+            price: label.price,
+            dpr,
+            bgColor: label.style?.bgColor ?? 'rgba(0, 0, 0, 0.8)',
+            borderColor: label.style?.borderColor,
+            textColor: label.style?.textColor ?? '#ffffff',
+            fontSize: 12,
+          })
+        }
       }
 
       const klineData = data as KLineData[]

@@ -188,6 +188,61 @@ export function wrapPaneInfo(pane: {
   }
 }
 
+/** Y轴标签（价格标签） */
+export interface YAxisLabel {
+  /** 关联的数据索引 */
+  dataIndex: number
+  /** 价格值 */
+  price: number
+  /** 标签在轴上的Y坐标（世界坐标，相对pane） */
+  y: number
+  /** 标签样式覆盖 */
+  style?: {
+    bgColor?: string
+    borderColor?: string
+    textColor?: string
+  }
+}
+
+/** X轴标签（时间标签） */
+export interface XAxisLabel {
+  /** 关联的数据索引 */
+  dataIndex: number
+  /** 时间戳（毫秒） */
+  timestamp: number
+  /** 标签在轴上的X坐标（世界坐标，未减去scrollLeft） */
+  x: number
+  /** 标签样式覆盖 */
+  style?: {
+    bgColor?: string
+    textColor?: string
+  }
+}
+
+/** Y轴范围带（半透明填充区域） */
+export interface YAxisRange {
+  /** 范围上界Y坐标（相对pane，canvas方向：小值=上方） */
+  topY: number
+  /** 范围下界Y坐标（相对pane，canvas方向：大值=下方） */
+  bottomY: number
+  /** 填充颜色（hex 或 rgba） */
+  color: string
+  /** 填充不透明度 */
+  opacity: number
+}
+
+/** X轴范围带（半透明填充区域） */
+export interface XAxisRange {
+  /** 范围左界X坐标（世界坐标，未减去scrollLeft） */
+  leftX: number
+  /** 范围右界X坐标（世界坐标，未减去scrollLeft） */
+  rightX: number
+  /** 填充颜色（hex 或 rgba） */
+  color: string
+  /** 填充不透明度 */
+  opacity: number
+}
+
 /** 渲染上下文 */
 /** MarkerManager 接口（用于 RenderContext） */
 export interface MarkerManagerLike {
@@ -228,6 +283,14 @@ export interface RenderContext {
   }
   /** 用户设置配置（渲染器只读） */
   settings?: Record<string, boolean>
+  /** 需要在Y轴上绘制的标签列表（由各类标记渲染器填充） */
+  yAxisLabels?: YAxisLabel[]
+  /** 需要在X轴上绘制的标签列表（由各类标记渲染器填充） */
+  xAxisLabels?: XAxisLabel[]
+  /** 需要在Y轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
+  yAxisRanges?: YAxisRange[]
+  /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
+  xAxisRanges?: XAxisRange[]
 }
 
 export type DrawingAnchor = {
@@ -314,6 +377,7 @@ export type DrawingGeometry = {
   primitives: DrawingPrimitive[]
   bounds?: { left: number; top: number; right: number; bottom: number }
   meta?: Record<string, unknown>
+  computedAnchors?: DrawingAnchor[]
 }
 
 export type DrawingComputeContext = {

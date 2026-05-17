@@ -128,6 +128,8 @@ const config: SemanticChartConfig = {
 - [x] Latest price line and right axis label style optimization
 - [x] Area primitive tools and rendering
 - [ ] More advanced drawing tools
+- [ ] Support for minute, multi-day, monthly, and yearly K-line display
+- [ ] Support convert the drawing to quant code
 
 ## 🚀 What's New
 

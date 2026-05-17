@@ -14,6 +14,7 @@ vi.mock('@/core/renderers/Indicator/scale/indicator_scale', async () => {
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
   drawCrosshairPriceLabel: vi.fn(),
+  drawAxisPriceLabel: vi.fn(),
 }))
 
 import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
@@ -66,6 +67,10 @@ function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
     dpr: 1,
     paneWidth: 600,
     kLinePositions: [],
+    kLineCenters: [],
+    kBarRects: [],
+    yAxisLabels: [],
+    xAxisLabels: [],
     ...overrides,
   }
 }

@@ -95,10 +95,14 @@ export function createCandleRenderer(): RendererPlugin {
                     if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
                 }
 
-                // 绘制量价关系标记（小缩放下不显示，避免拥挤）
+                // 绘制量价关系标记（小缩放下不显示，避免拥挤；可通过设置关闭）
                 const relation = relations[i - range.start]
                 const MIN_ZOOM_LEVEL_FOR_MARKER = 2
-                if (relation !== VolumePriceRelation.OTHERS && markerManager && (context.zoomLevel ?? 1) >= MIN_ZOOM_LEVEL_FOR_MARKER) {
+                const showVolumePriceMarkers = context.settings?.showVolumePriceMarkers ?? true
+                if (showVolumePriceMarkers &&
+                    relation !== VolumePriceRelation.OTHERS &&
+                    markerManager &&
+                    (context.zoomLevel ?? 1) >= MIN_ZOOM_LEVEL_FOR_MARKER) {
                     // 根据量价关系决定标记位置
                     const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME ||
                         relation === VolumePriceRelation.RISE_WITHOUT_VOLUME

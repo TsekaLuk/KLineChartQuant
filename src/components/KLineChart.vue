@@ -11,11 +11,13 @@
       }"
     >
       <LeftToolbar
+        ref="toolbarRef"
         :is-fullscreen="isFullscreen"
         @select-tool="handleSelectTool"
         @toggle-fullscreen="$emit('toggleFullscreen')"
         @zoom-in="applyZoomToLevel(zoomLevel + 1)"
         @zoom-out="applyZoomToLevel(zoomLevel - 1)"
+        @settings-change="handleSettingsChange"
       />
       <div class="chart-main" ref="chartMainRef">
         <div class="pane-separator-layer" aria-hidden="true">
@@ -204,6 +206,7 @@ const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const chartMainRef = ref<HTMLDivElement | null>(null)
 const tooltipLayerRef = ref<HTMLDivElement | null>(null)
+const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 
 /* ========== 十字线（鼠标悬停位置） ========== */
 const chartRef = shallowRef<Chart | null>(null)
@@ -245,6 +248,10 @@ const dataVersion = computed(() => store.state.dataVersion)
 
 function scheduleRender() {
   chartRef.value?.scheduleDraw()
+}
+
+function handleSettingsChange(settings: Record<string, boolean>) {
+  chartRef.value?.updateSettings(settings)
 }
 
 function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {
@@ -1314,6 +1321,10 @@ onMounted(() => {
 
   // 同步初始 zoom 状态到 Chart（Chart 不持有业务 SSOT，由 store 驱动）
   chart.applyRenderState(store.state.kWidth, store.state.kGap, store.state.zoomLevel)
+
+  // 初始化图表设置（从 LeftToolbar 获取默认设置）
+  const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
+  chart.updateSettings(initialSettings)
 
   // 初始化绘图交互控制器
   drawingController.value = new DrawingInteractionController(chart)

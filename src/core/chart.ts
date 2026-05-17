@@ -143,6 +143,9 @@ export class Chart {
     /** 最近一次观测到的容器尺寸 */
     private observedSize = { width: 0, height: 0 }
 
+    /** 用户设置配置（传递给渲染器） */
+    private settings: Record<string, boolean> = {}
+
     /** pane ratio 状态（按 paneId 维护，sum=1 仅对可见 pane） */
     private paneRatios: Map<string, number> = new Map()
 
@@ -300,6 +303,12 @@ export class Chart {
         return this.rendererPluginManager.getAllPlugins()
     }
 
+    /** 更新用户设置（触发重绘） */
+    updateSettings(settings: Record<string, boolean>): void {
+        this.settings = { ...settings }
+        this.scheduleDraw()
+    }
+
     /** 绘制一帧 */
     draw() {
         // 重置 Marker 标记
@@ -400,6 +409,7 @@ export class Chart {
                     plotWidth: vp.plotWidth,
                     plotHeight: vp.plotHeight,
                 },
+                settings: this.settings,
             }
 
             // 插件渲染器绘制

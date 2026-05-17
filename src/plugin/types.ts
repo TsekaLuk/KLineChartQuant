@@ -226,6 +226,8 @@ export interface RenderContext {
     plotWidth: number
     plotHeight: number
   }
+  /** 用户设置配置（渲染器只读） */
+  settings?: Record<string, boolean>
 }
 
 export type DrawingAnchor = {

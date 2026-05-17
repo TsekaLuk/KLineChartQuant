@@ -33,6 +33,13 @@ type HitResult =
   | { drawing: DrawingObject; anchorIndex: number }
   | { drawing: DrawingObject }
 
+type LineSegment = { a: { x: number; y: number }; b: { x: number; y: number } }
+
+type RegressionChannelGeometry = {
+  segments: LineSegment[]
+  endpoints: Array<{ point: { x: number; y: number }; anchorIndex: 0 | 1 }>
+}
+
 interface DragState {
   drawingId: string
   anchorIndex?: number
@@ -401,12 +408,13 @@ export class DrawingInteractionController {
 
   private hitTest(mouseX: number, mouseY: number): HitResult | null {
     const drawings = this.drawings.filter((d) => d.id !== this.previewDrawingId && d.visible)
+    const regressionGeometryCache = new Map<string, RegressionChannelGeometry | null>()
 
     // 锚点优先
     for (const drawing of drawings) {
       // regression-channel：回归线端点也是可拖拽区域
       if (drawing.kind === 'regression-channel' && drawing.anchors.length >= 2) {
-        const hit = this.hitTestRegressionEndpoints(drawing, mouseX, mouseY)
+        const hit = this.hitTestRegressionEndpoints(drawing, mouseX, mouseY, regressionGeometryCache)
         if (hit) return hit
       }
 
@@ -422,7 +430,7 @@ export class DrawingInteractionController {
 
     // 线条其次
     for (const drawing of drawings) {
-      const segments = this.getDrawingLineSegments(drawing)
+      const segments = this.getDrawingLineSegments(drawing, regressionGeometryCache)
       for (const seg of segments) {
         const dist = pointToSegmentDist(mouseX, mouseY, seg.a, seg.b)
         if (dist <= LINE_HIT_RADIUS) {
@@ -434,9 +442,16 @@ export class DrawingInteractionController {
     return null
   }
 
-  private getDrawingLineSegments(drawing: DrawingObject): { a: { x: number; y: number }; b: { x: number; y: number } }[] {
+  private getDrawingLineSegments(
+    drawing: DrawingObject,
+    regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
+  ): LineSegment[] {
     const viewport = this.chart.getViewport()
     if (!viewport) return []
+
+    if (drawing.kind === 'regression-channel') {
+      return this.getRegressionChannelGeometry(drawing, regressionGeometryCache)?.segments ?? []
+    }
 
     // 单锚点图元：根据 kind 构造屏幕线段
     if (drawing.anchors.length === 1) {
@@ -471,42 +486,11 @@ export class DrawingInteractionController {
     const points = drawing.anchors.map((a) => this.anchorToScreen(a)).filter(Boolean) as { x: number; y: number }[]
     if (points.length < 2) return []
 
-    const segments: { a: { x: number; y: number }; b: { x: number; y: number } }[] = []
+    const segments: LineSegment[] = []
 
     if (points.length === 2) {
       const a = points[0]!
       const b = points[1]!
-
-      // regression-channel：计算回归线和上下轨，3 条线段
-      if (drawing.kind === 'regression-channel') {
-        const data = this.chart.getData()
-        const firstIndex = Math.round(drawing.anchors[0]!.index)
-        const secondIndex = Math.round(drawing.anchors[1]!.index)
-        const startIndex = Math.min(Math.max(firstIndex, 0), Math.max(secondIndex, 0))
-        const endIndex = Math.max(Math.max(firstIndex, 0), Math.max(secondIndex, 0))
-        const clampedStart = Math.min(Math.max(startIndex, 0), data.length - 1)
-        const clampedEnd = Math.min(Math.max(endIndex, 0), data.length - 1)
-        const slice = data.slice(clampedStart, clampedEnd + 1)
-        const regression = computeLinearRegression(slice.map((item: { close: number }) => item.close))
-        if (regression) {
-          const sigma = (drawing.params as { sigma?: number } | undefined)?.sigma ?? 2
-          const offset = regression.stdDev * sigma
-          const firstValue = regression.intercept
-          const lastValue = regression.intercept + regression.slope * (slice.length - 1)
-
-          const midStart = this.anchorToScreen({ id: '', index: firstIndex, price: firstValue })
-          const midEnd = this.anchorToScreen({ id: '', index: secondIndex, price: lastValue })
-          const upperStart = this.anchorToScreen({ id: '', index: firstIndex, price: firstValue + offset })
-          const upperEnd = this.anchorToScreen({ id: '', index: secondIndex, price: lastValue + offset })
-          const lowerStart = this.anchorToScreen({ id: '', index: firstIndex, price: firstValue - offset })
-          const lowerEnd = this.anchorToScreen({ id: '', index: secondIndex, price: lastValue - offset })
-
-          if (midStart && midEnd) segments.push({ a: midStart, b: midEnd })
-          if (upperStart && upperEnd) segments.push({ a: upperStart, b: upperEnd })
-          if (lowerStart && lowerEnd) segments.push({ a: lowerStart, b: lowerEnd })
-          return segments
-        }
-      }
 
       // 其他双锚点工具：标准线段
       const dx = b.x - a.x
@@ -566,6 +550,7 @@ export class DrawingInteractionController {
     return segments
   }
 
+
   /**
    * regression-channel 专用：回归线端点也是可拖拽的锚点区域
    * 回归线端点可能远离存储的锚点，需要额外检测
@@ -574,9 +559,34 @@ export class DrawingInteractionController {
     drawing: DrawingObject,
     mouseX: number,
     mouseY: number,
+    regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
   ): { drawing: DrawingObject; anchorIndex: number } | null {
+    const geometry = this.getRegressionChannelGeometry(drawing, regressionGeometryCache)
+    if (!geometry) return null
+
+    for (const endpoint of geometry.endpoints) {
+      const dist = Math.hypot(mouseX - endpoint.point.x, mouseY - endpoint.point.y)
+      if (dist <= ANCHOR_HIT_RADIUS) {
+        return { drawing, anchorIndex: endpoint.anchorIndex }
+      }
+    }
+
+    return null
+  }
+
+
+  private getRegressionChannelGeometry(
+    drawing: DrawingObject,
+    regressionGeometryCache?: Map<string, RegressionChannelGeometry | null>,
+  ): RegressionChannelGeometry | null {
+    const cached = regressionGeometryCache?.get(drawing.id)
+    if (cached !== undefined) return cached
+
     const data = this.chart.getData()
-    if (data.length === 0) return null
+    if (data.length === 0 || drawing.anchors.length < 2) {
+      regressionGeometryCache?.set(drawing.id, null)
+      return null
+    }
 
     const firstIndex = Math.round(drawing.anchors[0]!.index)
     const secondIndex = Math.round(drawing.anchors[1]!.index)
@@ -586,35 +596,39 @@ export class DrawingInteractionController {
     const endIndex = Math.max(clampedFirst, clampedSecond)
     const slice = data.slice(startIndex, endIndex + 1)
     const regression = computeLinearRegression(slice.map((item: { close: number }) => item.close))
-    if (!regression) return null
+    if (!regression) {
+      regressionGeometryCache?.set(drawing.id, null)
+      return null
+    }
 
     const sigma = (drawing.params as { sigma?: number } | undefined)?.sigma ?? 2
     const offset = regression.stdDev * sigma
     const firstValue = regression.intercept
     const lastValue = regression.intercept + regression.slope * (slice.length - 1)
 
-    // 回归线的 6 个端点（上/中/下 × 左/右）
-    const endpoints = [
-      { index: firstIndex, price: firstValue },
-      { index: secondIndex, price: lastValue },
-      { index: firstIndex, price: firstValue + offset },
-      { index: secondIndex, price: lastValue + offset },
-      { index: firstIndex, price: firstValue - offset },
-      { index: secondIndex, price: lastValue - offset },
-    ]
+    const middleStart = this.anchorToScreen({ id: '', index: firstIndex, price: firstValue })
+    const middleEnd = this.anchorToScreen({ id: '', index: secondIndex, price: lastValue })
+    const upperStart = this.anchorToScreen({ id: '', index: firstIndex, price: firstValue + offset })
+    const upperEnd = this.anchorToScreen({ id: '', index: secondIndex, price: lastValue + offset })
+    const lowerStart = this.anchorToScreen({ id: '', index: firstIndex, price: firstValue - offset })
+    const lowerEnd = this.anchorToScreen({ id: '', index: secondIndex, price: lastValue - offset })
 
-    for (const ep of endpoints) {
-      const screen = this.anchorToScreen({ id: '', index: ep.index, price: ep.price })
-      if (!screen) continue
-      const dist = Math.hypot(mouseX - screen.x, mouseY - screen.y)
-      if (dist <= ANCHOR_HIT_RADIUS) {
-        // 左端点 → 拖 anchor[0]，右端点 → 拖 anchor[1]
-        const anchorIndex = ep.index <= Math.min(firstIndex, secondIndex) ? 0 : 1
-        return { drawing, anchorIndex }
-      }
-    }
+    const segments: LineSegment[] = []
+    if (middleStart && middleEnd) segments.push({ a: middleStart, b: middleEnd })
+    if (upperStart && upperEnd) segments.push({ a: upperStart, b: upperEnd })
+    if (lowerStart && lowerEnd) segments.push({ a: lowerStart, b: lowerEnd })
 
-    return null
+    const endpoints: RegressionChannelGeometry['endpoints'] = []
+    if (middleStart) endpoints.push({ point: middleStart, anchorIndex: 0 })
+    if (middleEnd) endpoints.push({ point: middleEnd, anchorIndex: 1 })
+    if (upperStart) endpoints.push({ point: upperStart, anchorIndex: 0 })
+    if (upperEnd) endpoints.push({ point: upperEnd, anchorIndex: 1 })
+    if (lowerStart) endpoints.push({ point: lowerStart, anchorIndex: 0 })
+    if (lowerEnd) endpoints.push({ point: lowerEnd, anchorIndex: 1 })
+
+    const geometry = { segments, endpoints }
+    regressionGeometryCache?.set(drawing.id, geometry)
+    return geometry
   }
 
   private getExtendMode(drawing: DrawingObject): 'none' | 'left' | 'right' | 'both' {

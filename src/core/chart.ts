@@ -679,7 +679,9 @@ export class Chart {
 
     /** 更新选中的绘图 ID */
     setSelectedDrawingId(id: string | null): void {
+        if (this.drawingStore.getSelectedId() === id) return
         this.drawingStore.setSelectedId(id)
+        this.scheduleDraw()
     }
 
     /** 获取当前 pane 布局快照（含 ratio） */

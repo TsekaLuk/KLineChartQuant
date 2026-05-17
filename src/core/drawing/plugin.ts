@@ -86,7 +86,7 @@ export function createDrawingRendererPlugin(options: {
         if (isSelected && drawing.visible && pane.role === 'price') {
           // 合并用户锚点和计算锚点
           const allAnchors = [...drawing.anchors, ...(geometry.computedAnchors ?? [])]
-          if (allAnchors.length === 0) return
+          if (allAnchors.length === 0) continue
 
           // 计算锚点价格范围，用于Y轴价格范围带
           if (allAnchors.length >= 2) {

@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="body">
+  <Teleport :to="teleportTarget">
     <Transition name="overlay">
       <div v-if="visible" class="params-overlay" @click="$emit('close')">
         <Transition name="modal">
@@ -117,6 +117,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
 
 export interface ParamConfig {
   key: string
@@ -147,6 +148,9 @@ const emit = defineEmits<{
 
 const localValues = ref<Record<string, number>>({ ...props.values })
 const showDescription = ref(true)
+
+// Teleport target for fullscreen modal visibility
+const teleportTarget = useFullscreenTeleportTarget()
 
 watch(
   () => props.values,

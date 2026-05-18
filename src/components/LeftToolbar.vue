@@ -118,7 +118,7 @@
   </nav>
 
   <!-- 设置弹窗 -->
-  <Teleport to="body">
+  <Teleport :to="teleportTarget">
     <Transition name="overlay">
       <div v-if="showSettings" class="settings-overlay" @click="closeSettings">
         <Transition name="modal">
@@ -198,6 +198,7 @@ import IconTablerCaretUpDown from '~icons/tabler/caret-up-down'
 import IconTablerBrackets from '~icons/tabler/brackets'
 import IconTablerSettings from '~icons/tabler/settings'
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, type SettingItem } from '../config/chartSettings'
+import { useFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
 
 export interface ToolDef {
   id: string
@@ -253,6 +254,9 @@ export type { SettingItem } from '../config/chartSettings'
 const selectedToolId = ref('cursor')
 const openGroupId = ref<string | null>(null)
 const showSettings = ref(false)
+
+// Teleport target for fullscreen modal visibility
+const teleportTarget = useFullscreenTeleportTarget()
 
 // 从 localStorage 加载设置，或使用默认值
 function loadSettings(): Record<string, boolean> {

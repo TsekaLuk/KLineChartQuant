@@ -64,7 +64,7 @@
     </div>
 
     <!-- Modal 场景 -->
-    <Teleport to="body">
+    <Teleport :to="teleportTarget">
       <Transition name="modal">
         <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
           <div class="modal-container">
@@ -90,6 +90,7 @@ import debugConfig from '@/semantic/debug-config.json'
 import packageJson from '../package.json'
 import IconTablerLayout from '~icons/tabler/layout'
 import IconTablerResize from '~icons/tabler/resize'
+import { provideFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
 
 const defaultConfig = debugConfig as SemanticChartConfig
 
@@ -118,6 +119,14 @@ function toggleEmbedSize() {
 // 全屏控制
 const isFullscreen = ref(false)
 const embedContainerRef = ref<HTMLElement | null>(null)
+
+// Provide the fullscreen container ref for Teleport modals
+provideFullscreenTeleportTarget(embedContainerRef)
+
+// Teleport target for App.vue's own modal (provider cannot inject itself)
+const teleportTarget = computed<HTMLElement | string>(
+  () => embedContainerRef.value ?? 'body'
+)
 
 async function toggleFullscreen() {
   if (!embedContainerRef.value) return

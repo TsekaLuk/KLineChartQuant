@@ -84,7 +84,7 @@
     </div>
 
     <!-- 添加指标菜单（使用 Teleport 解决层级问题） -->
-    <Teleport to="body">
+    <Teleport :to="teleportTarget">
       <Transition name="slide">
         <div
           v-if="showAddMenu"
@@ -157,6 +157,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import IndicatorParams, { type ParamConfig } from './IndicatorParams.vue'
+import { useFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
 
 export interface Indicator {
   id: string
@@ -550,6 +551,9 @@ const menuStyle = ref<{ left: string; bottom: string }>({ left: '0', bottom: '0'
 const useAnchorPositioning = ref(false)
 const dragOverIndicatorId = ref<string | null>(null)
 const draggingIndicatorId = ref<string | null>(null)
+
+// Teleport target for fullscreen modal visibility
+const teleportTarget = useFullscreenTeleportTarget()
 
 // ─────────────────────────────────────────────────────────────────
 // 计算属性

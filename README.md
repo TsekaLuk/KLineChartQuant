@@ -18,11 +18,11 @@ English | [简体中文](README_CN.md)
 A lightweight financial K-line charting library focused on quantitative trading scenarios. **Agent is a first-class citizen** — supports AI Agent direct control of chart operations, providing TradingView-level interaction experience.
 
 <div align="center">
-  <img src="https://files.seeusercontent.com/2026/05/13/vF8x/pasted-image-1778672929115.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/05/13/J8xd/pasted-image-1778672926979.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/05/18/7Zjf/pasted-image-1779120668142.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/05/18/cAw4/pasted-image-1779120665492.webp" width="400" style="border-radius: 12px; margin: 8px;" />
   <br/>
-  <img src="https://files.seeusercontent.com/2026/05/13/vV4u/pasted-image-1778672925611.webp" width="400" style="border-radius: 12px; margin: 8px;" />
-  <img src="https://files.seeusercontent.com/2026/05/13/Vyy8/pasted-image-1778672923956.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/05/18/Xwq2/pasted-image-1779120662730.webp" width="400" style="border-radius: 12px; margin: 8px;" />
+  <img src="https://files.seeusercontent.com/2026/05/18/Lb5p/7MNQT2E_2X1UL3626R.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
 ## ✨ Core Features

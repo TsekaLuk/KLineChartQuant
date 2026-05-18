@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import type { DrawingObject, DrawingStyle } from '@/plugin'
 import IconTablerTrash from '~icons/tabler/trash'
 
@@ -56,6 +57,16 @@ const emit = defineEmits<{
   (e: 'updateStyle', style: Partial<DrawingStyle>): void
   (e: 'delete'): void
 }>()
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Delete') {
+    e.preventDefault()
+    emit('delete')
+  }
+}
+
+onMounted(() => document.addEventListener('keydown', onKeyDown))
+onUnmounted(() => document.removeEventListener('keydown', onKeyDown))
 
 function onColorChange(color: string) {
   emit('updateStyle', { stroke: color })

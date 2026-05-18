@@ -3,6 +3,7 @@ import { priceToY, yToPrice } from '../priceToY'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '@/core/draw/pixelAlign'
 import { formatYMDShanghai, formatMonthOrYear, monthKey, findMonthBoundaries } from '@/utils/dateFormat'
 import { TAG_BG_COLORS, BORDER_COLORS, TEXT_COLORS, CROSSHAIR_COLORS, getTickColor } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 
 export interface PriceAxisOptions {
     x: number
@@ -67,7 +68,7 @@ export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOpti
         ctx.stroke()
     }
 
-    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     // 价格轴文字水平居中
     ctx.textAlign = 'center'
@@ -93,7 +94,7 @@ export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOpti
         // 文字：显示平移后的价格
         const displayPrice = p + priceOffset
         ctx.fillStyle = textColor
-        ctx.fillText(displayPrice.toFixed(2), roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(yy, dpr))
+        ctx.fillText(displayPrice.toFixed(2), roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(yy, dpr))
     }
 }
 
@@ -203,7 +204,7 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
     const text = formatYMDShanghai(timestamp)
 
     ctx.save()
-    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
 
@@ -228,7 +229,7 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
 
     // 文字（白色）
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(centerY, dpr))
+    ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(centerY, dpr))
 
     ctx.restore()
 }
@@ -264,7 +265,7 @@ export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: Cro
     const priceText = formatPrice ? formatPrice(displayPrice) : displayPrice.toFixed(2)
 
     ctx.save()
-    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
 
@@ -296,7 +297,7 @@ export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: Cro
     // 绘制价格文字
     const centerX = x + width / 2
     ctx.fillStyle = textColor
-    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(yy, dpr))
+    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(yy, dpr))
 
     ctx.restore()
 }
@@ -402,8 +403,7 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
 
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    // 考虑底部边框 1px，文字往下移 1px
-    const textY = y + height / 2 + 1
+    const textY = y + height / 2
 
     // 使用预计算的月边界
     const boundaries = findMonthBoundaries(data)
@@ -428,8 +428,8 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
 
             const { text, isYear } = formatMonthOrYear(k.timestamp)
             ctx.fillStyle = textColor
-            ctx.font = `${isYear ? 'bold ' : ''}${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
-            ctx.fillText(text, roundToPhysicalPixel(drawX, dpr), roundToPhysicalPixel(textY, dpr))
+            ctx.font = `${isYear ? 'bold ' : ''}${fontSize}px Arial`
+            ctx.fillText(text, roundToPhysicalPixel(drawX, dpr), alignToPhysicalPixelCenter(textY, dpr))
         }
     }
 }
@@ -472,7 +472,7 @@ export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPric
     const priceText = price.toFixed(2)
 
     ctx.save()
-    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
 
@@ -504,7 +504,7 @@ export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPric
     // 绘制价格文字
     const centerX = x + width / 2
     ctx.fillStyle = textColor
-    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(yy, dpr))
+    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(yy, dpr))
 
     ctx.restore()
 }
@@ -543,7 +543,7 @@ export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeL
     const text = formatYMDShanghai(timestamp)
 
     ctx.save()
-    ctx.font = `${fontSize}px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
 
@@ -568,7 +568,7 @@ export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeL
 
     // 文字（使用传入颜色或默认白色）
     ctx.fillStyle = opts.textColor ?? '#ffffff'
-    ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(centerY, dpr))
+    ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(centerY, dpr))
 
     ctx.restore()
 }

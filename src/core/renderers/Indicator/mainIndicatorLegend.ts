@@ -6,6 +6,7 @@ import { calcBOLLAtIndex } from './boll'
 import { calcEXPMAAtIndex } from './expma'
 import { calcENEAtIndex } from './ene'
 import { MA_COLORS, BOLL_COLORS, EXPMA_COLORS, ENE_COLORS, PRICE_COLORS } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 
 /** 指标行数据 */
 interface IndicatorRow {

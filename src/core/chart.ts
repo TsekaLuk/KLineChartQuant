@@ -1329,10 +1329,10 @@ export class Chart {
         this.dom.canvasLayer.style.width = `${viewWidth}px`
         this.dom.canvasLayer.style.height = `${viewHeight}px`
 
-        this.dom.xAxisCanvas.style.width = `${plotWidth}px`
-        this.dom.xAxisCanvas.style.height = `${this.opt.bottomAxisHeight}px`
         this.dom.xAxisCanvas.width = Math.round(plotWidth * dpr)
         this.dom.xAxisCanvas.height = Math.round(this.opt.bottomAxisHeight * dpr)
+        this.dom.xAxisCanvas.style.width = `${this.dom.xAxisCanvas.width / dpr}px`
+        this.dom.xAxisCanvas.style.height = `${this.dom.xAxisCanvas.height / dpr}px`
 
         const vp: Viewport = {
             viewWidth,

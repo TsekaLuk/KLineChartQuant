@@ -9,6 +9,7 @@ import {
   createAlignedKLine,
 } from '@/core/draw/pixelAlign'
 import { PRICE_COLORS, TEXT_COLORS } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 
 export interface drawOption {
   kWidth: number
@@ -52,7 +53,7 @@ function drawPriceMarker(
   ctx.fill()
 
   // 绘制价格文字
-  ctx.font = '12px Arial'
+  ctx.font = `12px ${FONT_FAMILY}`
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
   ctx.fillStyle = TEXT_COLORS.PRIMARY

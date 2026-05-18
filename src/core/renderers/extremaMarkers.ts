@@ -1,8 +1,9 @@
 import type { RendererPlugin, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import { roundToPhysicalPixel, createHorizontalLineRect } from '@/core/draw/pixelAlign'
+import { roundToPhysicalPixel, alignToPhysicalPixelCenter, createHorizontalLineRect } from '@/core/draw/pixelAlign'
 import { TEXT_COLORS, PRICE_COLORS } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 
 /**
  * 创建可视区最高/最低价标注渲染器插件
@@ -98,7 +99,7 @@ function drawPriceMarker(ctx: CanvasRenderingContext2D, x: number, y: number, pr
     const lineLength = 30
     const dotRadius = 2
 
-    ctx.font = '12px Arial'
+    ctx.font = `12px ${FONT_FAMILY}`
     const textMetrics = ctx.measureText(text)
     const textWidth = textMetrics.width
 
@@ -122,15 +123,15 @@ function drawPriceMarker(ctx: CanvasRenderingContext2D, x: number, y: number, pr
     ctx.beginPath()
     ctx.arc(endX, alignedY, dotRadius, 0, Math.PI * 2)
     ctx.fill()
-    ctx.font = '12px Arial'
+    ctx.font = `12px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.fillStyle = PRICE_COLORS.NEUTRAL
 
     if (drawLeft) {
         ctx.textAlign = 'right'
-        ctx.fillText(text, roundToPhysicalPixel(x - lineLength - padding, dpr), roundToPhysicalPixel(y, dpr))
+        ctx.fillText(text, roundToPhysicalPixel(x - lineLength - padding, dpr), alignToPhysicalPixelCenter(y, dpr))
     } else {
         ctx.textAlign = 'left'
-        ctx.fillText(text, roundToPhysicalPixel(x + lineLength + padding, dpr), roundToPhysicalPixel(y, dpr))
+        ctx.fillText(text, roundToPhysicalPixel(x + lineLength + padding, dpr), alignToPhysicalPixelCenter(y, dpr))
     }
 }

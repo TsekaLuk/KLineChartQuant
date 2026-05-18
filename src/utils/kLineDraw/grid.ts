@@ -9,6 +9,7 @@ import {
 } from '@/core/draw/pixelAlign'
 import { formatMonthOrYear, monthKey } from '@/utils/dateFormat'
 import { GRID_COLORS, TEXT_COLORS, PRICE_COLORS } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 
 export interface GridOption {
     /** 网格线颜色 */
@@ -82,7 +83,7 @@ export function drawGridLayer(
     // ===== 价格坐标轴：分 N 档 =====
     ctx.save()
     ctx.fillStyle = gridColor
-    ctx.font = `${fontSize}px Arial`
+    ctx.font = `${fontSize}px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'right'
 
@@ -108,7 +109,7 @@ export function drawGridLayer(
         ctx.fillText(
             price.toFixed(2),
             roundToPhysicalPixel(rightTextX, dpr),
-            roundToPhysicalPixel(y, dpr)
+            alignToPhysicalPixelCenter(y, dpr)
         )
 
         // 恢复网格线颜色
@@ -144,7 +145,7 @@ export function drawGridLayer(
             ctx.fillText(
                 lastPrice.toFixed(2),
                 roundToPhysicalPixel(rightTextX, dpr),
-                roundToPhysicalPixel(y, dpr)
+                alignToPhysicalPixelCenter(y, dpr)
             )
         }
     }

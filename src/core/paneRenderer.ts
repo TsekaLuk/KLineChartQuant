@@ -58,7 +58,7 @@ export class PaneRenderer {
         const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth
         yAxisCanvas.width = Math.round(canvasYAxisWidth * dpr)
         yAxisCanvas.height = Math.round(height * dpr)
-        yAxisCanvas.style.width = `${canvasYAxisWidth}px`
+        yAxisCanvas.style.width = `${yAxisCanvas.width / dpr}px`
         yAxisCanvas.style.height = `${yAxisCanvas.height / dpr}px`
     }
 

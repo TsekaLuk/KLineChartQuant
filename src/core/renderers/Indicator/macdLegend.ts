@@ -2,6 +2,7 @@ import type { RendererPlugin, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { TEXT_COLORS, MACD_COLORS } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 import { calcMACDAtIndex } from './macd'
 
 export interface MACDLegendOptions {

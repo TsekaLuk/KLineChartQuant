@@ -2,9 +2,10 @@ import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorSt
 import { RENDERER_PRIORITY } from '@/plugin'
 import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import { TEXT_COLORS } from '@/core/theme/colors'
+import { FONT_FAMILY } from '@/core/theme/fonts'
 import { calculateTickCount } from '@/core/utils/tickCount'
 import { drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
-import { roundToPhysicalPixel } from '@/core/draw/pixelAlign'
+import { roundToPhysicalPixel, alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
     valueMin: number
@@ -59,7 +60,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
     ctx.save()
     ctx.clearRect(0, 0, axisWidth, height)
 
-    ctx.font = `12px -apple-system,BlinkMacSystemFont,Trebuchet MS,Roboto,Ubuntu,sans-serif`
+    ctx.font = `12px ${FONT_FAMILY}`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
 
@@ -82,7 +83,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
         ctx.fillText(
             formatLabel ? formatLabel(value) : value.toFixed(decimals),
             roundToPhysicalPixel(centerX, dpr),
-            roundToPhysicalPixel(y, dpr)
+            alignToPhysicalPixelCenter(y, dpr)
         )
     }
 

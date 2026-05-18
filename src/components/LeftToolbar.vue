@@ -150,6 +150,16 @@
                   />
                 </label>
               </div>
+              <div class="settings-item">
+                <label class="settings-label">
+                  <span>对数价格轴</span>
+                  <input
+                    type="checkbox"
+                    class="settings-checkbox"
+                    v-model="settings.logarithmicScale"
+                  />
+                </label>
+              </div>
             </div>
 
             <!-- 底部 -->
@@ -291,7 +301,8 @@ function saveSettings(settings: Record<string, boolean>) {
   }
 }
 
-const settings = ref<Record<string, boolean>>(loadSettings())
+const appliedSettings = ref<Record<string, boolean>>(loadSettings())
+const settings = ref<Record<string, boolean>>({ ...appliedSettings.value })
 
 function isActive(tool: ToolDef): boolean {
   if (selectedToolId.value === tool.id) return true
@@ -328,8 +339,7 @@ function toggleExpand(groupId: string) {
 }
 
 function openSettings() {
-  // 打开时重新加载保存的设置
-  settings.value = loadSettings()
+  settings.value = { ...appliedSettings.value }
   showSettings.value = true
 }
 
@@ -338,7 +348,6 @@ function closeSettings() {
 }
 
 function resetSettings() {
-  // 重置为默认值
   const defaults: Record<string, boolean> = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
@@ -347,16 +356,15 @@ function resetSettings() {
 }
 
 function confirmSettings() {
-  // 保存到 localStorage
-  saveSettings(settings.value)
-  // 触发事件通知父组件
-  emit('settingsChange', { ...settings.value })
+  appliedSettings.value = { ...settings.value }
+  saveSettings(appliedSettings.value)
+  emit('settingsChange', { ...appliedSettings.value })
   closeSettings()
 }
 
 // 暴露方法给父组件
 function getCurrentSettings(): Record<string, boolean> {
-  return { ...settings.value }
+  return { ...appliedSettings.value }
 }
 
 defineExpose({

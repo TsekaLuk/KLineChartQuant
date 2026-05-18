@@ -4,7 +4,7 @@ import type { KLineData } from '@/types/price'
 import { createHorizontalLineRect, createVerticalLineRect } from '@/core/draw/pixelAlign'
 import { findMonthBoundaries } from '@/utils/dateFormat'
 import { GRID_COLORS } from '@/core/theme/colors'
-import { calculateTickPositions } from '@/core/utils/tickPosition'
+import { calculateTickPositions, calculateValueTickPositions, type ScaleType } from '@/core/utils/tickPosition'
 
 /**
  * 创建网格线渲染器插件
@@ -35,14 +35,35 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
             const pt = pane.yAxis.getPaddingTop()
             const pb = pane.yAxis.getPaddingBottom()
 
-            const positions = calculateTickPositions({
-                height: pane.height,
-                paddingTop: pt,
-                paddingBottom: pb,
-                isMain: pane.role === 'price',
-            })
+            // 水平网格线：与 Y 轴刻度对齐
+            const scaleType = pane.yAxis.getScaleType()
+            let yPositions: number[]
 
-            for (const { y } of positions) {
+            if (scaleType === 'log' && pane.role === 'price') {
+                // 对数模式：生成 nice 刻度值，用 priceToY 计算 Y 位置
+                const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
+                const tickValues = calculateValueTickPositions({
+                    height: pane.height,
+                    paddingTop: pt,
+                    paddingBottom: pb,
+                    isMain: true,
+                    valueMin: displayRange.minPrice,
+                    valueMax: displayRange.maxPrice,
+                    scaleType: 'log',
+                })
+                yPositions = tickValues.map(t => t.y)
+            } else {
+                // 线性模式：均匀分布
+                const tickPositions = calculateTickPositions({
+                    height: pane.height,
+                    paddingTop: pt,
+                    paddingBottom: pb,
+                    isMain: pane.role === 'price',
+                })
+                yPositions = tickPositions.map(t => t.y)
+            }
+
+            for (const y of yPositions) {
                 const h = createHorizontalLineRect(startX, endX, y, dpr)
                 if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
             }

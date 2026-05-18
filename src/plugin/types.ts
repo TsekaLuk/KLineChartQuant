@@ -146,6 +146,7 @@ export interface PaneInfo {
     getPaddingBottom(): number
     getPriceOffset(): number
     getDisplayRange(baseRange?: { maxPrice: number; minPrice: number }): { maxPrice: number; minPrice: number }
+    getScaleType(): 'linear' | 'log'
   }
   priceRange: {
     maxPrice: number
@@ -183,6 +184,7 @@ export function wrapPaneInfo(pane: {
       getPaddingBottom: () => pane.yAxis.getPaddingBottom(),
       getPriceOffset: () => pane.yAxis.getPriceOffset(),
       getDisplayRange: (baseRange) => pane.yAxis.getDisplayRange(baseRange),
+      getScaleType: () => pane.yAxis.getScaleType(),
     },
     priceRange: pane.priceRange,
   }

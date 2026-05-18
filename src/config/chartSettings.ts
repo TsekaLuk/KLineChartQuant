@@ -12,6 +12,7 @@ export interface SettingItem {
 /** 默认设置配置 */
 export const DEFAULT_SETTINGS: SettingItem[] = [
   { key: 'showVolumePriceMarkers', label: '显示量价关系标记', type: 'boolean', default: true },
+  { key: 'logarithmicScale', label: '对数价格轴', type: 'boolean', default: false },
 ]
 
 /** localStorage 存储键名 */

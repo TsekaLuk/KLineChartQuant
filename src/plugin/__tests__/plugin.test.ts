@@ -183,6 +183,7 @@ describe('Plugin System', () => {
         getPaddingBottom: () => 0,
         getPriceOffset: () => 0,
         getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 1, minPrice: 0 },
+        getScaleType: () => 'linear',
       },
       priceRange: { maxPrice: 1, minPrice: 0 },
     }

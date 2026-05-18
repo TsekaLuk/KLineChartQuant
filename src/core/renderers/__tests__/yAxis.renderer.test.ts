@@ -39,6 +39,7 @@ function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
       getPaddingBottom: () => 10,
       getPriceOffset: () => 2,
       getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 120, minPrice: 80 },
+      getScaleType: () => 'linear',
     },
     priceRange: {
       maxPrice: 120,

@@ -310,6 +310,13 @@ export class Chart {
     /** 更新用户设置（触发重绘） */
     updateSettings(settings: Record<string, boolean>): void {
         this.settings = { ...settings }
+
+        // 同步对数刻度设置到所有 pane
+        const scaleType = settings.logarithmicScale ? 'log' : 'linear'
+        for (const renderer of this.paneRenderers) {
+            renderer.getPane().yAxis.setScaleType(scaleType)
+        }
+
         this.scheduleDraw()
     }
 
@@ -462,6 +469,7 @@ export class Chart {
                         getPaddingBottom: () => 0,
                         getPriceOffset: () => 0,
                         getDisplayRange: (baseRange) => baseRange ?? { maxPrice: 0, minPrice: 0 },
+                        getScaleType: () => 'linear' as const,
                     },
                     priceRange: { maxPrice: 0, minPrice: 0 },
                 },

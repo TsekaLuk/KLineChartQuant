@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '@/plugin'
 import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import { TEXT_COLORS } from '@/core/theme/colors'
 import { FONT_FAMILY } from '@/core/theme/fonts'
-import { calculateValueTickPositions } from '@/core/utils/tickPosition'
+import { calculateValueTickPositions, type ScaleType } from '@/core/utils/tickPosition'
 import { drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
 import { roundToPhysicalPixel, alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 
@@ -19,6 +19,7 @@ export interface IndicatorScaleRendererOptions {
     label: string
     decimals?: number
     yPaddingPx?: number
+    scaleType?: ScaleType
     getCrosshair?: () => { y: number; price: number; activePaneId: string | null } | null
     formatTickLabel?: (value: number) => string
     formatCrosshairLabel?: (value: number) => string
@@ -36,6 +37,7 @@ export interface DrawScaleTicksOptions {
     isMain: boolean
     decimals?: number
     hideEdgeTicks?: boolean
+    scaleType?: ScaleType
     formatLabel?: (value: number) => string
 }
 
@@ -52,6 +54,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
         isMain,
         decimals = 2,
         hideEdgeTicks = true,
+        scaleType = 'linear',
         formatLabel,
     } = options
 
@@ -72,6 +75,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
         hideEdgeTicks,
         valueMin,
         valueMax,
+        scaleType,
     })
 
     for (const { y, value } of positions) {
@@ -94,6 +98,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
         label,
         decimals = 2,
         yPaddingPx = 0,
+        scaleType = 'linear',
         getCrosshair,
         formatTickLabel,
         formatCrosshairLabel,
@@ -120,6 +125,9 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
             const state = pluginHost.getSharedState<IndicatorScaleRenderState>(stateKey)
             if (!state) return
 
+            // 优先使用 pane 的 scaleType，构造函数参数作为 fallback
+            const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
+
             const displayRange = pane.yAxis.getDisplayRange({
                 minPrice: state.valueMin,
                 maxPrice: state.valueMax,
@@ -137,6 +145,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
                 isMain: false,
                 decimals,
                 hideEdgeTicks: false,
+                scaleType: effectiveScaleType,
                 formatLabel: formatTickLabel,
             })
 

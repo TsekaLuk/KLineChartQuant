@@ -1,33 +1,23 @@
 import { calculateTickCount } from './tickCount'
+import { fromLog, logFormulaForPriceRange, toLog } from '../scale/logFormula'
 
 export interface TickPosition {
-    /** tick 索引 */
     index: number
-    /** 比例值 (0 ~ 1) */
     t: number
-    /** 逻辑像素 Y 坐标（未做物理对齐） */
     y: number
 }
 
+export type ScaleType = 'linear' | 'log'
+
 export interface CalculateTickPositionsOptions {
-    /** 面板高度（逻辑像素） */
     height: number
-    /** 上内边距（逻辑像素） */
     paddingTop: number
-    /** 下内边距（逻辑像素） */
     paddingBottom: number
-    /** 是否为主图面板（影响刻度数量计算） */
     isMain?: boolean
-    /** 是否隐藏首尾刻度 */
     hideEdgeTicks?: boolean
+    scaleType?: ScaleType
 }
 
-/**
- * 计算 Y 轴 tick 位置（逻辑像素坐标）
- * 供网格线、价格轴刻度等共享同一套位置计算逻辑
- *
- * @returns TickPosition 数组，按从上到下顺序（index 0 为顶部）
- */
 export function calculateTickPositions(
     options: CalculateTickPositionsOptions
 ): TickPosition[] {
@@ -52,43 +42,154 @@ export function calculateTickPositions(
     return positions
 }
 
-/**
- * 计算 Y 轴 tick 位置（含数值映射）
- * 适用于需要将数值映射到 Y 坐标的场景（如价格轴）
- */
 export interface TickPositionWithValue extends TickPosition {
-    /** 对应数值 */
     value: number
 }
 
 export interface CalculateValueTickPositionsOptions extends CalculateTickPositionsOptions {
-    /** 数值范围最小值 */
     valueMin: number
-    /** 数值范围最大值 */
     valueMax: number
+    logBase?: number
 }
 
-/**
- * 计算带数值映射的 tick 位置
- *
- * @returns TickPositionWithValue 数组，value 按线性映射计算
- */
+const LOG_EPSILON = 1e-10
+const LOG_ROUND_CANDIDATES = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 8, 10]
+
+function roundLogTickValue(value: number): number {
+    if (!Number.isFinite(value) || value <= 0) {
+        return value
+    }
+
+    const exp = Math.floor(Math.log10(value))
+    const magnitude = Math.pow(10, exp)
+    const normalized = value / magnitude
+
+    let best = LOG_ROUND_CANDIDATES[0]
+    let minDiff = Infinity
+    for (const candidate of LOG_ROUND_CANDIDATES) {
+        const diff = Math.abs(candidate - normalized)
+        if (diff < minDiff) {
+            minDiff = diff
+            best = candidate
+        }
+    }
+
+    return best * magnitude
+}
+
+function generatePixelUniformLogTicks(options: {
+    height: number
+    paddingTop: number
+    paddingBottom: number
+    valueMin: number
+    valueMax: number
+    targetCount: number
+}): TickPositionWithValue[] {
+    const { height, paddingTop, paddingBottom, valueMin, valueMax, targetCount } = options
+
+    const effectiveMin = Math.max(valueMin, LOG_EPSILON)
+    const effectiveMax = Math.max(valueMax, effectiveMin * 1.001)
+    const yStart = paddingTop
+    const yEnd = Math.max(paddingTop, height - paddingBottom)
+    const viewH = Math.max(0, yEnd - yStart)
+
+    if (viewH <= 0) {
+        return []
+    }
+
+    const formula = logFormulaForPriceRange({ minPrice: effectiveMin, maxPrice: effectiveMax })
+    const logMin = toLog(effectiveMin, formula)
+    const logMax = toLog(effectiveMax, formula)
+    const logRange = logMax - logMin
+
+    if (!Number.isFinite(logRange) || Math.abs(logRange) < 1e-10) {
+        return []
+    }
+
+    const total = Math.max(2, targetCount)
+    const spacingPx = total <= 1 ? viewH : viewH / (total - 1)
+    const minSpacingPx = spacingPx * 0.6
+    const maxRoundShiftPx = spacingPx * 0.15
+
+    const positions: TickPositionWithValue[] = []
+    let prevY: number | null = null
+
+    for (let i = 0; i < total; i++) {
+        const idealT = total <= 1 ? 0 : i / (total - 1)
+        const idealY = yStart + idealT * viewH
+        const logical = logMax - idealT * logRange
+        const rawValue = fromLog(logical, formula)
+
+        let value = rawValue
+        let t = idealT
+        let y = idealY
+
+        const roundedValue = roundLogTickValue(rawValue)
+        if (Number.isFinite(roundedValue) && roundedValue > 0) {
+            const roundedLogical = toLog(roundedValue, formula)
+            const roundedT = (logMax - roundedLogical) / logRange
+            const roundedY = yStart + roundedT * viewH
+
+            if (Number.isFinite(roundedY) && Math.abs(roundedY - idealY) <= maxRoundShiftPx) {
+                value = roundedValue
+                t = roundedT
+                y = roundedY
+            }
+        }
+
+        if (y < yStart - 0.5 || y > yEnd + 0.5) {
+            continue
+        }
+
+        if (prevY !== null && Math.abs(y - prevY) < minSpacingPx) {
+            continue
+        }
+
+        positions.push({ index: positions.length, t, y, value })
+        prevY = y
+    }
+
+    return positions
+}
+
 export function calculateValueTickPositions(
     options: CalculateValueTickPositionsOptions
 ): TickPositionWithValue[] {
-    const { valueMin, valueMax } = options
-    const valueRange = valueMax - valueMin || 1
+    const { valueMin, valueMax, scaleType = 'linear' } = options
+
+    if (scaleType === 'log') {
+        if (valueMin <= 0) {
+            return calculateValueTickPositions({ ...options, scaleType: 'linear' })
+        }
+
+        const effectiveMin = Math.max(valueMin, LOG_EPSILON)
+        const effectiveMax = Math.max(valueMax, effectiveMin * 1.001)
+        const { height, paddingTop, paddingBottom, isMain, hideEdgeTicks } = options
+        const targetCount = Math.max(2, calculateTickCount(height, isMain))
+
+        let positions = generatePixelUniformLogTicks({
+            height,
+            paddingTop,
+            paddingBottom,
+            valueMin: effectiveMin,
+            valueMax: effectiveMax,
+            targetCount,
+        })
+
+        if (hideEdgeTicks && positions.length > 2) {
+            positions = positions.slice(1, -1)
+        }
+
+        return positions.map((position, index) => ({ ...position, index }))
+    }
 
     const basePositions = calculateTickPositions(options)
-    const ticks = basePositions.length
+    const totalTicks = calculateTickCount(options.height, options.isMain)
+    const valueRange = valueMax - valueMin || 1
 
-    return basePositions.map((pos, arrayIdx) => {
-        // 重新计算 step 以匹配原始 ticks 数量（包含被隐藏的）
-        const totalTicks = calculateTickCount(options.height, options.isMain)
+    return basePositions.map((pos) => {
         const step = valueRange / Math.max(1, totalTicks - 1)
-        const originalIndex = pos.index
-        const value = valueMax - step * originalIndex
-
+        const value = valueMax - step * pos.index
         return { ...pos, value }
     })
 }

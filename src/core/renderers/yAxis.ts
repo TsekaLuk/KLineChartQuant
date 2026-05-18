@@ -4,6 +4,7 @@ import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/a
 import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
 import { PRICE_COLORS } from '@/core/theme/colors'
 import type { KLineData } from '@/types/price'
+import type { ScaleType } from '@/core/utils/tickPosition'
 
 /**
  * 创建 Y 轴渲染器插件
@@ -24,6 +25,7 @@ export function createYAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, pane, dpr, yAxisCtx, data } = context
+      const scaleType = pane.yAxis.getScaleType()
 
       const targetCtx = yAxisCtx || ctx
       const axisWidth = yAxisCtx?.canvas ? (yAxisCtx.canvas.width / dpr) : options.axisWidth
@@ -42,6 +44,7 @@ export function createYAxisRendererPlugin(options: {
           isMain: true,
           decimals: 2,
           hideEdgeTicks: false,
+          scaleType,
         })
       }
 

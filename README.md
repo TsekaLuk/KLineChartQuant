@@ -42,21 +42,21 @@ KLineChart requires a stock data backend. Please ensure `kmap` and `stockbao` ar
 
 ```
 workspace/
-├── kmap/        # This repository
+├── KLineChartQuant/ # This repository
 └── stockbao/    # Data backend repository
 ```
 
 ### 1. Clone Repositories
 
 ```bash
-git clone https://github.com/363045841/kmap.git
+git clone https://github.com/363045841/KLineChartQuant.git
 git clone https://github.com/363045841/stockbao.git
 ```
 
 ### 2. Start Data Backend
 
 ```bash
-cd kmap
+cd KLineChartQuant
 npm run stockbao
 ```
 

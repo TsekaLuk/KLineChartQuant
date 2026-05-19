@@ -948,17 +948,17 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
     indicatorId === 'EXPMA' ||
     indicatorId === 'ENE'
   ) {
-    // BOLL 渲染器配置
+    // BOLL 配置通过 Scheduler 更新（渲染器无状态）
     if (indicatorId === 'BOLL') {
-      chartRef.value?.updateRendererConfig('boll', params)
+      chartRef.value?.getIndicatorScheduler().updateBOLLConfig(params as Partial<BOLLSchedulerConfig>)
     }
-    // EXPMA 渲染器配置
+    // EXPMA 配置通过 Scheduler 更新（渲染器无状态）
     if (indicatorId === 'EXPMA') {
-      chartRef.value?.updateRendererConfig('expma', params)
+      chartRef.value?.getIndicatorScheduler().updateEXPMAConfig(params as Partial<EXPMASchedulerConfig>)
     }
-    // ENE 渲染器配置
+    // ENE 配置通过 Scheduler 更新（渲染器无状态）
     if (indicatorId === 'ENE') {
-      chartRef.value?.updateRendererConfig('ene', params)
+      chartRef.value?.getIndicatorScheduler().updateENEConfig(params as Partial<ENESchedulerConfig>)
     }
     // 更新图例以显示新参数
     updateMainIndicatorLegendConfig()

@@ -2,9 +2,9 @@ import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
-import { calcBOLLAtIndex } from './boll'
-import { calcEXPMAAtIndex } from './expma'
-import { calcENEAtIndex } from './ene'
+import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollState'
+import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/expmaState'
+import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/eneState'
 import { MA_COLORS, BOLL_COLORS, EXPMA_COLORS, ENE_COLORS, PRICE_COLORS } from '@/core/theme/colors'
 
 /** 指标行数据 */
@@ -58,10 +58,10 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 
     /**
      * 声明使用的 StateStore 命名空间
-     * MA 图例与 MA 线渲染器共享同一状态
+     * MA/BOLL/EXPMA/ENE 图例与各指标线渲染器共享同一状态
      */
     getDeclaredNamespaces(): string[] {
-      return [MA_STATE_KEY]
+      return [MA_STATE_KEY, BOLL_STATE_KEY, EXPMA_STATE_KEY, ENE_STATE_KEY]
     },
 
     draw(context: RenderContext) {
@@ -129,14 +129,16 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         })
       }
 
-      // BOLL 行
+      // BOLL 行 - 从 StateStore 读取数据
       const bollIndicator = config.indicators.BOLL
       if (bollIndicator?.enabled) {
         rows.push({
           draw: (rowIndex: number) => {
-            const period = (bollIndicator.params.period as number) ?? 20
-            const multiplier = (bollIndicator.params.multiplier as number) ?? 2
-            const boll = calcBOLLAtIndex(klineData, targetIndex, period, multiplier)
+            // 从 StateStore 读取 BOLL 状态
+            const bollState = pluginHost?.getSharedState<BOLLRenderState>(BOLL_STATE_KEY)
+            const boll = bollState?.series[targetIndex]
+            const period = bollState?.params.period ?? 20
+            const multiplier = bollState?.params.multiplier ?? 2
 
             let x = legendX
             const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
@@ -161,14 +163,16 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         })
       }
 
-      // EXPMA 行
+      // EXPMA 行 - 从 StateStore 读取数据
       const expmaIndicator = config.indicators.EXPMA
       if (expmaIndicator?.enabled) {
         rows.push({
           draw: (rowIndex: number) => {
-            const fastPeriod = (expmaIndicator.params.fastPeriod as number) ?? 12
-            const slowPeriod = (expmaIndicator.params.slowPeriod as number) ?? 50
-            const expma = calcEXPMAAtIndex(klineData, targetIndex, fastPeriod, slowPeriod)
+            // 从 StateStore 读取 EXPMA 状态
+            const expmaState = pluginHost?.getSharedState<EXPMARenderState>(EXPMA_STATE_KEY)
+            const expma = expmaState?.series[targetIndex]
+            const fastPeriod = expmaState?.params.fastPeriod ?? 12
+            const slowPeriod = expmaState?.params.slowPeriod ?? 50
 
             let x = legendX
             const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight
@@ -189,14 +193,16 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         })
       }
 
-      // ENE 行
+      // ENE 行 - 从 StateStore 读取数据
       const eneIndicator = config.indicators.ENE
       if (eneIndicator?.enabled) {
         rows.push({
           draw: (rowIndex: number) => {
-            const period = (eneIndicator.params.period as number) ?? 10
-            const deviation = (eneIndicator.params.deviation as number) ?? 11
-            const ene = calcENEAtIndex(klineData, targetIndex, period, deviation)
+            // 从 StateStore 读取 ENE 状态
+            const eneState = pluginHost?.getSharedState<ENERenderState>(ENE_STATE_KEY)
+            const ene = eneState?.series[targetIndex]
+            const period = eneState?.params.period ?? 10
+            const deviation = eneState?.params.deviation ?? 11
 
             let x = legendX
             const y = config.yPaddingPx / 2 + fontSize + rowIndex * lineHeight

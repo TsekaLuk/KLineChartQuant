@@ -2,6 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createMainIndicatorLegendRendererPlugin } from '../Indicator/mainIndicatorLegend'
 import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
+import { BOLL_STATE_KEY } from '@/core/indicators/bollState'
+import { EXPMA_STATE_KEY } from '@/core/indicators/expmaState'
+import { ENE_STATE_KEY } from '@/core/indicators/eneState'
 import { MA_COLORS } from '@/core/theme/colors'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
 import type { KLineData } from '@/types/price'
@@ -143,9 +146,14 @@ describe('createMainIndicatorLegendRendererPlugin', () => {
     expect(typeof plugin.onInstall).toBe('function')
   })
 
-  it('should declare MA_STATE_KEY namespace', () => {
+  it('should declare all indicator namespace keys', () => {
     const plugin = createMainIndicatorLegendRendererPlugin({ yPaddingPx: 20 })
-    expect(plugin.getDeclaredNamespaces()).toEqual([MA_STATE_KEY])
+    expect(plugin.getDeclaredNamespaces()).toEqual([
+      MA_STATE_KEY,
+      BOLL_STATE_KEY,
+      EXPMA_STATE_KEY,
+      ENE_STATE_KEY,
+    ])
   })
 })
 

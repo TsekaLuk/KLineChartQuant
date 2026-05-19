@@ -741,6 +741,15 @@ watch(
     // MA 线渲染器
     chart.setRendererEnabled('ma', indicators.includes('MA'))
 
+    // 更新 MA Scheduler 配置（无状态渲染器的数据源）
+    chart.getIndicatorScheduler().updateMAConfig({
+      ma5: indicators.includes('MA'),
+      ma10: indicators.includes('MA'),
+      ma20: indicators.includes('MA'),
+      ma30: indicators.includes('MA'),
+      ma60: indicators.includes('MA'),
+    })
+
     // BOLL 线渲染器
     chart.setRendererEnabled('boll', indicators.includes('BOLL'))
 
@@ -1188,9 +1197,7 @@ onMounted(() => {
   // 注册主图渲染器插件
   chart.useRenderer(createGridLinesRendererPlugin()) // 网格线渲染到所有 pane
   chart.useRenderer(createExtremaMarkersRendererPlugin())
-  chart.useRenderer(
-    createMARendererPlugin({ ma5: true, ma10: true, ma20: true, ma30: true, ma60: true }),
-  )
+  chart.useRenderer(createMARendererPlugin())
   chart.useRenderer(createBOLLRendererPlugin())
   chart.setRendererEnabled('boll', false) // 默认禁用，由语义化配置控制
   chart.useRenderer(createEXPMARendererPlugin())

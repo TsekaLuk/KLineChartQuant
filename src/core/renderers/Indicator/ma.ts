@@ -1,185 +1,152 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import type { KLineData } from '@/types/price'
+import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { MA_COLORS } from '@/core/theme/colors'
 
-export type MAFlags = {
-    ma5?: boolean
-    ma10?: boolean
-    ma20?: boolean
-    ma30?: boolean
-    ma60?: boolean
-}
+// Re-export MAFlags from calculators for backward compatibility
+export type { MAFlags } from '@/core/indicators/calculators'
 
-interface MACache {
-    period: number
-    values: (number | undefined)[]
+/**
+ * MA 周期到颜色的映射
+ */
+const MA_COLOR_MAP: Record<number, string> = {
+    5: MA_COLORS.MA5,
+    10: MA_COLORS.MA10,
+    20: MA_COLORS.MA20,
+    30: MA_COLORS.MA30,
+    60: MA_COLORS.MA60,
 }
 
 /**
- * 计算指定周期的 MA 数据（使用滑动窗口优化）
+ * 绘制单条 MA 线
  */
-function calcMAData(data: KLineData[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = new Array(data.length)
+function drawMALine(
+    ctx: CanvasRenderingContext2D,
+    maData: (number | undefined)[],
+    context: RenderContext,
+    color: string
+) {
+    const { pane, range, dpr, kLineCenters } = context
 
-    if (data.length < period) return result
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.beginPath()
 
-    // 滑动窗口求和
-    let sum = 0
+    let isFirst = true
 
-    // 初始化第一个窗口
-    for (let i = 0; i < period; i++) {
-        const item = data[i]
-        if (!item) return result
-        sum += item.close
+    for (let i = range.start; i < range.end && i < maData.length; i++) {
+        const maValue = maData[i]
+        if (maValue === undefined) continue
+
+        const centerX = kLineCenters[i - range.start]
+        if (centerX === undefined) continue
+        const logicY = pane.yAxis.priceToY(maValue)
+
+        const x = centerX
+        const y = alignToPhysicalPixelCenter(logicY, dpr)
+
+        if (isFirst) {
+            ctx.moveTo(x, y)
+            isFirst = false
+        } else {
+            ctx.lineTo(x, y)
+        }
     }
 
-    // 第一个有效点
-    result[period - 1] = sum / period
-
-    // 滑动计算后续点
-    for (let i = period; i < data.length; i++) {
-        const prevItem = data[i - period]
-        const currItem = data[i]
-        if (!prevItem || !currItem) continue
-
-        sum = sum - prevItem.close + currItem.close
-        result[i] = sum / period
-    }
-
-    return result
+    ctx.stroke()
 }
 
 /**
- * 创建 MA 均线渲染器插件
+ * 创建 MA 均线渲染器插件（无状态版本）
+ *
+ * 设计原则：
+ * 1. 不持有任何计算缓存或配置状态
+ * 2. 所有数据从 StateStore 读取（通过 MA_STATE_KEY）
+ * 3. 配置变更通过外部 IndicatorScheduler 处理，不经过本渲染器
+ * 4. 纯绘制函数，无副作用
  */
-export function createMARendererPlugin(showMA: MAFlags = {}): RendererPlugin {
-    const config: MAFlags = {
-        ma5: true,
-        ma10: true,
-        ma20: true,
-        ma30: true,
-        ma60: true,
-        ...showMA,
-    }
-
-    // MA 计算缓存
-    const maCache: Map<number, MACache> = new Map()
-    let cachedData: KLineData[] | null = null
-
-    // 获取或计算 MA 数据
-    function getMAData(data: KLineData[], period: number): (number | undefined)[] {
-        // 检查缓存是否有效
-        const cache = maCache.get(period)
-        if (cache && cachedData === data) {
-            return cache.values
-        }
-
-        // 重新计算
-        const values = calcMAData(data, period)
-        maCache.set(period, { period, values })
-        cachedData = data
-
-        return values
-    }
-
-    // 绘制单条 MA 线
-    function drawMALine(
-        ctx: CanvasRenderingContext2D,
-        maData: (number | undefined)[],
-        context: RenderContext,
-        color: string
-    ) {
-        const { pane, range, dpr, kLineCenters } = context
-
-        ctx.strokeStyle = color
-        ctx.lineWidth = 1
-        ctx.lineJoin = 'round'
-        ctx.lineCap = 'round'
-        ctx.beginPath()
-
-        let isFirst = true
-
-        for (let i = range.start; i < range.end && i < maData.length; i++) {
-            const maValue = maData[i]
-            if (maValue === undefined) continue
-
-            const centerX = kLineCenters[i - range.start]
-            if (centerX === undefined) continue
-            const logicY = pane.yAxis.priceToY(maValue)
-
-            const x = centerX
-            const y = alignToPhysicalPixelCenter(logicY, dpr)
-
-            if (isFirst) {
-                ctx.moveTo(x, y)
-                isFirst = false
-            } else {
-                ctx.lineTo(x, y)
-            }
-        }
-
-        ctx.stroke()
-    }
+export function createMARendererPlugin(): RendererPluginWithHost {
+    let pluginHost: PluginHost | null = null
 
     return {
         name: 'ma',
-        version: '1.0.0',
-        description: 'MA均线渲染器',
+        version: '2.0.0',
+        description: 'MA均线渲染器（无状态）',
         debugName: 'MA均线',
         paneId: 'main',
         priority: RENDERER_PRIORITY.INDICATOR,
 
+        /**
+         * 安装时捕获 PluginHost 引用
+         */
+        onInstall(host: PluginHost): void {
+            pluginHost = host
+        },
+
+        /**
+         * 声明使用的 StateStore 命名空间
+         * 框架在卸载时会自动清理这些命名空间
+         */
+        getDeclaredNamespaces(): string[] {
+            return [MA_STATE_KEY]
+        },
+
+        /**
+         * 绘制 MA 线
+         * 从 StateStore 读取预计算数据，仅执行绘制
+         */
         draw(context: RenderContext) {
-            const { ctx, data, scrollLeft } = context
-            const klineData = data as KLineData[]
-            if (!klineData.length) return
+            const { ctx, scrollLeft } = context
+
+            // 从 StateStore 读取 MA 状态
+            const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
+
+            // 无有效数据时提前返回（visibleMin > visibleMax 表示空数据）
+            if (!state || state.visibleMin > state.visibleMax) return
+
+            // 无启用的周期时提前返回
+            if (state.enabledPeriods.length === 0) return
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
 
-            // 按需计算并绘制各周期 MA
-            if (config.ma5) {
-                const ma5 = getMAData(klineData, 5)
-                drawMALine(ctx, ma5, context, MA_COLORS.MA5)
-            }
-
-            if (config.ma10) {
-                const ma10 = getMAData(klineData, 10)
-                drawMALine(ctx, ma10, context, MA_COLORS.MA10)
-            }
-
-            if (config.ma20) {
-                const ma20 = getMAData(klineData, 20)
-                drawMALine(ctx, ma20, context, MA_COLORS.MA20)
-            }
-
-            if (config.ma30) {
-                const ma30 = getMAData(klineData, 30)
-                drawMALine(ctx, ma30, context, MA_COLORS.MA30)
-            }
-
-            if (config.ma60) {
-                const ma60 = getMAData(klineData, 60)
-                drawMALine(ctx, ma60, context, MA_COLORS.MA60)
+            // 绘制所有启用的 MA 线
+            for (const [periodStr, values] of Object.entries(state.series)) {
+                const period = Number(periodStr)
+                const color = MA_COLOR_MAP[period] ?? MA_COLORS.MA5
+                drawMALine(ctx, values, context, color)
             }
 
             ctx.restore()
         },
 
-        onDataUpdate() {
-            // 数据更新时清除缓存
-            cachedData = null
-            maCache.clear()
-        },
-
+        /**
+         * 获取配置（兼容性接口）
+         * 返回空对象，实际配置由外部 IndicatorScheduler 管理
+         */
         getConfig() {
-            return { ...config }
+            // 从 StateStore 读取当前启用的周期作为配置
+            const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
+            const config: Record<string, boolean> = {}
+            state?.enabledPeriods.forEach(period => {
+                config[`ma${period}`] = true
+            })
+            return config
         },
 
-        setConfig(newConfig: Record<string, unknown>) {
-            Object.assign(config, newConfig)
+        /**
+         * 设置配置（兼容性接口，无实际操作）
+         *
+         * 重要：本渲染器为无状态设计，不持有配置。
+         * 配置变更应通过外部控制器调用 IndicatorScheduler.updateMAConfig() 完成。
+         * 此处保留接口兼容性，但不更新任何内部状态。
+         */
+        setConfig(_newConfig: Record<string, unknown>) {
+            // 无状态渲染器不存储配置
+            // 外部控制器应调用 chart.getIndicatorScheduler().updateMAConfig()
         },
     }
 }

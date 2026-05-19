@@ -6,6 +6,7 @@ import { PaneRenderer } from '@/core/paneRenderer'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from '@/core/utils/klineConfig'
 import { computeContentWidth } from '@/core/chart-store'
+import { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 import {
     createPluginHost,
@@ -168,6 +169,14 @@ export class Chart {
     /** 缩放级别总数 */
     private readonly zoomLevelCount: number
 
+    /** 指标调度器（负责计算 MA 等指标并写入 StateStore）
+     * TODO: 阶段5迁移为插件注册，Scheduler 通过事件监听 data/viewport 变更，Chart 不直接持有
+     */
+    private indicatorScheduler: IndicatorScheduler
+
+    /** 上次可见范围（用于检测视口变化） */
+    private lastVisibleRange: VisibleRange = { start: 0, end: 0 }
+
     /**
      * 创建图表实例
      * @param dom 由 Vue 组件传入的 DOM 句柄
@@ -194,6 +203,10 @@ export class Chart {
         this.currentZoomLevel = this.opt.initialZoomLevel ?? 1
         this.currentZoomLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel))
         // 注意：初始 kWidth/kGap 应由外部通过 applyRenderState() 传入
+
+        // 初始化指标调度器
+        this.indicatorScheduler = new IndicatorScheduler()
+        this.indicatorScheduler.setPluginHost(this.pluginHost)
 
         this.initPanes()
         this.useRenderer(createDrawingRendererPlugin({ store: this.drawingStore }))
@@ -343,6 +356,12 @@ export class Chart {
         )
 
         const range: VisibleRange = { start, end }
+
+        // 2.5 视口变更时更新指标调度器（在渲染前确保 StateStore 是最新的）
+        if (range.start !== this.lastVisibleRange.start || range.end !== this.lastVisibleRange.end) {
+            this.indicatorScheduler.updateVisibleRange(range)
+            this.lastVisibleRange = range
+        }
 
         // 3. 计算 K 线坐标
         const kLinePositions = this.calcKLinePositions(range)
@@ -998,12 +1017,20 @@ export class Chart {
         // 重置交互状态
         this.interaction.reset()
 
+        // 触发指标计算（在 scheduleDraw 之前，确保渲染器读到最新状态）
+        this.indicatorScheduler.update(this.data, this.lastVisibleRange)
+
         this.scheduleDraw()
     }
 
     /** 获取当前数据源（供 renderers 和 interaction 使用） */
     getData(): KLineData[] {
         return this.data
+    }
+
+    /** 获取指标调度器（供外部控制器更新指标配置） */
+    getIndicatorScheduler(): IndicatorScheduler {
+        return this.indicatorScheduler
     }
 
     private getTrailingSlotCount(): number {

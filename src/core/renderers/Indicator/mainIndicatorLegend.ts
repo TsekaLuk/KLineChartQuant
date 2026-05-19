@@ -1,12 +1,11 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import { calcMAAtIndex } from '@/utils/kline/ma'
+import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
 import { calcBOLLAtIndex } from './boll'
 import { calcEXPMAAtIndex } from './expma'
 import { calcENEAtIndex } from './ene'
 import { MA_COLORS, BOLL_COLORS, EXPMA_COLORS, ENE_COLORS, PRICE_COLORS } from '@/core/theme/colors'
-import { FONT_FAMILY } from '@/core/theme/fonts'
 
 /** 指标行数据 */
 interface IndicatorRow {
@@ -24,11 +23,11 @@ interface MainIndicatorLegendConfig {
  * 创建主图指标图例渲染器插件
  *
  * 统一管理 MA、BOLL 等主图指标的图例显示，支持多行排列
- * 通过 setConfig 更新指标状态，不依赖事件系统
+ * MA 数据从 StateStore 读取（与 MA 线渲染器共享同一数据源）
  */
 export function createMainIndicatorLegendRendererPlugin(options: {
   yPaddingPx: number
-}): RendererPlugin {
+}): RendererPluginWithHost {
   const config: MainIndicatorLegendConfig = {
     yPaddingPx: options.yPaddingPx,
     indicators: {
@@ -39,14 +38,31 @@ export function createMainIndicatorLegendRendererPlugin(options: {
     },
   }
 
+  let pluginHost: PluginHost | null = null
+
   return {
     name: 'mainIndicatorLegend',
-    version: '1.0.0',
-    description: '主图指标图例渲染器（统一管理 MA、BOLL 等）',
+    version: '2.0.0',
+    description: '主图指标图例渲染器（MA 数据来自 StateStore）',
     debugName: '主图指标图例',
     paneId: 'main',
     priority: RENDERER_PRIORITY.FOREGROUND,
     enabled: true,
+
+    /**
+     * 安装时捕获 PluginHost 引用
+     */
+    onInstall(host: PluginHost): void {
+      pluginHost = host
+    },
+
+    /**
+     * 声明使用的 StateStore 命名空间
+     * MA 图例与 MA 线渲染器共享同一状态
+     */
+    getDeclaredNamespaces(): string[] {
+      return [MA_STATE_KEY]
+    },
 
     draw(context: RenderContext) {
       const { ctx, data, range, crosshairIndex } = context
@@ -68,31 +84,29 @@ export function createMainIndicatorLegendRendererPlugin(options: {
       // 收集需要绘制的行
       const rows: Array<{ draw: (rowIndex: number) => void }> = []
 
-      // MA 行
+      // MA 行 - 从 StateStore 读取数据
       const maIndicator = config.indicators.MA
       if (maIndicator?.enabled) {
         rows.push({
           draw: (rowIndex: number) => {
             const items: Array<{ label: string; color: string; value?: number }> = []
-            const periods = maIndicator.params.periods as number[] | undefined
-            if (periods && Array.isArray(periods)) {
-              periods.forEach((p) => {
-                const colorKey = `MA${p}` as keyof typeof MA_COLORS
+
+            // 从 StateStore 读取 MA 状态
+            const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
+
+            if (state && state.visibleMin <= state.visibleMax) {
+              // 按 enabledPeriods 顺序显示
+              for (const period of state.enabledPeriods) {
+                const colorKey = `MA${period}` as keyof typeof MA_COLORS
+                const series = state.series[period]
+                const value = series?.[targetIndex]
+
                 items.push({
-                  label: `MA${p}`,
+                  label: `MA${period}`,
                   color: MA_COLORS[colorKey] || MA_COLORS.MA5,
-                  value: calcMAAtIndex(klineData, targetIndex, p),
+                  value: value,
                 })
-              })
-            } else {
-              // 默认显示 5, 10, 20, 30, 60
-              items.push(
-                { label: 'MA5', color: MA_COLORS.MA5, value: calcMAAtIndex(klineData, targetIndex, 5) },
-                { label: 'MA10', color: MA_COLORS.MA10, value: calcMAAtIndex(klineData, targetIndex, 10) },
-                { label: 'MA20', color: MA_COLORS.MA20, value: calcMAAtIndex(klineData, targetIndex, 20) },
-                { label: 'MA30', color: MA_COLORS.MA30, value: calcMAAtIndex(klineData, targetIndex, 30) },
-                { label: 'MA60', color: MA_COLORS.MA60, value: calcMAAtIndex(klineData, targetIndex, 60) }
-              )
+              }
             }
 
             if (items.length > 0) {

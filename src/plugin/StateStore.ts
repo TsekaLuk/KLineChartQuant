@@ -15,17 +15,6 @@ export class StateStore {
    * @param ownerId 可选的拥有者 ID（用于冲突检测）
    */
   setState<T extends BaseIndicatorState>(namespace: string, state: T, ownerId?: string): void {
-    // 开发环境冲突检查
-    if (import.meta.env.DEV && ownerId) {
-      for (const [existingOwner, namespaces] of this.ownerNamespaces) {
-        if (existingOwner !== ownerId && namespaces.has(namespace)) {
-          console.warn(
-            `[StateStore] Namespace "${namespace}" already registered by "${existingOwner}", ` +
-            `now being set by "${ownerId}". This may indicate a naming conflict.`
-          )
-        }
-      }
-    }
     this.states.set(namespace, state)
   }
 

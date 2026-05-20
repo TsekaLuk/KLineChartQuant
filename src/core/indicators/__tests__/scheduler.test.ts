@@ -4,6 +4,7 @@ import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../maState'
 import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../bollState'
 import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../expmaState'
 import { ENE_STATE_KEY, EMPTY_ENE_STATE, type ENERenderState } from '../eneState'
+import { createRSIStateKey, EMPTY_RSI_STATE, type RSIRenderState } from '../rsiState'
 import type { KLineData } from '@/types/price'
 import type { PluginHost } from '@/plugin'
 
@@ -214,8 +215,8 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // Should write all 4 indicator states (MA, BOLL, EXPMA, ENE)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(4)
+      // Should write all 5 indicator states (MA, BOLL, EXPMA, ENE, RSI)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(5)
 
       const state = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
       expect(state).toBeDefined()
@@ -231,8 +232,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 8 times (4 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(8)
+      // Should be called 10 times (5 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(10)
     })
   })
 
@@ -245,8 +246,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 4 indicator states
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(4)
+      // Should write all 5 indicator states
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(5)
     })
 
     it('should recalculate with same data and range', () => {
@@ -640,5 +641,159 @@ describe('EMPTY_ENE_STATE', () => {
 
   it('should indicate no data when visibleMin > visibleMax', () => {
     expect(EMPTY_ENE_STATE.visibleMin).toBeGreaterThan(EMPTY_ENE_STATE.visibleMax)
+  })
+})
+
+describe('RSI State in scheduler', () => {
+  let scheduler: IndicatorScheduler
+  let mockHost: PluginHost
+
+  beforeEach(() => {
+    scheduler = new IndicatorScheduler()
+    mockHost = createMockPluginHost()
+    scheduler.setPluginHost(mockHost)
+  })
+
+  it('should write RSIRenderState to StateStore after update', () => {
+    const data = createTestData(50)
+    scheduler.update(data, { start: 0, end: 20 })
+
+    const rsiKey = createRSIStateKey('sub_RSI')
+    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const rsiCall = setSharedState.mock.calls.find((call: [string, unknown, string]) => call[0] === rsiKey)
+    expect(rsiCall).toBeDefined()
+
+    const rsiState = rsiCall[1] as RSIRenderState
+    expect(rsiState.series).toBeDefined()
+    expect(rsiState.enabledPeriods).toEqual([6, 12, 24])
+    expect(rsiState.params.period1).toBe(6)
+    expect(rsiState.params.period2).toBe(12)
+    expect(rsiState.params.period3).toBe(24)
+    expect(rsiState.valueMin).toBe(0)
+    expect(rsiState.valueMax).toBe(100)
+  })
+
+  it('should have sparse RSI series (first period+1 entries undefined)', () => {
+    const data = createTestData(50)
+    scheduler.update(data, { start: 0, end: 30 })
+
+    const rsiKey = createRSIStateKey('sub_RSI')
+    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const rsiCall = setSharedState.mock.calls.find((call: [string, unknown, string]) => call[0] === rsiKey)
+    const rsiState = rsiCall[1] as RSIRenderState
+
+    // RSI(6): indices 0-5 should be undefined, index 6 should be valid
+    expect(rsiState.series[6][0]).toBeUndefined()
+    expect(rsiState.series[6][5]).toBeUndefined()
+    expect(rsiState.series[6][6]).toBeDefined()
+  })
+
+  it('should pass RSI params including show flags', () => {
+    scheduler.updateRSIConfig({ showRSI1: true, showRSI2: false, showRSI3: true }, 'sub_RSI')
+    const data = createTestData(50)
+    scheduler.update(data, { start: 0, end: 20 })
+
+    const rsiKey = createRSIStateKey('sub_RSI')
+    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const rsiCall = setSharedState.mock.calls.find((call: [string, unknown, string]) => call[0] === rsiKey)
+    const rsiState = rsiCall[1] as RSIRenderState
+
+    expect(rsiState.params.showRSI1).toBe(true)
+    expect(rsiState.params.showRSI2).toBe(false)
+    expect(rsiState.params.showRSI3).toBe(true)
+    // Only RSI1 and RSI3 should be in series and enabledPeriods
+    expect(rsiState.enabledPeriods).toContain(6)
+    expect(rsiState.enabledPeriods).not.toContain(12)
+    expect(rsiState.enabledPeriods).toContain(24)
+  })
+
+  it('should update RSI config via updateRSIConfig', () => {
+    scheduler.updateRSIConfig({ period1: 10, period2: 20, period3: 30 }, 'sub_RSI')
+    const data = createTestData(100)
+    scheduler.update(data, { start: 0, end: 50 })
+
+    const rsiKey = createRSIStateKey('sub_RSI')
+    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const rsiCall = setSharedState.mock.calls.find((call: [string, unknown, string]) => call[0] === rsiKey)
+    const rsiState = rsiCall[1] as RSIRenderState
+
+    expect(rsiState.params.period1).toBe(10)
+    expect(rsiState.params.period2).toBe(20)
+    expect(rsiState.params.period3).toBe(30)
+  })
+
+  it('should not recalculate MA series on RSI config change', () => {
+    const data = createTestData(50)
+    scheduler.update(data, { start: 0, end: 20 })
+
+    // Get the MA state after first update
+    const maStateBefore = (mockHost.setSharedState as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call: [string, unknown, string]) => call[0] === MA_STATE_KEY
+    )?.[1] as MARenderState
+
+    // Update RSI config only
+    scheduler.updateRSIConfig({ period1: 14 }, 'sub_RSI')
+
+    // Get the MA state after RSI config update
+    const maStateAfter = (mockHost.setSharedState as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call: [string, unknown, string]) => call[0] === MA_STATE_KEY
+    )?.[1] as MARenderState
+
+    // MA series should remain the same reference (not recalculated)
+    expect(maStateAfter.series).toBe(maStateBefore.series)
+  })
+
+  it('should use dynamic paneId in state key', () => {
+    scheduler.updateRSIConfig({}, 'custom_RSI_pane')
+    const data = createTestData(50)
+    scheduler.update(data, { start: 0, end: 20 })
+
+    const expectedKey = createRSIStateKey('custom_RSI_pane')
+    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const rsiCall = setSharedState.mock.calls.find((call: [string, unknown, string]) => call[0] === expectedKey)
+    expect(rsiCall).toBeDefined()
+  })
+
+  it('should have visibleMin=Infinity visibleMax=-Infinity when no data', () => {
+    scheduler.update([], { start: 0, end: 0 })
+
+    const rsiKey = createRSIStateKey('sub_RSI')
+    const setSharedState = mockHost.setSharedState as ReturnType<typeof vi.fn>
+    const rsiCall = setSharedState.mock.calls.find((call: [string, unknown, string]) => call[0] === rsiKey)
+    const rsiState = rsiCall[1] as RSIRenderState
+
+    expect(rsiState.visibleMin).toBe(Infinity)
+    expect(rsiState.visibleMax).toBe(-Infinity)
+  })
+})
+
+describe('EMPTY_RSI_STATE', () => {
+  it('should have correct structure', () => {
+    expect(EMPTY_RSI_STATE).toEqual({
+      timestamp: 0,
+      series: {},
+      enabledPeriods: [],
+      params: {
+        period1: 6,
+        period2: 12,
+        period3: 24,
+        showRSI1: true,
+        showRSI2: true,
+        showRSI3: true,
+      },
+      valueMin: 0,
+      valueMax: 100,
+      visibleMin: Infinity,
+      visibleMax: -Infinity,
+    })
+  })
+
+  it('should indicate no data when visibleMin > visibleMax', () => {
+    expect(EMPTY_RSI_STATE.visibleMin).toBeGreaterThan(EMPTY_RSI_STATE.visibleMax)
+  })
+
+  it('should have fixed valueMin and valueMax', () => {
+    expect(EMPTY_RSI_STATE.valueMin).toBe(0)
+    expect(EMPTY_RSI_STATE.valueMax).toBe(100)
   })
 })

@@ -21,6 +21,9 @@ import type { EXPMARenderState } from './expmaState'
 import { EXPMA_STATE_KEY } from './expmaState'
 import type { ENERenderState } from './eneState'
 import { ENE_STATE_KEY } from './eneState'
+import { calcRSIData, DEFAULT_RSI_PERIODS } from './calculators'
+import type { RSIRenderState } from './rsiState'
+import { createRSIStateKey } from './rsiState'
 
 /**
  * 可见范围
@@ -56,6 +59,18 @@ export interface EXPMASchedulerConfig {
 export interface ENESchedulerConfig {
     period: number
     deviation: number
+}
+
+/**
+ * RSI 调度器配置
+ */
+export interface RSISchedulerConfig {
+    period1: number
+    period2: number
+    period3: number
+    showRSI1: boolean
+    showRSI2: boolean
+    showRSI3: boolean
 }
 
 /**
@@ -104,6 +119,18 @@ export class IndicatorScheduler {
     }
     private cachedEneSeries: ENEPoint[] = []
 
+    // RSI 配置和缓存
+    private rsiConfig: RSISchedulerConfig = {
+        period1: 6,
+        period2: 12,
+        period3: 24,
+        showRSI1: true,
+        showRSI2: true,
+        showRSI3: true,
+    }
+    private rsiPaneId: string = 'sub_RSI'
+    private cachedRsiSeries: Record<number, (number | undefined)[]> = {}
+
     // 双脏标记（数据/视口）
     private dirtyData = true   // 数据变更 → 重算所有 series + 极值
     private dirtyRange = true  // 仅视口变更 → 仅重算极值
@@ -112,6 +139,7 @@ export class IndicatorScheduler {
     private dirtyBollConfig = true
     private dirtyExpmaConfig = true
     private dirtyEneConfig = true
+    private dirtyRsiConfig = true
 
     /**
      * 设置 PluginHost，用于读写 StateStore
@@ -173,6 +201,20 @@ export class IndicatorScheduler {
     }
 
     /**
+     * RSI 配置变更时调用
+     * @param config 新的 RSI 配置
+     * @param paneId RSI pane ID（可选，默认 'sub_RSI'）
+     */
+    updateRSIConfig(config: Partial<RSISchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.rsiPaneId = paneId
+        }
+        this.rsiConfig = { ...this.rsiConfig, ...config }
+        this.dirtyRsiConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
      * 视口变更时调用
      * @param visibleRange 新的可见范围
      */
@@ -201,13 +243,13 @@ export class IndicatorScheduler {
      */
     private computeIfDirty(): void {
         if (!this.dirtyData && !this.dirtyRange &&
-            !this.dirtyBollConfig && !this.dirtyExpmaConfig && !this.dirtyEneConfig) {
+            !this.dirtyBollConfig && !this.dirtyExpmaConfig && !this.dirtyEneConfig && !this.dirtyRsiConfig) {
             return
         }
         if (!this.pluginHost) return
 
         const shouldRecomputeExtremes = this.dirtyData || this.dirtyRange ||
-            this.dirtyBollConfig || this.dirtyExpmaConfig || this.dirtyEneConfig
+            this.dirtyBollConfig || this.dirtyExpmaConfig || this.dirtyEneConfig || this.dirtyRsiConfig
 
         // ===== 步骤1：重算各指标 series =====
 
@@ -247,6 +289,18 @@ export class IndicatorScheduler {
                 this.eneConfig.period,
                 this.eneConfig.deviation
             )
+        }
+
+        // RSI series（dirtyData 或 dirtyRsiConfig 时重算）
+        if (this.dirtyData || this.dirtyRsiConfig) {
+            this.cachedRsiSeries = {}
+            const periods = [this.rsiConfig.period1, this.rsiConfig.period2, this.rsiConfig.period3]
+            const shows = [this.rsiConfig.showRSI1, this.rsiConfig.showRSI2, this.rsiConfig.showRSI3]
+            for (let i = 0; i < periods.length; i++) {
+                if (shows[i]) {
+                    this.cachedRsiSeries[periods[i]] = calcRSIData(this.currentData, periods[i])
+                }
+            }
         }
 
         // ===== 步骤2：重算视口极值（所有指标）=====
@@ -304,6 +358,21 @@ export class IndicatorScheduler {
             }
         }
 
+        // RSI 极值（扫描所有启用的周期）
+        let rsiVisibleMin = Infinity
+        let rsiVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (const values of Object.values(this.cachedRsiSeries)) {
+                for (let i = this.visibleRange.start; i < this.visibleRange.end && i < values.length; i++) {
+                    const v = values[i]
+                    if (v !== undefined) {
+                        rsiVisibleMin = Math.min(rsiVisibleMin, v)
+                        rsiVisibleMax = Math.max(rsiVisibleMax, v)
+                    }
+                }
+            }
+        }
+
         // ===== 步骤3：构建状态并写入 StateStore =====
 
         // MA State
@@ -347,11 +416,27 @@ export class IndicatorScheduler {
         }
         this.pluginHost.setSharedState<ENERenderState>(ENE_STATE_KEY, eneState, 'indicator_scheduler')
 
+        // RSI State
+        const rsiStateKey = createRSIStateKey(this.rsiPaneId)
+        const rsiEnabledPeriods = Object.keys(this.cachedRsiSeries).map(Number)
+        const rsiState: RSIRenderState = {
+            timestamp: Date.now(),
+            series: { ...this.cachedRsiSeries },
+            enabledPeriods: rsiEnabledPeriods,
+            params: { ...this.rsiConfig },
+            valueMin: 0,
+            valueMax: 100,
+            visibleMin: rsiVisibleMin,
+            visibleMax: rsiVisibleMax,
+        }
+        this.pluginHost.setSharedState<RSIRenderState>(rsiStateKey, rsiState, 'indicator_scheduler')
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyRange = false
         this.dirtyBollConfig = false
         this.dirtyExpmaConfig = false
         this.dirtyEneConfig = false
+        this.dirtyRsiConfig = false
     }
 }

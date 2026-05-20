@@ -1,149 +1,27 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '@/plugin'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
-import type { KLineData } from '@/types/price'
 import { RSI_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
+import type { RSIRenderState } from '@/core/indicators/rsiState'
+import { createRSIStateKey } from '@/core/indicators/rsiState'
 
-export interface RSIConfig {
-    /** 第一条 RSI 周期（默认 6） */
-    period1?: number
-    /** 第二条 RSI 周期（默认 12） */
-    period2?: number
-    /** 第三条 RSI 周期（默认 24） */
-    period3?: number
-    /** 是否显示 RSI1 */
-    showRSI1?: boolean
-    /** 是否显示 RSI2 */
-    showRSI2?: boolean
-    /** 是否显示 RSI3 */
-    showRSI3?: boolean
-}
-
-/**
- * 计算 RSI 数据
- * RSI = 100 - 100 / (1 + RS)
- * RS = 平均上涨幅度 / 平均下跌幅度
- */
-function calcRSIData(data: KLineData[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = new Array(data.length)
-
-    if (data.length < period + 1) return result
-
-    // 计算价格变化
-    const changes: number[] = []
-    for (let i = 1; i < data.length; i++) {
-        changes.push(data[i]!.close - data[i - 1]!.close)
-    }
-
-    // 初始化：计算前 period 天的平均涨跌
-    let sumGain = 0
-    let sumLoss = 0
-
-    for (let i = 0; i < period; i++) {
-        const change = changes[i]
-        if (change !== undefined) {
-            if (change > 0) sumGain += change
-            else sumLoss += Math.abs(change)
-        }
-    }
-
-    // 第一个 RSI 值
-    let avgGain = sumGain / period
-    let avgLoss = sumLoss / period
-
-    if (avgLoss === 0) {
-        result[period] = 100
-    } else {
-        const rs = avgGain / avgLoss
-        result[period] = 100 - 100 / (1 + rs)
-    }
-
-    // 后续使用平滑计算
-    for (let i = period; i < changes.length; i++) {
-        const change = changes[i]
-        if (change === undefined) continue
-
-        if (change > 0) {
-            avgGain = (avgGain * (period - 1) + change) / period
-            avgLoss = (avgLoss * (period - 1)) / period
-        } else {
-            avgGain = (avgGain * (period - 1)) / period
-            avgLoss = (avgLoss * (period - 1) + Math.abs(change)) / period
-        }
-
-        if (avgLoss === 0) {
-            result[i + 1] = 100
-        } else {
-            const rs = avgGain / avgLoss
-            result[i + 1] = 100 - 100 / (1 + rs)
-        }
-    }
-
-    return result
-}
-
-export interface RSIRenderState extends BaseIndicatorState {
-    valueMin: number
-    valueMax: number
-}
 
 export interface RSIRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
-    /** 初始配置 */
-    config?: RSIConfig
 }
 
 /**
  * 创建 RSI 渲染器插件
  */
 export function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub', config: initialConfig = {} } = options
-    const STATE_KEY = createIndicatorStateKey('rsi', paneId)
+    const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
-
-    const config: Required<RSIConfig> = {
-        period1: 6,
-        period2: 12,
-        period3: 24,
-        showRSI1: true,
-        showRSI2: true,
-        showRSI3: true,
-        ...initialConfig,
-    }
-
-    // 缓存计算结果
-    let cachedData: KLineData[] | null = null
-    let cachedPeriod1 = 0
-    let cachedPeriod2 = 0
-    let cachedPeriod3 = 0
-    let rsi1: (number | undefined)[] = []
-    let rsi2: (number | undefined)[] = []
-    let rsi3: (number | undefined)[] = []
-
-    function getRSIData(data: KLineData[]) {
-        if (
-            cachedData !== data ||
-            cachedPeriod1 !== config.period1 ||
-            cachedPeriod2 !== config.period2 ||
-            cachedPeriod3 !== config.period3
-        ) {
-            rsi1 = calcRSIData(data, config.period1)
-            rsi2 = calcRSIData(data, config.period2)
-            rsi3 = calcRSIData(data, config.period3)
-            cachedData = data
-            cachedPeriod1 = config.period1
-            cachedPeriod2 = config.period2
-            cachedPeriod3 = config.period3
-        }
-        return { rsi1, rsi2, rsi3 }
-    }
 
     return {
         name: `rsi_${paneId}`,
-        version: '1.0.0',
-        description: 'RSI 相对强弱指标渲染器',
+        version: '2.0.0',
+        description: 'RSI 相对强弱指标渲染器（无状态）',
         debugName: 'RSI',
         paneId: paneId,
         priority: RENDERER_PRIORITY.MAIN,
@@ -153,27 +31,21 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
         },
 
         getDeclaredNamespaces() {
-            return [STATE_KEY]
+            return [createRSIStateKey(paneId)]
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
-            const klineData = data as KLineData[]
-            if (klineData.length < config.period1 + 1) return
+            const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
 
-            const { rsi1, rsi2, rsi3 } = getRSIData(klineData)
+            // 从 StateStore 读取 RSI 状态
+            const stateKey = createRSIStateKey(paneId)
+            const state = pluginHost?.getSharedState<RSIRenderState>(stateKey)
 
-            // RSI 范围固定 0-100
-            const valueMin = 0
-            const valueMax = 100
+            // 无有效数据时跳过渲染
+            if (!state || state.visibleMin > state.visibleMax) return
+
+            const { valueMin, valueMax, params, series } = state
             const valueRange = valueMax - valueMin
-
-            const stateData: RSIRenderState = {
-                valueMin,
-                valueMax,
-                timestamp: Date.now(),
-            }
-            pluginHost?.setSharedState<RSIRenderState>(STATE_KEY, stateData, `rsi_${paneId}`)
 
             const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
             const displayMin = displayRange.minPrice
@@ -183,7 +55,7 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
             ctx.save()
             ctx.translate(-scrollLeft, 0)
 
-            // 绘制超买超卖线
+            // 绘制超买超卖线（80/50/20）
             const y80 = pane.height - (80 - displayMin) / displayValueRange * pane.height
             const y50 = pane.height - (50 - displayMin) / displayValueRange * pane.height
             const y20 = pane.height - (20 - displayMin) / displayValueRange * pane.height
@@ -204,8 +76,9 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
             ctx.stroke()
             ctx.setLineDash([])
 
-            const drawStart = Math.max(range.start, config.period1)
-            const drawEnd = Math.min(range.end, klineData.length)
+            // 确定绘制范围（使用最小周期作为起始）
+            const drawStart = Math.max(range.start, params.period1)
+            const drawEnd = Math.min(range.end, kLineCenters.length + range.start)
 
             const drawLine = (data: (number | undefined)[], color: string) => {
                 ctx.strokeStyle = color
@@ -236,57 +109,52 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
                 ctx.stroke()
             }
 
-            if (config.showRSI1) drawLine(rsi1, RSI_COLORS.RSI1)
-            if (config.showRSI2) drawLine(rsi2, RSI_COLORS.RSI2)
-            if (config.showRSI3) drawLine(rsi3, RSI_COLORS.RSI3)
+            // 根据 show 标志绘制各周期 RSI 线
+            if (params.showRSI1 && series[params.period1]) {
+                drawLine(series[params.period1], RSI_COLORS.RSI1)
+            }
+            if (params.showRSI2 && series[params.period2]) {
+                drawLine(series[params.period2], RSI_COLORS.RSI2)
+            }
+            if (params.showRSI3 && series[params.period3]) {
+                drawLine(series[params.period3], RSI_COLORS.RSI3)
+            }
 
             ctx.restore()
         },
 
-        onDataUpdate() {
-            cachedData = null
-        },
-
         getConfig() {
-            return { ...config }
+            const stateKey = createRSIStateKey(paneId)
+            const state = pluginHost?.getSharedState<RSIRenderState>(stateKey)
+            return state ? { ...state.params } : {}
         },
 
-        setConfig(newConfig: Record<string, unknown>) {
-            if ('period1' in newConfig && newConfig.period1 !== config.period1) cachedData = null
-            if ('period2' in newConfig && newConfig.period2 !== config.period2) cachedData = null
-            if ('period3' in newConfig && newConfig.period3 !== config.period3) cachedData = null
-            Object.assign(config, newConfig)
+        setConfig(_newConfig: Record<string, unknown>) {
+            // 无状态渲染器：配置变更请使用 chart.getIndicatorScheduler().updateRSIConfig()
         },
     }
 }
 
 /**
- * 计算指定索引处的 RSI 值
- */
-export function calcRSIAtIndex(
-    data: KLineData[],
-    index: number,
-    period: number
-): number | undefined {
-    const rsiData = calcRSIData(data, period)
-    return rsiData[index]
-}
-
-/**
  * 获取 RSI 标题信息（供 paneTitle 使用）
+ * 从 StateStore 读取已计算的 RSI 数据
  */
 export function getRSITitleInfo(
-    data: KLineData[],
     index: number,
-    period1: number = 6,
-    period2: number = 12,
-    period3: number = 24
+    period1: number,
+    period2: number,
+    period3: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_RSI'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index < period1 + 1 || index >= data.length) return null
+    const stateKey = createRSIStateKey(paneId)
+    const state = pluginHost.getSharedState<RSIRenderState>(stateKey)
 
-    const rsi1 = calcRSIData(data, period1)[index]
-    const rsi2 = calcRSIData(data, period2)[index]
-    const rsi3 = calcRSIData(data, period3)[index]
+    if (!state) return null
+
+    const rsi1 = state.series[period1]?.[index]
+    const rsi2 = state.series[period2]?.[index]
+    const rsi3 = state.series[period3]?.[index]
 
     const values: Array<{ label: string; value: number; color: string }> = []
     if (rsi1 !== undefined) values.push({ label: `RSI${period1}`, value: rsi1, color: RSI_COLORS.RSI1 })

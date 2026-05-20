@@ -502,14 +502,15 @@ const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicatorConfi
   },
   RSI: {
     defaultParams: { period1: 6, period2: 12, period3: 24 },
-    getTitleInfo: (data, index, params) => {
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
       return getRSITitleInfo(
-        data,
         index,
         params.period1 ?? 6,
         params.period2 ?? 12,
         params.period3 ?? 24,
+        chartRef.value!.plugin,
+        'sub_RSI',
       )
     },
   },
@@ -613,6 +614,14 @@ function addSubPane(
     params ?? getDefaultParams(indicatorId),
   )
   if (!success) return false
+
+  // RSI 初始化：推送配置到 Scheduler
+  if (indicatorId === 'RSI') {
+    chartRef.value?.getIndicatorScheduler().updateRSIConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<RSISchedulerConfig>,
+      paneId,
+    )
+  }
 
   // 创建 paneTitle 渲染器（UI 层职责）
   const paneTitleRenderer = createPaneTitleRendererPlugin({
@@ -966,7 +975,20 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
     return
   }
 
-  // 副图指标参数更新
+  // RSI 配置通过 Scheduler 更新（副图但采用无状态架构）
+  if (indicatorId === 'RSI') {
+    chartRef.value?.getIndicatorScheduler().updateRSIConfig(params as Partial<RSISchedulerConfig>, 'sub_RSI')
+    // 更新本地 pane 参数
+    subPanes.value
+      .filter((p) => p.indicatorId === 'RSI')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // 其他副图指标参数更新
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
     // 更新所有使用该指标的 pane
     subPanes.value

@@ -25,7 +25,7 @@ export { createMACDRendererPlugin, calcMACDAtIndex, type MACDConfig, type MACDRe
 export { createMACDLegendRendererPlugin, type MACDLegendOptions } from './macdLegend'
 
 // RSI 相对强弱指标
-export { createRSIRendererPlugin, calcRSIAtIndex, type RSIConfig, type RSIRendererOptions, getRSITitleInfo } from './rsi'
+export { createRSIRendererPlugin, type RSIRendererOptions, getRSITitleInfo } from './rsi'
 
 // CCI 顺势指标
 export { createCCIRendererPlugin, calcCCIAtIndex, type CCIConfig, type CCIRendererOptions, getCCITitleInfo } from './cci'

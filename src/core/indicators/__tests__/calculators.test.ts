@@ -4,6 +4,7 @@ import {
   calcBOLLData,
   calcEXPMAData,
   calcENEData,
+  calcRSIData,
   DEFAULT_MA_PERIODS,
   DEFAULT_BOLL_PERIOD,
   DEFAULT_BOLL_MULTIPLIER,
@@ -11,6 +12,9 @@ import {
   DEFAULT_EXPMA_SLOW_PERIOD,
   DEFAULT_ENE_PERIOD,
   DEFAULT_ENE_DEVIATION,
+  DEFAULT_RSI_PERIOD1,
+  DEFAULT_RSI_PERIOD2,
+  DEFAULT_RSI_PERIOD3,
 } from '../calculators'
 import type { KLineData } from '@/types/price'
 
@@ -460,5 +464,151 @@ describe('ENE default constants', () => {
 
   it('DEFAULT_ENE_DEVIATION should be 11', () => {
     expect(DEFAULT_ENE_DEVIATION).toBe(11)
+  })
+})
+
+describe('calcRSIData', () => {
+  // 创建测试数据：价格连续上涨序列
+  function createRisingPrices(count: number, start = 10): number[] {
+    return Array.from({ length: count }, (_, i) => start + i)
+  }
+
+  // 创建测试数据：价格连续下跌序列
+  function createFallingPrices(count: number, start = 20): number[] {
+    return Array.from({ length: count }, (_, i) => start - i)
+  }
+
+  // 创建测试数据：价格震荡序列
+  function createOscillatingPrices(count: number): number[] {
+    return Array.from({ length: count }, (_, i) => 10 + (i % 2 === 0 ? 1 : -1))
+  }
+
+  it('should return array of same length as input', () => {
+    const prices = createRisingPrices(20)
+    const data = createTestData(prices)
+    const result = calcRSIData(data, 6)
+    expect(result).toHaveLength(data.length)
+  })
+
+  it('should return undefined for first period indices', () => {
+    const prices = createRisingPrices(20)
+    const data = createTestData(prices)
+    const period = 6
+    const result = calcRSIData(data, period)
+
+    // 前 period 个值应为 undefined (index 0-5)
+    for (let i = 0; i < period; i++) {
+      expect(result[i]).toBeUndefined()
+    }
+    // 第 period 个值是第一个有效值 (index 6)
+    expect(result[period]).toBeDefined()
+  })
+
+  it('should return 100 when all gains (no losses)', () => {
+    const prices = createRisingPrices(20)
+    const data = createTestData(prices)
+    const period = 6
+    const result = calcRSIData(data, period)
+
+    // 第一个有效 RSI 值应为 100（全是上涨，没有下跌）
+    expect(result[period + 1]).toBe(100)
+  })
+
+  it('should return 0 when all losses (no gains)', () => {
+    const prices = createFallingPrices(20)
+    const data = createTestData(prices)
+    const period = 6
+    const result = calcRSIData(data, period)
+
+    // 第一个有效 RSI 值应为 0（全是下跌，没有上涨）
+    expect(result[period + 1]).toBe(0)
+  })
+
+  it('should return all undefined when data length < period+1', () => {
+    const prices = [10, 11, 12, 13, 14]
+    const data = createTestData(prices)
+    const period = 6
+    const result = calcRSIData(data, period)
+
+    // 数据不足时，所有值都应为 undefined
+    expect(result).toHaveLength(5)
+    result.forEach((v) => {
+      expect(v).toBeUndefined()
+    })
+  })
+
+  it('should handle empty data', () => {
+    const result = calcRSIData([], 6)
+    expect(result).toHaveLength(0)
+  })
+
+  it('should calculate correct RSI with known oscillating data', () => {
+    // 震荡价格：10, 11, 10, 11, 10, 11, 10, 11, ...
+    const prices = [10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11]
+    const data = createTestData(prices)
+    const period = 6
+    const result = calcRSIData(data, period)
+
+    // 第6个索引（period=6）是第一个有效值
+    // 前6个变化：+1, -1, +1, -1, +1, -1
+    // sumGain = 3, sumLoss = 3
+    // avgGain = 0.5, avgLoss = 0.5
+    // RS = 1, RSI = 100 - 100/(1+1) = 50
+    expect(result[6]).toBeCloseTo(50, 0)
+  })
+
+  it('should handle period=1', () => {
+    // period=1 只需要 2 条数据
+    const prices = [10, 12]
+    const data = createTestData(prices)
+    const result = calcRSIData(data, 1)
+
+    // 第一个变化是 +2，所以 avgGain = 2, avgLoss = 0
+    // RSI = 100
+    // result[0] = undefined, result[1] = 100
+    expect(result[0]).toBeUndefined()
+    expect(result[1]).toBe(100)
+  })
+
+  it('should produce consistent results with manual Wilder smoothing', () => {
+    const prices = [10, 11, 12, 11, 12, 13, 12, 11, 12, 13]
+    const data = createTestData(prices)
+    const period = 3
+    const result = calcRSIData(data, period)
+
+    // 手动计算验证第一个有效值（index = period = 3）
+    // 变化：+1, +1, -1, +1, +1, -1, -1, +1, +1
+    // 前3个变化：+1, +1, -1
+    // sumGain = 2, sumLoss = 1
+    // avgGain = 2/3, avgLoss = 1/3
+    // RS = 2, RSI = 100 - 100/(1+2) = 66.67
+    expect(result[3]).toBeCloseTo(66.67, 1)
+  })
+
+  it('should handle large datasets efficiently', () => {
+    const prices = Array.from({ length: 10000 }, (_, i) => 100 + Math.sin(i / 10) * 10)
+    const data = createTestData(prices)
+
+    const start = performance.now()
+    const result = calcRSIData(data, 14)
+    const end = performance.now()
+
+    // 应在 100ms 内完成
+    expect(end - start).toBeLessThan(100)
+    expect(result[15]).toBeDefined()
+  })
+})
+
+describe('RSI default constants', () => {
+  it('DEFAULT_RSI_PERIOD1 should be 6', () => {
+    expect(DEFAULT_RSI_PERIOD1).toBe(6)
+  })
+
+  it('DEFAULT_RSI_PERIOD2 should be 12', () => {
+    expect(DEFAULT_RSI_PERIOD2).toBe(12)
+  })
+
+  it('DEFAULT_RSI_PERIOD3 should be 24', () => {
+    expect(DEFAULT_RSI_PERIOD3).toBe(24)
   })
 })

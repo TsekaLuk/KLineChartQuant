@@ -268,3 +268,81 @@ export function calcMAData(data: KLineData[], period: number): (number | undefin
 
     return result
 }
+
+// ============================================================================
+// RSI 相对强弱指标
+// ============================================================================
+
+/**
+ * 默认 RSI 参数
+ */
+export const DEFAULT_RSI_PERIOD1 = 6
+export const DEFAULT_RSI_PERIOD2 = 12
+export const DEFAULT_RSI_PERIOD3 = 24
+export const DEFAULT_RSI_PERIODS = [6, 12, 24] as const
+
+/**
+ * 计算 RSI 数据
+ * RSI = 100 - 100 / (1 + RS)
+ * RS = 平均上涨幅度 / 平均下跌幅度
+ * @param data K线数据数组
+ * @param period RSI周期
+ * @returns 每个索引对应的RSI值，前 period+1 个为 undefined（需要 period+1 个数据点计算初始平均）
+ */
+export function calcRSIData(data: KLineData[], period: number): (number | undefined)[] {
+    const result: (number | undefined)[] = new Array(data.length)
+
+    if (data.length < period + 1) return result
+
+    // 计算价格变化
+    const changes: number[] = []
+    for (let i = 1; i < data.length; i++) {
+        changes.push(data[i]!.close - data[i - 1]!.close)
+    }
+
+    // 初始化：计算前 period 天的平均涨跌
+    let sumGain = 0
+    let sumLoss = 0
+
+    for (let i = 0; i < period; i++) {
+        const change = changes[i]
+        if (change !== undefined) {
+            if (change > 0) sumGain += change
+            else sumLoss += Math.abs(change)
+        }
+    }
+
+    // 第一个 RSI 值
+    let avgGain = sumGain / period
+    let avgLoss = sumLoss / period
+
+    if (avgLoss === 0) {
+        result[period] = 100
+    } else {
+        const rs = avgGain / avgLoss
+        result[period] = 100 - 100 / (1 + rs)
+    }
+
+    // 后续使用平滑计算（Wilder's smoothing）
+    for (let i = period; i < changes.length; i++) {
+        const change = changes[i]
+        if (change === undefined) continue
+
+        if (change > 0) {
+            avgGain = (avgGain * (period - 1) + change) / period
+            avgLoss = (avgLoss * (period - 1)) / period
+        } else {
+            avgGain = (avgGain * (period - 1)) / period
+            avgLoss = (avgLoss * (period - 1) + Math.abs(change)) / period
+        }
+
+        if (avgLoss === 0) {
+            result[i + 1] = 100
+        } else {
+            const rs = avgGain / avgLoss
+            result[i + 1] = 100 - 100 / (1 + rs)
+        }
+    }
+
+    return result
+}

@@ -134,6 +134,8 @@ const config: SemanticChartConfig = {
 
 ## 🚀 What's New
 
+- **v0.6.0** 重构指标计算管线：MA/BOLL/EXPMA/ENE/RSI/CCI/STOCH/MOM/WMSR/KST/FASTK 统一采用 Calculator → Scheduler → StateStore → Renderer 无状态架构，提升性能与可维护性
+- **v0.5.6** 对数价格轴支持，网格线在像素层面均匀分布
 - **v0.5.2** 新增高级绘图工具：平行通道、回归趋势、平滑顶底、不相交通道
 - **v0.5.0** 完整绘图工具系统，支持直线、矩形、文字绘制与样式编辑
 - **v0.4** 现代化 UI，左侧工具栏、右轴优化、TradingView 式缩放手感

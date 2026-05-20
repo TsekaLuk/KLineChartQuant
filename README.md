@@ -133,6 +133,8 @@ const config: SemanticChartConfig = {
 
 ## 🚀 What's New
 
+- **v0.6.0** Stateless indicator pipeline: MA/BOLL/EXPMA/ENE/RSI/CCI/STOCH/MOM/WMSR/KST/FASTK now use unified Calculator → Scheduler → StateStore → Renderer architecture for better performance and maintainability
+- **v0.5.6** Logarithmic price axis with evenly distributed grid lines at pixel level
 - **v0.5.2** Advanced drawing tools: parallel channel, regression channel, smooth top/bottom, and non-intersecting channel
 - **v0.5.0** Complete drawing tool system, supporting line, rectangle, text drawing and style editing
 - **v0.4** Modern UI, left toolbar, right axis optimization, TradingView-style zoom feel

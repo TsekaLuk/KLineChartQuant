@@ -1,99 +1,28 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '@/plugin'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import type { KLineData } from '@/types/price'
 import { CCI_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-
-export interface CCIConfig {
-    /** 周期（默认 14） */
-    period?: number
-    /** 是否显示 CCI 线 */
-    showCCI?: boolean
-}
-
-/**
- * 计算 CCI 数据
- * CCI = (TP - MA) / (0.015 * MD)
- * TP = (High + Low + Close) / 3
- */
-function calcCCIData(data: KLineData[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = new Array(data.length)
-
-    if (data.length < period) return result
-
-    // 计算 TP
-    const tp: number[] = data.map(d => (d!.high + d!.low + d!.close) / 3)
-
-    for (let i = period - 1; i < data.length; i++) {
-        // 计算 MA
-        let sum = 0
-        for (let j = 0; j < period; j++) {
-            sum += tp[i - j]!
-        }
-        const ma = sum / period
-
-        // 计算 MD (平均绝对偏差)
-        let mdSum = 0
-        for (let j = 0; j < period; j++) {
-            mdSum += Math.abs(tp[i - j]! - ma)
-        }
-        const md = mdSum / period
-
-        if (md === 0) {
-            result[i] = 0
-        } else {
-            result[i] = (tp[i]! - ma) / (0.015 * md)
-        }
-    }
-
-    return result
-}
-
-export interface CCIRenderState extends BaseIndicatorState {
-    valueMin: number
-    valueMax: number
-}
+import type { CCIRenderState } from '@/core/indicators/cciState'
+import { createCCIStateKey } from '@/core/indicators/cciState'
 
 export interface CCIRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
-    /** 初始配置 */
-    config?: CCIConfig
 }
 
 /**
  * 创建 CCI 渲染器插件
  */
 export function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub', config: initialConfig = {} } = options
-    const STATE_KEY = createIndicatorStateKey('cci', paneId)
+    const { paneId = 'sub' } = options
+    const STATE_KEY = createCCIStateKey(paneId)
     let pluginHost: PluginHost | null = null
-
-    const config: Required<CCIConfig> = {
-        period: 14,
-        showCCI: true,
-        ...initialConfig,
-    }
-
-    // 缓存计算结果
-    let cachedData: KLineData[] | null = null
-    let cachedPeriod = 0
-    let cciValues: (number | undefined)[] = []
-
-    function getCCIData(data: KLineData[]) {
-        if (cachedData !== data || cachedPeriod !== config.period) {
-            cciValues = calcCCIData(data, config.period)
-            cachedData = data
-            cachedPeriod = config.period
-        }
-        return cciValues
-    }
 
     return {
         name: `cci_${paneId}`,
-        version: '1.0.0',
-        description: 'CCI 顺势指标渲染器',
+        version: '2.0.0',
+        description: 'CCI 顺势指标渲染器（无状态）',
         debugName: 'CCI',
         paneId: paneId,
         priority: RENDERER_PRIORITY.MAIN,
@@ -107,39 +36,18 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
-            const klineData = data as KLineData[]
-            if (klineData.length < config.period) return
+            const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
 
-            const cciData = getCCIData(klineData)
+            const state = pluginHost?.getSharedState<CCIRenderState>(STATE_KEY)
+            if (!state || state.visibleMin > state.visibleMax) return
 
-            // 计算可见范围内的最大最小值
-            let maxVal = -Infinity
-            let minVal = Infinity
-            for (let i = range.start; i < range.end && i < cciData.length; i++) {
-                const val = cciData[i]
-                if (val !== undefined) {
-                    maxVal = Math.max(maxVal, val)
-                    minVal = Math.min(minVal, val)
-                }
-            }
+            const { valueMin, valueMax, params, series } = state
+            const valueRange = valueMax - valueMin || 1
 
-            if (!Number.isFinite(maxVal) || !Number.isFinite(minVal)) return
+            // 写回 valueMin/valueMax 供 scale 渲染器使用
+            pluginHost?.setSharedState<CCIRenderState>(STATE_KEY, state, `cci_${paneId}`)
 
-            // 限制范围，至少包含 -100 到 +100
-            maxVal = Math.max(maxVal, 150)
-            minVal = Math.min(minVal, -150)
-
-            const valueRange = maxVal - minVal || 1
-
-            const stateData: CCIRenderState = {
-                valueMin: minVal,
-                valueMax: maxVal,
-                timestamp: Date.now(),
-            }
-            pluginHost?.setSharedState<CCIRenderState>(STATE_KEY, stateData, `cci_${paneId}`)
-
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: minVal, maxPrice: maxVal })
+            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
             const displayMin = displayRange.minPrice
             const displayMax = displayRange.maxPrice
             const displayValueRange = displayMax - displayMin || 1
@@ -180,10 +88,10 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
             ctx.setLineDash([])
 
             // 绘制 CCI 线
-            const drawStart = Math.max(range.start, config.period - 1)
-            const drawEnd = Math.min(range.end, klineData.length)
+            const drawStart = Math.max(range.start, params.period - 1)
+            const drawEnd = Math.min(range.end, series.length)
 
-            if (config.showCCI) {
+            if (params.showCCI) {
                 ctx.strokeStyle = CCI_COLORS.CCI
                 ctx.lineWidth = 1
                 ctx.lineJoin = 'round'
@@ -192,7 +100,7 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
                 let isFirst = true
 
                 for (let i = drawStart; i < drawEnd; i++) {
-                    const value = cciData[i]
+                    const value = series[i]
                     if (value === undefined) continue
 
                     const centerX = kLineCenters[i - range.start]
@@ -215,51 +123,37 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
             ctx.restore()
         },
 
-        onDataUpdate() {
-            cachedData = null
-        },
-
         getConfig() {
-            return { ...config }
+            const state = pluginHost?.getSharedState<CCIRenderState>(STATE_KEY)
+            return state?.params ?? {}
         },
 
-        setConfig(newConfig: Record<string, unknown>) {
-            if ('period' in newConfig && newConfig.period !== config.period) cachedData = null
-            Object.assign(config, newConfig)
+        setConfig() {
+            // no-op: 配置通过 scheduler.updateCCIConfig() 更新
         },
     }
-}
-
-/**
- * 计算指定索引处的 CCI 值
- */
-export function calcCCIAtIndex(
-    data: KLineData[],
-    index: number,
-    period: number
-): number | undefined {
-    const cciData = calcCCIData(data, period)
-    return cciData[index]
 }
 
 /**
  * 获取 CCI 标题信息（供 paneTitle 使用）
  */
 export function getCCITitleInfo(
-    data: KLineData[],
     index: number,
-    period: number = 14
+    period: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_CCI'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index < period || index >= data.length) return null
+    const state = pluginHost.getSharedState<CCIRenderState>(createCCIStateKey(paneId))
+    if (!state) return null
 
-    const cciValue = calcCCIAtIndex(data, index, period)
-    if (cciValue === undefined) return null
+    const cci = state.series[index]
+    if (cci === undefined) return null
 
     return {
         name: 'CCI',
         params: [period],
         values: [
-            { label: 'CCI', value: cciValue, color: CCI_COLORS.CCI },
+            { label: 'CCI', value: cci, color: CCI_COLORS.CCI },
         ],
     }
 }

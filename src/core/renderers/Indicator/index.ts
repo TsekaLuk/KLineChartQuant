@@ -28,22 +28,22 @@ export { createMACDLegendRendererPlugin, type MACDLegendOptions } from './macdLe
 export { createRSIRendererPlugin, type RSIRendererOptions, getRSITitleInfo } from './rsi'
 
 // CCI 顺势指标
-export { createCCIRendererPlugin, calcCCIAtIndex, type CCIConfig, type CCIRendererOptions, getCCITitleInfo } from './cci'
+export { createCCIRendererPlugin, type CCIRendererOptions, getCCITitleInfo } from './cci'
 
 // STOCH 随机指标
-export { createSTOCHRendererPlugin, calcSTOCHAtIndex, type STOCHConfig, type STOCHRendererOptions, getSTOCHTitleInfo } from './stoch'
+export { createSTOCHRendererPlugin, type STOCHRendererOptions, getSTOCHTitleInfo } from './stoch'
 
 // MOM 动量指标
-export { createMOMRendererPlugin, calcMOMAtIndex, type MOMConfig, type MOMRendererOptions, getMOMTitleInfo } from './mom'
+export { createMOMRendererPlugin, type MOMRendererOptions, getMOMTitleInfo } from './mom'
 
 // WMSR 威廉指标
-export { createWMSRRendererPlugin, calcWMSRAtIndex, type WMSRConfig, type WMSRRendererOptions, getWMSRTitleInfo } from './wmsr'
+export { createWMSRRendererPlugin, type WMSRRendererOptions, getWMSRTitleInfo } from './wmsr'
 
 // KST 确知指标
-export { createKSTRendererPlugin, calcKSTAtIndex, type KSTConfig, type KSTRendererOptions, getKSTTitleInfo } from './kst'
+export { createKSTRendererPlugin, type KSTRendererOptions, getKSTTitleInfo } from './kst'
 
 // FASTK 快速随机指标
-export { createFASTKRendererPlugin, calcFASTKAtIndex, type FASTKConfig, type FASTKRendererOptions, getFASTKTitleInfo } from './fastk'
+export { createFASTKRendererPlugin, type FASTKRendererOptions, getFASTKTitleInfo } from './fastk'
 
 /**
  * 副图指标类型

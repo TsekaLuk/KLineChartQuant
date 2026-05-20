@@ -1,93 +1,28 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '@/plugin'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import type { KLineData } from '@/types/price'
 import { KDJ_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-
-export interface FASTKConfig {
-    /** 周期（默认 9） */
-    period?: number
-    /** 是否显示 FASTK 线 */
-    showFASTK?: boolean
-}
-
-/**
- * 计算 FASTK 数据
- * FASTK = (C - L_n) / (H_n - L_n) * 100
- * 快速随机指标，比普通 STOCH 更敏感
- */
-function calcFASTKData(data: KLineData[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = new Array(data.length)
-
-    if (data.length < period) return result
-
-    for (let i = period - 1; i < data.length; i++) {
-        let highest = -Infinity
-        let lowest = Infinity
-
-        for (let j = 0; j < period; j++) {
-            const item = data[i - j]
-            if (!item) continue
-            highest = Math.max(highest, item.high)
-            lowest = Math.min(lowest, item.low)
-        }
-
-        const close = data[i]!.close
-        if (highest === lowest) {
-            result[i] = 50 // 避免除零
-        } else {
-            result[i] = ((close - lowest) / (highest - lowest)) * 100
-        }
-    }
-
-    return result
-}
-
-export interface FASTKRenderState extends BaseIndicatorState {
-    valueMin: number
-    valueMax: number
-}
+import type { FASTKRenderState } from '@/core/indicators/fastkState'
+import { createFASTKStateKey } from '@/core/indicators/fastkState'
 
 export interface FASTKRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
-    /** 初始配置 */
-    config?: FASTKConfig
 }
 
 /**
  * 创建 FASTK 渲染器插件
  */
 export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub', config: initialConfig = {} } = options
-    const STATE_KEY = createIndicatorStateKey('fastk', paneId)
+    const { paneId = 'sub' } = options
+    const STATE_KEY = createFASTKStateKey(paneId)
     let pluginHost: PluginHost | null = null
-
-    const config: Required<FASTKConfig> = {
-        period: 9,
-        showFASTK: true,
-        ...initialConfig,
-    }
-
-    // 缓存计算结果
-    let cachedData: KLineData[] | null = null
-    let cachedPeriod = 0
-    let fastkValues: (number | undefined)[] = []
-
-    function getFASTKData(data: KLineData[]) {
-        if (cachedData !== data || cachedPeriod !== config.period) {
-            fastkValues = calcFASTKData(data, config.period)
-            cachedData = data
-            cachedPeriod = config.period
-        }
-        return fastkValues
-    }
 
     return {
         name: `fastk_${paneId}`,
-        version: '1.0.0',
-        description: 'FASTK 快速随机指标渲染器',
+        version: '2.0.0',
+        description: 'FASTK 快速随机指标渲染器（无状态）',
         debugName: 'FASTK',
         paneId: paneId,
         priority: RENDERER_PRIORITY.MAIN,
@@ -101,23 +36,16 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
-            const klineData = data as KLineData[]
-            if (klineData.length < config.period) return
+            const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
 
-            const fastkData = getFASTKData(klineData)
+            const state = pluginHost?.getSharedState<FASTKRenderState>(STATE_KEY)
+            if (!state || state.visibleMin > state.visibleMax) return
 
-            // 固定范围 0-100
-            const valueMin = 0
-            const valueMax = 100
-            const valueRange = valueMax - valueMin
+            const { valueMin, valueMax, params, series } = state
+            const valueRange = valueMax - valueMin || 1
 
-            const stateData: FASTKRenderState = {
-                valueMin,
-                valueMax,
-                timestamp: Date.now(),
-            }
-            pluginHost?.setSharedState<FASTKRenderState>(STATE_KEY, stateData, `fastk_${paneId}`)
+            // 写回 valueMin/valueMax 供 scale 渲染器使用
+            pluginHost?.setSharedState<FASTKRenderState>(STATE_KEY, state, `fastk_${paneId}`)
 
             const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
             const displayMin = displayRange.minPrice
@@ -127,7 +55,7 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
             ctx.save()
             ctx.translate(-scrollLeft, 0)
 
-            // 绘制超买超卖线
+            // 绘制超买超卖线 80/20
             const y80 = pane.height - (80 - displayMin) / displayValueRange * pane.height
             const y20 = pane.height - (20 - displayMin) / displayValueRange * pane.height
 
@@ -146,10 +74,10 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
             ctx.setLineDash([])
 
             // 绘制 FASTK 线
-            const drawStart = Math.max(range.start, config.period - 1)
-            const drawEnd = Math.min(range.end, klineData.length)
+            const drawStart = Math.max(range.start, params.period - 1)
+            const drawEnd = Math.min(range.end, series.length)
 
-            if (config.showFASTK) {
+            if (params.showFASTK) {
                 ctx.strokeStyle = KDJ_COLORS.K
                 ctx.lineWidth = 1
                 ctx.lineJoin = 'round'
@@ -158,7 +86,7 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
                 let isFirst = true
 
                 for (let i = drawStart; i < drawEnd; i++) {
-                    const value = fastkData[i]
+                    const value = series[i]
                     if (value === undefined) continue
 
                     const centerX = kLineCenters[i - range.start]
@@ -181,51 +109,37 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
             ctx.restore()
         },
 
-        onDataUpdate() {
-            cachedData = null
-        },
-
         getConfig() {
-            return { ...config }
+            const state = pluginHost?.getSharedState<FASTKRenderState>(STATE_KEY)
+            return state?.params ?? {}
         },
 
-        setConfig(newConfig: Record<string, unknown>) {
-            if ('period' in newConfig && newConfig.period !== config.period) cachedData = null
-            Object.assign(config, newConfig)
+        setConfig() {
+            // no-op: 配置通过 scheduler.updateFASTKConfig() 更新
         },
     }
-}
-
-/**
- * 计算指定索引处的 FASTK 值
- */
-export function calcFASTKAtIndex(
-    data: KLineData[],
-    index: number,
-    period: number
-): number | undefined {
-    const fastkData = calcFASTKData(data, period)
-    return fastkData[index]
 }
 
 /**
  * 获取 FASTK 标题信息（供 paneTitle 使用）
  */
 export function getFASTKTitleInfo(
-    data: KLineData[],
     index: number,
-    period: number = 9
+    period: number,
+    pluginHost: PluginHost,
+    paneId: string = 'sub_FASTK'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index < period || index >= data.length) return null
+    const state = pluginHost.getSharedState<FASTKRenderState>(createFASTKStateKey(paneId))
+    if (!state) return null
 
-    const fastkValue = calcFASTKAtIndex(data, index, period)
-    if (fastkValue === undefined) return null
+    const fastk = state.series[index]
+    if (fastk === undefined) return null
 
     return {
         name: 'FASTK',
         params: [period],
         values: [
-            { label: 'FASTK', value: fastkValue, color: KDJ_COLORS.K },
+            { label: 'FASTK', value: fastk, color: KDJ_COLORS.K },
         ],
     }
 }

@@ -5,12 +5,20 @@ import {
     calcBOLLData,
     calcEXPMAData,
     calcENEData,
+    calcCCIData,
+    calcSTOCHData,
+    calcMOMData,
+    calcWMSRData,
+    calcKSTData,
+    calcFASTKData,
 } from './calculators'
 import type {
     MAFlags,
     BOLLPoint,
     EXPMAPoint,
     ENEPoint,
+    STOCHPoint,
+    KSTPoint,
 } from './calculators'
 import { DEFAULT_MA_PERIODS } from './calculators'
 import type { MARenderState } from './maState'
@@ -21,9 +29,21 @@ import type { EXPMARenderState } from './expmaState'
 import { EXPMA_STATE_KEY } from './expmaState'
 import type { ENERenderState } from './eneState'
 import { ENE_STATE_KEY } from './eneState'
-import { calcRSIData, DEFAULT_RSI_PERIODS } from './calculators'
+import { calcRSIData } from './calculators'
 import type { RSIRenderState } from './rsiState'
 import { createRSIStateKey } from './rsiState'
+import type { CCIRenderState } from './cciState'
+import { createCCIStateKey } from './cciState'
+import type { STOCHRenderState } from './stochState'
+import { createSTOCHStateKey } from './stochState'
+import type { MOMRenderState } from './momState'
+import { createMOMStateKey } from './momState'
+import type { WMSRRenderState } from './wmsrState'
+import { createWMSRStateKey } from './wmsrState'
+import type { KSTRenderState } from './kstState'
+import { createKSTStateKey } from './kstState'
+import type { FASTKRenderState } from './fastkState'
+import { createFASTKStateKey } from './fastkState'
 
 /**
  * 可见范围
@@ -71,6 +91,61 @@ export interface RSISchedulerConfig {
     showRSI1: boolean
     showRSI2: boolean
     showRSI3: boolean
+}
+
+/**
+ * CCI 调度器配置
+ */
+export interface CCISchedulerConfig {
+    period: number
+    showCCI: boolean
+}
+
+/**
+ * STOCH 调度器配置
+ */
+export interface STOCHSchedulerConfig {
+    n: number
+    m: number
+    showK: boolean
+    showD: boolean
+}
+
+/**
+ * MOM 调度器配置
+ */
+export interface MOMSchedulerConfig {
+    period: number
+    showMOM: boolean
+}
+
+/**
+ * WMSR 调度器配置
+ */
+export interface WMSRSchedulerConfig {
+    period: number
+    showWMSR: boolean
+}
+
+/**
+ * KST 调度器配置
+ */
+export interface KSTSchedulerConfig {
+    roc1: number
+    roc2: number
+    roc3: number
+    roc4: number
+    signalPeriod: number
+    showKST: boolean
+    showSignal: boolean
+}
+
+/**
+ * FASTK 调度器配置
+ */
+export interface FASTKSchedulerConfig {
+    period: number
+    showFASTK: boolean
 }
 
 /**
@@ -131,6 +206,44 @@ export class IndicatorScheduler {
     private rsiPaneId: string = 'sub_RSI'
     private cachedRsiSeries: Record<number, (number | undefined)[]> = {}
 
+    // CCI 配置和缓存
+    private cciConfig: CCISchedulerConfig = { period: 14, showCCI: true }
+    private cciPaneId: string = 'sub_CCI'
+    private cachedCciSeries: (number | undefined)[] = []
+
+    // STOCH 配置和缓存
+    private stochConfig: STOCHSchedulerConfig = { n: 9, m: 3, showK: true, showD: true }
+    private stochPaneId: string = 'sub_STOCH'
+    private cachedStochSeries: STOCHPoint[] = []
+
+    // MOM 配置和缓存
+    private momConfig: MOMSchedulerConfig = { period: 10, showMOM: true }
+    private momPaneId: string = 'sub_MOM'
+    private cachedMomSeries: (number | undefined)[] = []
+
+    // WMSR 配置和缓存
+    private wmsrConfig: WMSRSchedulerConfig = { period: 14, showWMSR: true }
+    private wmsrPaneId: string = 'sub_WMSR'
+    private cachedWmsrSeries: (number | undefined)[] = []
+
+    // KST 配置和缓存
+    private kstConfig: KSTSchedulerConfig = {
+        roc1: 10,
+        roc2: 15,
+        roc3: 20,
+        roc4: 30,
+        signalPeriod: 9,
+        showKST: true,
+        showSignal: true,
+    }
+    private kstPaneId: string = 'sub_KST'
+    private cachedKstSeries: KSTPoint[] = []
+
+    // FASTK 配置和缓存
+    private fastkConfig: FASTKSchedulerConfig = { period: 9, showFASTK: true }
+    private fastkPaneId: string = 'sub_FASTK'
+    private cachedFastkSeries: (number | undefined)[] = []
+
     // 双脏标记（数据/视口）
     private dirtyData = true   // 数据变更 → 重算所有 series + 极值
     private dirtyRange = true  // 仅视口变更 → 仅重算极值
@@ -140,6 +253,12 @@ export class IndicatorScheduler {
     private dirtyExpmaConfig = true
     private dirtyEneConfig = true
     private dirtyRsiConfig = true
+    private dirtyCciConfig = true
+    private dirtyStochConfig = true
+    private dirtyMomConfig = true
+    private dirtyWmsrConfig = true
+    private dirtyKstConfig = true
+    private dirtyFastkConfig = true
 
     /**
      * 设置 PluginHost，用于读写 StateStore
@@ -215,6 +334,90 @@ export class IndicatorScheduler {
     }
 
     /**
+     * CCI 配置变更时调用
+     * @param config 新的 CCI 配置
+     * @param paneId CCI pane ID（可选，默认 'sub_CCI'）
+     */
+    updateCCIConfig(config: Partial<CCISchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.cciPaneId = paneId
+        }
+        this.cciConfig = { ...this.cciConfig, ...config }
+        this.dirtyCciConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
+     * STOCH 配置变更时调用
+     * @param config 新的 STOCH 配置
+     * @param paneId STOCH pane ID（可选，默认 'sub_STOCH'）
+     */
+    updateSTOCHConfig(config: Partial<STOCHSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.stochPaneId = paneId
+        }
+        this.stochConfig = { ...this.stochConfig, ...config }
+        this.dirtyStochConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
+     * MOM 配置变更时调用
+     * @param config 新的 MOM 配置
+     * @param paneId MOM pane ID（可选，默认 'sub_MOM'）
+     */
+    updateMOMConfig(config: Partial<MOMSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.momPaneId = paneId
+        }
+        this.momConfig = { ...this.momConfig, ...config }
+        this.dirtyMomConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
+     * WMSR 配置变更时调用
+     * @param config 新的 WMSR 配置
+     * @param paneId WMSR pane ID（可选，默认 'sub_WMSR'）
+     */
+    updateWMSRConfig(config: Partial<WMSRSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.wmsrPaneId = paneId
+        }
+        this.wmsrConfig = { ...this.wmsrConfig, ...config }
+        this.dirtyWmsrConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
+     * KST 配置变更时调用
+     * @param config 新的 KST 配置
+     * @param paneId KST pane ID（可选，默认 'sub_KST'）
+     */
+    updateKSTConfig(config: Partial<KSTSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.kstPaneId = paneId
+        }
+        this.kstConfig = { ...this.kstConfig, ...config }
+        this.dirtyKstConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
+     * FASTK 配置变更时调用
+     * @param config 新的 FASTK 配置
+     * @param paneId FASTK pane ID（可选，默认 'sub_FASTK'）
+     */
+    updateFASTKConfig(config: Partial<FASTKSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.fastkPaneId = paneId
+        }
+        this.fastkConfig = { ...this.fastkConfig, ...config }
+        this.dirtyFastkConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
      * 视口变更时调用
      * @param visibleRange 新的可见范围
      */
@@ -243,13 +446,15 @@ export class IndicatorScheduler {
      */
     private computeIfDirty(): void {
         if (!this.dirtyData && !this.dirtyRange &&
-            !this.dirtyBollConfig && !this.dirtyExpmaConfig && !this.dirtyEneConfig && !this.dirtyRsiConfig) {
+            !this.dirtyBollConfig && !this.dirtyExpmaConfig && !this.dirtyEneConfig && !this.dirtyRsiConfig &&
+            !this.dirtyCciConfig && !this.dirtyStochConfig && !this.dirtyMomConfig && !this.dirtyWmsrConfig && !this.dirtyKstConfig && !this.dirtyFastkConfig) {
             return
         }
         if (!this.pluginHost) return
 
         const shouldRecomputeExtremes = this.dirtyData || this.dirtyRange ||
-            this.dirtyBollConfig || this.dirtyExpmaConfig || this.dirtyEneConfig || this.dirtyRsiConfig
+            this.dirtyBollConfig || this.dirtyExpmaConfig || this.dirtyEneConfig || this.dirtyRsiConfig ||
+            this.dirtyCciConfig || this.dirtyStochConfig || this.dirtyMomConfig || this.dirtyWmsrConfig || this.dirtyKstConfig || this.dirtyFastkConfig
 
         // ===== 步骤1：重算各指标 series =====
 
@@ -300,6 +505,67 @@ export class IndicatorScheduler {
                 if (shows[i]) {
                     this.cachedRsiSeries[periods[i]] = calcRSIData(this.currentData, periods[i])
                 }
+            }
+        }
+
+        // CCI series（dirtyData 或 dirtyCciConfig 时重算）
+        if (this.dirtyData || this.dirtyCciConfig) {
+            if (this.cciConfig.showCCI) {
+                this.cachedCciSeries = calcCCIData(this.currentData, this.cciConfig.period)
+            } else {
+                this.cachedCciSeries = []
+            }
+        }
+
+        // STOCH series（dirtyData 或 dirtyStochConfig 时重算）
+        if (this.dirtyData || this.dirtyStochConfig) {
+            if (this.stochConfig.showK || this.stochConfig.showD) {
+                this.cachedStochSeries = calcSTOCHData(this.currentData, this.stochConfig.n, this.stochConfig.m)
+            } else {
+                this.cachedStochSeries = []
+            }
+        }
+
+        // MOM series（dirtyData 或 dirtyMomConfig 时重算）
+        if (this.dirtyData || this.dirtyMomConfig) {
+            if (this.momConfig.showMOM) {
+                this.cachedMomSeries = calcMOMData(this.currentData, this.momConfig.period)
+            } else {
+                this.cachedMomSeries = []
+            }
+        }
+
+        // WMSR series（dirtyData 或 dirtyWmsrConfig 时重算）
+        if (this.dirtyData || this.dirtyWmsrConfig) {
+            if (this.wmsrConfig.showWMSR) {
+                this.cachedWmsrSeries = calcWMSRData(this.currentData, this.wmsrConfig.period)
+            } else {
+                this.cachedWmsrSeries = []
+            }
+        }
+
+        // KST series（dirtyData 或 dirtyKstConfig 时重算）
+        if (this.dirtyData || this.dirtyKstConfig) {
+            if (this.kstConfig.showKST || this.kstConfig.showSignal) {
+                this.cachedKstSeries = calcKSTData(
+                    this.currentData,
+                    this.kstConfig.roc1,
+                    this.kstConfig.roc2,
+                    this.kstConfig.roc3,
+                    this.kstConfig.roc4,
+                    this.kstConfig.signalPeriod
+                )
+            } else {
+                this.cachedKstSeries = []
+            }
+        }
+
+        // FASTK series（dirtyData 或 dirtyFastkConfig 时重算）
+        if (this.dirtyData || this.dirtyFastkConfig) {
+            if (this.fastkConfig.showFASTK) {
+                this.cachedFastkSeries = calcFASTKData(this.currentData, this.fastkConfig.period)
+            } else {
+                this.cachedFastkSeries = []
             }
         }
 
@@ -373,6 +639,84 @@ export class IndicatorScheduler {
             }
         }
 
+        // CCI 极值
+        let cciVisibleMin = Infinity
+        let cciVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedCciSeries.length; i++) {
+                const v = this.cachedCciSeries[i]
+                if (v !== undefined) {
+                    cciVisibleMin = Math.min(cciVisibleMin, v)
+                    cciVisibleMax = Math.max(cciVisibleMax, v)
+                }
+            }
+        }
+
+        // STOCH 极值（扫描 k 和 d）
+        let stochVisibleMin = Infinity
+        let stochVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedStochSeries.length; i++) {
+                const p = this.cachedStochSeries[i]
+                if (p) {
+                    stochVisibleMin = Math.min(stochVisibleMin, p.k, p.d)
+                    stochVisibleMax = Math.max(stochVisibleMax, p.k, p.d)
+                }
+            }
+        }
+
+        // MOM 极值
+        let momVisibleMin = Infinity
+        let momVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedMomSeries.length; i++) {
+                const v = this.cachedMomSeries[i]
+                if (v !== undefined) {
+                    momVisibleMin = Math.min(momVisibleMin, v)
+                    momVisibleMax = Math.max(momVisibleMax, v)
+                }
+            }
+        }
+
+        // WMSR 极值
+        let wmsrVisibleMin = Infinity
+        let wmsrVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedWmsrSeries.length; i++) {
+                const v = this.cachedWmsrSeries[i]
+                if (v !== undefined) {
+                    wmsrVisibleMin = Math.min(wmsrVisibleMin, v)
+                    wmsrVisibleMax = Math.max(wmsrVisibleMax, v)
+                }
+            }
+        }
+
+        // KST 极值（扫描 kst 和 signal）
+        let kstVisibleMin = Infinity
+        let kstVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedKstSeries.length; i++) {
+                const p = this.cachedKstSeries[i]
+                if (p) {
+                    kstVisibleMin = Math.min(kstVisibleMin, p.kst, p.signal)
+                    kstVisibleMax = Math.max(kstVisibleMax, p.kst, p.signal)
+                }
+            }
+        }
+
+        // FASTK 极值
+        let fastkVisibleMin = Infinity
+        let fastkVisibleMax = -Infinity
+        if (shouldRecomputeExtremes) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedFastkSeries.length; i++) {
+                const v = this.cachedFastkSeries[i]
+                if (v !== undefined) {
+                    fastkVisibleMin = Math.min(fastkVisibleMin, v)
+                    fastkVisibleMax = Math.max(fastkVisibleMax, v)
+                }
+            }
+        }
+
         // ===== 步骤3：构建状态并写入 StateStore =====
 
         // MA State
@@ -431,6 +775,93 @@ export class IndicatorScheduler {
         }
         this.pluginHost.setSharedState<RSIRenderState>(rsiStateKey, rsiState, 'indicator_scheduler')
 
+        // CCI State
+        const cciStateKey = createCCIStateKey(this.cciPaneId)
+        const cciValueMin = Math.min(cciVisibleMin, -150)
+        const cciValueMax = Math.max(cciVisibleMax, 150)
+        const cciState: CCIRenderState = {
+            timestamp: Date.now(),
+            series: this.cachedCciSeries,
+            params: { ...this.cciConfig },
+            valueMin: cciValueMin,
+            valueMax: cciValueMax,
+            visibleMin: cciVisibleMin,
+            visibleMax: cciVisibleMax,
+        }
+        this.pluginHost.setSharedState<CCIRenderState>(cciStateKey, cciState, 'indicator_scheduler')
+
+        // STOCH State
+        const stochStateKey = createSTOCHStateKey(this.stochPaneId)
+        const stochState: STOCHRenderState = {
+            timestamp: Date.now(),
+            series: this.cachedStochSeries,
+            params: { ...this.stochConfig },
+            valueMin: 0,
+            valueMax: 100,
+            visibleMin: stochVisibleMin,
+            visibleMax: stochVisibleMax,
+        }
+        this.pluginHost.setSharedState<STOCHRenderState>(stochStateKey, stochState, 'indicator_scheduler')
+
+        // MOM State
+        const momStateKey = createMOMStateKey(this.momPaneId)
+        const momPadding = Math.max(Math.abs(momVisibleMax), Math.abs(momVisibleMin)) * 0.1
+        const momValueMin = momVisibleMin - momPadding
+        const momValueMax = momVisibleMax + momPadding
+        const momState: MOMRenderState = {
+            timestamp: Date.now(),
+            series: this.cachedMomSeries,
+            params: { ...this.momConfig },
+            valueMin: momValueMin,
+            valueMax: momValueMax,
+            visibleMin: momVisibleMin,
+            visibleMax: momVisibleMax,
+        }
+        this.pluginHost.setSharedState<MOMRenderState>(momStateKey, momState, 'indicator_scheduler')
+
+        // WMSR State
+        const wmsrStateKey = createWMSRStateKey(this.wmsrPaneId)
+        const wmsrState: WMSRRenderState = {
+            timestamp: Date.now(),
+            series: this.cachedWmsrSeries,
+            params: { ...this.wmsrConfig },
+            valueMin: -100,
+            valueMax: 0,
+            visibleMin: wmsrVisibleMin,
+            visibleMax: wmsrVisibleMax,
+        }
+        this.pluginHost.setSharedState<WMSRRenderState>(wmsrStateKey, wmsrState, 'indicator_scheduler')
+
+        // KST State
+        const kstStateKey = createKSTStateKey(this.kstPaneId)
+        const kstRange = kstVisibleMax - kstVisibleMin
+        const kstPadding = kstRange * 0.1
+        const kstValueMin = kstVisibleMin - kstPadding
+        const kstValueMax = kstVisibleMax + kstPadding
+        const kstState: KSTRenderState = {
+            timestamp: Date.now(),
+            series: this.cachedKstSeries,
+            params: { ...this.kstConfig },
+            valueMin: kstValueMin,
+            valueMax: kstValueMax,
+            visibleMin: kstVisibleMin,
+            visibleMax: kstVisibleMax,
+        }
+        this.pluginHost.setSharedState<KSTRenderState>(kstStateKey, kstState, 'indicator_scheduler')
+
+        // FASTK State
+        const fastkStateKey = createFASTKStateKey(this.fastkPaneId)
+        const fastkState: FASTKRenderState = {
+            timestamp: Date.now(),
+            series: this.cachedFastkSeries,
+            params: { ...this.fastkConfig },
+            valueMin: 0,
+            valueMax: 100,
+            visibleMin: fastkVisibleMin,
+            visibleMax: fastkVisibleMax,
+        }
+        this.pluginHost.setSharedState<FASTKRenderState>(fastkStateKey, fastkState, 'indicator_scheduler')
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyRange = false
@@ -438,5 +869,11 @@ export class IndicatorScheduler {
         this.dirtyExpmaConfig = false
         this.dirtyEneConfig = false
         this.dirtyRsiConfig = false
+        this.dirtyCciConfig = false
+        this.dirtyStochConfig = false
+        this.dirtyMomConfig = false
+        this.dirtyWmsrConfig = false
+        this.dirtyKstConfig = false
+        this.dirtyFastkConfig = false
     }
 }

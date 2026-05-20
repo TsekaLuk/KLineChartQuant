@@ -159,6 +159,18 @@ import type { InteractionSnapshot } from '@/core/controller/interaction'
 import type { DrawingObject, DrawingStyle } from '@/plugin'
 import LeftToolbar from './LeftToolbar.vue'
 import { DrawingInteractionController, type DrawingToolId } from '@/core/drawing'
+import type {
+  BOLLSchedulerConfig,
+  EXPMASchedulerConfig,
+  ENESchedulerConfig,
+  RSISchedulerConfig,
+  CCISchedulerConfig,
+  STOCHSchedulerConfig,
+  MOMSchedulerConfig,
+  WMSRSchedulerConfig,
+  KSTSchedulerConfig,
+  FASTKSchedulerConfig,
+} from '@/core/indicators/scheduler'
 
 const props = withDefaults(
   defineProps<{
@@ -515,53 +527,54 @@ const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicatorConfi
     },
   },
   CCI: {
-    defaultParams: { period: 14 },
-    getTitleInfo: (data, index, params) => {
+    defaultParams: { period: 14, showCCI: true },
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
-      return getCCITitleInfo(data, index, params.period ?? 14)
+      return getCCITitleInfo(index, params.period ?? 14, chartRef.value!.plugin, 'sub_CCI')
     },
   },
   STOCH: {
-    defaultParams: { n: 9, m: 3 },
-    getTitleInfo: (data, index, params) => {
+    defaultParams: { n: 9, m: 3, showK: true, showD: true },
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
-      return getSTOCHTitleInfo(data, index, params.n ?? 9, params.m ?? 3)
+      return getSTOCHTitleInfo(index, params.n ?? 9, params.m ?? 3, chartRef.value!.plugin, 'sub_STOCH')
     },
   },
   MOM: {
-    defaultParams: { period: 10 },
-    getTitleInfo: (data, index, params) => {
+    defaultParams: { period: 10, showMOM: true },
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
-      return getMOMTitleInfo(data, index, params.period ?? 10)
+      return getMOMTitleInfo(index, params.period ?? 10, chartRef.value!.plugin, 'sub_MOM')
     },
   },
   WMSR: {
-    defaultParams: { period: 14 },
-    getTitleInfo: (data, index, params) => {
+    defaultParams: { period: 14, showWMSR: true },
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
-      return getWMSRTitleInfo(data, index, params.period ?? 14)
+      return getWMSRTitleInfo(index, params.period ?? 14, chartRef.value!.plugin, 'sub_WMSR')
     },
   },
   KST: {
-    defaultParams: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9 },
-    getTitleInfo: (data, index, params) => {
+    defaultParams: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9, showKST: true, showSignal: true },
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
       return getKSTTitleInfo(
-        data,
         index,
         params.roc1 ?? 10,
         params.roc2 ?? 15,
         params.roc3 ?? 20,
         params.roc4 ?? 30,
         params.signalPeriod ?? 9,
+        chartRef.value!.plugin,
+        'sub_KST',
       )
     },
   },
   FASTK: {
-    defaultParams: { period: 9 },
-    getTitleInfo: (data, index, params) => {
+    defaultParams: { period: 9, showFASTK: true },
+    getTitleInfo: (_data, index, params) => {
       if (index === null) return null
-      return getFASTKTitleInfo(data, index, params.period ?? 9)
+      return getFASTKTitleInfo(index, params.period ?? 9, chartRef.value!.plugin, 'sub_FASTK')
     },
   },
 }
@@ -619,6 +632,54 @@ function addSubPane(
   if (indicatorId === 'RSI') {
     chartRef.value?.getIndicatorScheduler().updateRSIConfig(
       params ?? getDefaultParams(indicatorId) as Partial<RSISchedulerConfig>,
+      paneId,
+    )
+  }
+
+  // CCI 初始化：推送配置到 Scheduler
+  if (indicatorId === 'CCI') {
+    chartRef.value?.getIndicatorScheduler().updateCCIConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<CCISchedulerConfig>,
+      paneId,
+    )
+  }
+
+  // STOCH 初始化：推送配置到 Scheduler
+  if (indicatorId === 'STOCH') {
+    chartRef.value?.getIndicatorScheduler().updateSTOCHConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<STOCHSchedulerConfig>,
+      paneId,
+    )
+  }
+
+  // MOM 初始化：推送配置到 Scheduler
+  if (indicatorId === 'MOM') {
+    chartRef.value?.getIndicatorScheduler().updateMOMConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<MOMSchedulerConfig>,
+      paneId,
+    )
+  }
+
+  // WMSR 初始化：推送配置到 Scheduler
+  if (indicatorId === 'WMSR') {
+    chartRef.value?.getIndicatorScheduler().updateWMSRConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<WMSRSchedulerConfig>,
+      paneId,
+    )
+  }
+
+  // KST 初始化：推送配置到 Scheduler
+  if (indicatorId === 'KST') {
+    chartRef.value?.getIndicatorScheduler().updateKSTConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<KSTSchedulerConfig>,
+      paneId,
+    )
+  }
+
+  // FASTK 初始化：推送配置到 Scheduler
+  if (indicatorId === 'FASTK') {
+    chartRef.value?.getIndicatorScheduler().updateFASTKConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<FASTKSchedulerConfig>,
       paneId,
     )
   }
@@ -981,6 +1042,78 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
     // 更新本地 pane 参数
     subPanes.value
       .filter((p) => p.indicatorId === 'RSI')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // CCI 配置通过 Scheduler 更新
+  if (indicatorId === 'CCI') {
+    chartRef.value?.getIndicatorScheduler().updateCCIConfig(params as Partial<CCISchedulerConfig>, 'sub_CCI')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'CCI')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // STOCH 配置通过 Scheduler 更新
+  if (indicatorId === 'STOCH') {
+    chartRef.value?.getIndicatorScheduler().updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, 'sub_STOCH')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'STOCH')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // MOM 配置通过 Scheduler 更新
+  if (indicatorId === 'MOM') {
+    chartRef.value?.getIndicatorScheduler().updateMOMConfig(params as Partial<MOMSchedulerConfig>, 'sub_MOM')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'MOM')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // WMSR 配置通过 Scheduler 更新
+  if (indicatorId === 'WMSR') {
+    chartRef.value?.getIndicatorScheduler().updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, 'sub_WMSR')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'WMSR')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // KST 配置通过 Scheduler 更新
+  if (indicatorId === 'KST') {
+    chartRef.value?.getIndicatorScheduler().updateKSTConfig(params as Partial<KSTSchedulerConfig>, 'sub_KST')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'KST')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
+    scheduleRender()
+    return
+  }
+
+  // FASTK 配置通过 Scheduler 更新
+  if (indicatorId === 'FASTK') {
+    chartRef.value?.getIndicatorScheduler().updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, 'sub_FASTK')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'FASTK')
       .forEach((pane) => {
         pane.params = { ...params }
       })

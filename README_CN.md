@@ -134,6 +134,7 @@ const config: SemanticChartConfig = {
 
 ## 🚀 What's New
 
+- **v0.6.1** 双层 Canvas 架构：Main + Overlay 分层渲染，引入 UpdateLevel 选择性更新，**200Hz 显示器下稳定 180fps 低抖动**
 - **v0.6.0** 重构指标计算管线：MA/BOLL/EXPMA/ENE/RSI/CCI/STOCH/MOM/WMSR/KST/FASTK 统一采用 Calculator → Scheduler → StateStore → Renderer 无状态架构，提升性能与可维护性
 - **v0.5.6** 对数价格轴支持，网格线在像素层面均匀分布
 - **v0.5.2** 新增高级绘图工具：平行通道、回归趋势、平滑顶底、不相交通道

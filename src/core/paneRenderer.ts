@@ -1,6 +1,7 @@
 export type PaneRendererDom = {
-    plotCanvas: HTMLCanvasElement
-    yAxisCanvas: HTMLCanvasElement
+    mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
+    overlayCanvas: HTMLCanvasElement   // 覆盖层：十字线、Tooltip（透明）
+    yAxisCanvas: HTMLCanvasElement     // Y轴刻度
 }
 
 export type PaneRendererOptions = {
@@ -10,7 +11,7 @@ export type PaneRendererOptions = {
 }
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
-   创建并管理 plotCanvas / yAxisCanvas
+   创建并管理 mainCanvas / overlayCanvas / yAxisCanvas
    持有 Pane 实例（布局、Y 轴、价格范围）
    响应 Chart 的 resize / layout 信号
    渲染逻辑由 RendererPluginManager 统一调度 */
@@ -45,29 +46,46 @@ export class PaneRenderer {
      * @param dpr 设备像素比
      */
     resize(width: number, height: number, dpr: number) {
-        const plotCanvas = this.dom.plotCanvas
+        const mainCanvas = this.dom.mainCanvas
+        const overlayCanvas = this.dom.overlayCanvas
         const yAxisCanvas = this.dom.yAxisCanvas
 
-        const plotWidth = Math.round(width * dpr)
-        if (plotCanvas.width !== plotWidth) {
-            plotCanvas.width = plotWidth
+        // Main Canvas
+        const mainWidth = Math.round(width * dpr)
+        if (mainCanvas.width !== mainWidth) {
+            mainCanvas.width = mainWidth
         }
 
-        const plotHeight = Math.round(height * dpr)
-        if (plotCanvas.height !== plotHeight) {
-            plotCanvas.height = plotHeight
+        const mainHeight = Math.round(height * dpr)
+        if (mainCanvas.height !== mainHeight) {
+            mainCanvas.height = mainHeight
         }
 
-        const plotCssWidth = `${plotWidth / dpr}px`
-        if (plotCanvas.style.width !== plotCssWidth) {
-            plotCanvas.style.width = plotCssWidth
+        const mainCssWidth = `${mainWidth / dpr}px`
+        if (mainCanvas.style.width !== mainCssWidth) {
+            mainCanvas.style.width = mainCssWidth
         }
 
-        const plotCssHeight = `${plotHeight / dpr}px`
-        if (plotCanvas.style.height !== plotCssHeight) {
-            plotCanvas.style.height = plotCssHeight
+        const mainCssHeight = `${mainHeight / dpr}px`
+        if (mainCanvas.style.height !== mainCssHeight) {
+            mainCanvas.style.height = mainCssHeight
         }
 
+        // Overlay Canvas - 与 Main Canvas 相同尺寸
+        if (overlayCanvas.width !== mainWidth) {
+            overlayCanvas.width = mainWidth
+        }
+        if (overlayCanvas.height !== mainHeight) {
+            overlayCanvas.height = mainHeight
+        }
+        if (overlayCanvas.style.width !== mainCssWidth) {
+            overlayCanvas.style.width = mainCssWidth
+        }
+        if (overlayCanvas.style.height !== mainCssHeight) {
+            overlayCanvas.style.height = mainCssHeight
+        }
+
+        // YAxis Canvas
         const fallbackYAxisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth || 60)
         const parentClientWidth = yAxisCanvas.parentElement?.clientWidth ?? 0
         const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth

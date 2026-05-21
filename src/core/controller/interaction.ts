@@ -2,6 +2,7 @@
 
 import type { Chart } from '../chart'
 import type { MarkerEntity, CustomMarkerEntity } from '@/core/marker/registry'
+import { UpdateLevel } from '@/core/layout/pane'
 
 interface PointerLocation {
     mouseX: number

@@ -4,11 +4,12 @@ import { PaneRenderer } from '@/core/paneRenderer'
 
 describe('PaneRenderer resize DPR mapping', () => {
   it('maps logical plot size to physical canvas size and keeps CSS size logical', () => {
-    const plotCanvas = document.createElement('canvas')
+    const mainCanvas = document.createElement('canvas')
+    const overlayCanvas = document.createElement('canvas')
     const yAxisCanvas = document.createElement('canvas')
     const pane = new Pane('main')
     const renderer = new PaneRenderer(
-      { plotCanvas, yAxisCanvas },
+      { mainCanvas, overlayCanvas, yAxisCanvas },
       pane,
       {
         rightAxisWidth: 80,
@@ -19,18 +20,22 @@ describe('PaneRenderer resize DPR mapping', () => {
 
     renderer.resize(500, 240, 2)
 
-    expect(plotCanvas.width).toBe(Math.round(500 * 2))
-    expect(plotCanvas.height).toBe(Math.round(240 * 2))
-    expect(plotCanvas.style.width).toBe('500px')
-    expect(plotCanvas.style.height).toBe('240px')
+    expect(mainCanvas.width).toBe(Math.round(500 * 2))
+    expect(mainCanvas.height).toBe(Math.round(240 * 2))
+    expect(mainCanvas.style.width).toBe('500px')
+    expect(mainCanvas.style.height).toBe('240px')
+    // overlayCanvas should match mainCanvas
+    expect(overlayCanvas.width).toBe(mainCanvas.width)
+    expect(overlayCanvas.height).toBe(mainCanvas.height)
   })
 
   it('uses (rightAxisWidth + priceLabelWidth) for yAxis physical width when no parent width is available', () => {
-    const plotCanvas = document.createElement('canvas')
+    const mainCanvas = document.createElement('canvas')
+    const overlayCanvas = document.createElement('canvas')
     const yAxisCanvas = document.createElement('canvas')
     const pane = new Pane('main')
     const renderer = new PaneRenderer(
-      { plotCanvas, yAxisCanvas },
+      { mainCanvas, overlayCanvas, yAxisCanvas },
       pane,
       {
         rightAxisWidth: 100,
@@ -54,13 +59,14 @@ describe('PaneRenderer resize DPR mapping', () => {
       configurable: true,
     })
 
-    const plotCanvas = document.createElement('canvas')
+    const mainCanvas = document.createElement('canvas')
+    const overlayCanvas = document.createElement('canvas')
     const yAxisCanvas = document.createElement('canvas')
     host.appendChild(yAxisCanvas)
 
     const pane = new Pane('main')
     const renderer = new PaneRenderer(
-      { plotCanvas, yAxisCanvas },
+      { mainCanvas, overlayCanvas, yAxisCanvas },
       pane,
       {
         rightAxisWidth: 100,

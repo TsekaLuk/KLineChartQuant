@@ -23,9 +23,10 @@ export function createCrosshairRendererPlugin(options: {
     debugName: '十字线',
     paneId: GLOBAL_PANE_ID,
     priority: RENDERER_PRIORITY.SYSTEM_CROSSHAIR,
+    layer: 'overlay',
 
     draw(context: RenderContext) {
-      const { ctx, pane, dpr, paneWidth } = context
+      const { pane, dpr, paneWidth, overlayCtx } = context
       const state = options.getCrosshairState()
 
       if (state.isDragging || !state.pos) return
@@ -38,6 +39,10 @@ export function createCrosshairRendererPlugin(options: {
       if (isActive && state.price !== null) {
         localY = pane.yAxis.priceToY(state.price)
       }
+
+      // 优先使用 overlayCtx，若不存在则跳过（不回落到主画布）
+      const ctx = overlayCtx
+      if (!ctx) return
 
       ctx.save()
       ctx.beginPath()

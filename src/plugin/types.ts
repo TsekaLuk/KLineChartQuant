@@ -276,6 +276,8 @@ export interface RenderContext {
   yAxisCtx?: CanvasRenderingContext2D
   xAxisCtx?: CanvasRenderingContext2D
   borderCtx?: CanvasRenderingContext2D
+  /** 覆盖层 Canvas 上下文（用于十字线、Tooltip 等动态内容） */
+  overlayCtx?: CanvasRenderingContext2D
   /** 当前缩放级别（1 ~ zoomLevels） */
   zoomLevel?: number
   /** 总缩放级别数 */
@@ -467,6 +469,14 @@ export interface RendererPlugin {
    * 用于时间轴、全局边框等需要单独控制渲染时机的场景
    */
   isSystem?: boolean
+
+  /**
+   * 渲染器所属层，决定 UpdateLevel 过滤行为
+   * - 'main': 低频/静态内容，随主画布一起渲染
+   * - 'overlay': 高频/动态内容，可在 overlay-only 更新时独立重绘
+   * 未指定时默认为 'main'（向后兼容）
+   */
+  layer?: 'main' | 'overlay'
 
   /** 渲染方法 */
   draw(context: RenderContext): void

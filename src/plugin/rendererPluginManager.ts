@@ -9,6 +9,7 @@ import type {
   RendererPluginWithHost,
   PluginHost,
 } from './types'
+import { UpdateLevel } from '@/core/layout/pane'
 
 /** 渲染器错误事件（裁剪后，不含大数据） */
 export interface RendererErrorEvent {
@@ -241,12 +242,27 @@ export class RendererPluginManager {
   }
 
 
-  /** 渲染指定 pane（带错误隔离） */
-  render(paneId: string, context: RenderContext): RendererErrorEvent[] {
+  /** 渲染指定 pane（带错误隔离，支持按 UpdateLevel 过滤） */
+  render(
+    paneId: string,
+    context: RenderContext,
+    level?: UpdateLevel
+  ): RendererErrorEvent[] {
     const renderers = this.getRenderers(paneId)
     const errors: RendererErrorEvent[] = []
 
     for (const renderer of renderers) {
+      // UpdateLevel 过滤：未传 level 或为 All 时不过滤
+      if (level) {
+        const rendererLayer = renderer.layer ?? 'main'
+        if (level === UpdateLevel.Overlay && rendererLayer !== 'overlay') {
+          continue // Overlay 更新时跳过非 overlay 渲染器
+        }
+        if (level === UpdateLevel.Main && rendererLayer === 'overlay') {
+          continue // Main 更新时跳过 overlay 渲染器
+        }
+      }
+
       try {
         renderer.draw(context)
       } catch (e) {

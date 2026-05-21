@@ -5,6 +5,18 @@ import { PriceScale } from '@/core/scale/priceScale'
 import type { MarkerManager } from '@/core/marker/registry'
 import type { PaneCapabilities, PaneRole } from '@/plugin'
 
+/**
+ * 更新级别枚举 - 用于双层 Canvas 架构
+ * Main: 只更新主画布（K线、指标等静态内容）
+ * Overlay: 只更新覆盖层（十字线、Tooltip等动态内容）
+ * All: 更新所有层
+ */
+export enum UpdateLevel {
+  Main = 'main',
+  Overlay = 'overlay',
+  All = 'all'
+}
+
 export type VisibleRange = { start: number; end: number }
 
 export interface PaneInitOptions {

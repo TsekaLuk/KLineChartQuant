@@ -1,6 +1,6 @@
 import type { KLineData } from '@/types/price'
 import { getVisibleRange } from '@/core/viewport/viewport'
-import { Pane, type VisibleRange } from '@/core/layout/pane'
+import { Pane, type VisibleRange, UpdateLevel } from '@/core/layout/pane'
 import { InteractionController } from '@/core/controller/interaction'
 import { PaneRenderer } from '@/core/paneRenderer'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
@@ -64,7 +64,8 @@ export type PaneSpec = {
 }
 
 export type PaneRendererDom = {
-    plotCanvas: HTMLCanvasElement
+    mainCanvas: HTMLCanvasElement
+    overlayCanvas: HTMLCanvasElement
     yAxisCanvas: HTMLCanvasElement
 }
 
@@ -126,6 +127,7 @@ export class Chart {
     private data: KLineData[] = []
 
     private raf: number | null = null
+    private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
     private viewport: Viewport | null = null
 
     private paneRenderers: PaneRenderer[] = []
@@ -334,8 +336,11 @@ export class Chart {
         this.scheduleDraw()
     }
 
-    /** 绘制一帧 */
-    draw() {
+    /**
+     * 绘制一帧
+     * @param level 更新级别，决定渲染哪些层
+     */
+    draw(level: UpdateLevel = UpdateLevel.All) {
         // 重置 Marker 标记
         this.markerManager.clear()
 
@@ -400,18 +405,31 @@ export class Chart {
 
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
-            const plotCtx = renderer.getDom().plotCanvas.getContext('2d')
+            const mainCtx = renderer.getDom().mainCanvas.getContext('2d')
+            const overlayCtx = renderer.getDom().overlayCanvas.getContext('2d')
             const yAxisCtx = renderer.getDom().yAxisCanvas.getContext('2d')
 
             // 更新价格范围
             pane.updateRange(this.data, range)
 
-            // 清空 plotCanvas
-            if (plotCtx) {
-                plotCtx.setTransform(1, 0, 0, 1, 0, 0)
-                plotCtx.scale(vp.dpr, vp.dpr)
+            // 根据更新级别清空对应 Canvas
+            const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
+            const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
+
+            // 清空 mainCanvas
+            if (shouldUpdateMain && mainCtx) {
+                mainCtx.setTransform(1, 0, 0, 1, 0, 0)
+                mainCtx.scale(vp.dpr, vp.dpr)
                 // 多清除 1px 避免右边界残留
-                plotCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+                mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+            }
+
+            // 清空 overlayCanvas
+            if (shouldUpdateOverlay && overlayCtx) {
+                const overlayWidth = overlayCtx.canvas.width / vp.dpr
+                overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
+                overlayCtx.scale(vp.dpr, vp.dpr)
+                overlayCtx.clearRect(0, 0, overlayWidth + 1, pane.height + 2 / vp.dpr)
             }
 
             // 清空 yAxisCanvas
@@ -424,7 +442,8 @@ export class Chart {
 
             // 构建渲染上下文
             const context: RenderContext = {
-                ctx: plotCtx!,
+                ctx: mainCtx!,
+                overlayCtx: overlayCtx ?? undefined,
                 pane: wrapPaneInfo(pane),
                 data: this.data,
                 range,
@@ -453,14 +472,11 @@ export class Chart {
                 xAxisRanges: sharedXAxisRanges,
             }
 
-            // 插件渲染器绘制
-            if (plotCtx) {
-                plotCtx.save()
-                const errors = this.rendererPluginManager.render(pane.id, context)
-                if (errors.length > 0) {
-                    this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
-                }
-                plotCtx.restore()
+            // 插件渲染器绘制（支持 UpdateLevel 过滤）
+            // 注意：即使 mainCtx 不存在，仍需运行渲染器（overlay 层可能独立更新）
+            const errors = this.rendererPluginManager.render(pane.id, context, level)
+            if (errors.length > 0) {
+                this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
             }
         }
 
@@ -1091,16 +1107,39 @@ export class Chart {
         this.scheduleDraw()
     }
 
-    /** 请求下一帧重绘（RAF 合并） */
-    scheduleDraw() {
-        // 使用 flag 模式：如果 RAF 已在调度中，不再重复调度
-        // 这比 cancelAnimationFrame + requestAnimationFrame 更高效，尤其在高刷新率显示器上
-        if (this.raf === null) {
-            this.raf = requestAnimationFrame(() => {
-                this.raf = null
-                this.draw()
-            })
+    /**
+     * 请求下一帧重绘（RAF 合并，支持分层更新）
+     * @param level 更新级别，默认为 All
+     */
+    scheduleDraw(level: UpdateLevel = UpdateLevel.All): void {
+        // 合并更新级别：如果已有更高级别的调度，保持高级别
+        if (this.raf !== null) {
+            // 已有 All 级别调度，任何新请求都忽略
+            if (this.pendingUpdateLevel === UpdateLevel.All) return
+            // 新请求是 All，覆盖之前的 Main/Overlay
+            if (level === UpdateLevel.All) {
+                this.pendingUpdateLevel = UpdateLevel.All
+                return
+            }
+            // Main + Overlay = All
+            if (
+                (this.pendingUpdateLevel === UpdateLevel.Main && level === UpdateLevel.Overlay) ||
+                (this.pendingUpdateLevel === UpdateLevel.Overlay && level === UpdateLevel.Main)
+            ) {
+                this.pendingUpdateLevel = UpdateLevel.All
+                return
+            }
+            // 同级别或更低级别，忽略
+            return
         }
+
+        this.pendingUpdateLevel = level
+        this.raf = requestAnimationFrame(() => {
+            this.raf = null
+            const levelToDraw = this.pendingUpdateLevel
+            this.pendingUpdateLevel = UpdateLevel.All  // 重置为默认值
+            this.draw(levelToDraw)
+        })
     }
 
     /** 销毁图表实例 */
@@ -1136,15 +1175,27 @@ export class Chart {
                 capabilities: spec.capabilities,
             })
 
-            const plotCanvas = document.createElement('canvas')
+            const mainCanvas = document.createElement('canvas')
+            const overlayCanvas = document.createElement('canvas')
             const yAxisCanvas = document.createElement('canvas')
 
             const isMain = pane.role === 'price'
-            plotCanvas.id = `${spec.id}-plot`
-            plotCanvas.className = isMain ? 'plot-canvas main' : 'plot-canvas sub'
-            plotCanvas.style.position = 'absolute'
-            plotCanvas.style.left = '0'
-            plotCanvas.style.top = '0'
+
+            // Main Canvas - K线、指标、网格
+            mainCanvas.id = `${spec.id}-main`
+            mainCanvas.className = isMain ? 'main-canvas main' : 'main-canvas sub'
+            mainCanvas.style.position = 'absolute'
+            mainCanvas.style.left = '0'
+            mainCanvas.style.top = '0'
+
+            // Overlay Canvas - 十字线、Tooltip（透明，事件穿透）
+            overlayCanvas.id = `${spec.id}-overlay`
+            overlayCanvas.className = 'overlay-canvas'
+            overlayCanvas.style.position = 'absolute'
+            overlayCanvas.style.left = '0'
+            overlayCanvas.style.top = '0'
+            overlayCanvas.style.pointerEvents = 'none'  // 事件穿透到 mainCanvas
+            overlayCanvas.style.backgroundColor = 'transparent'
 
             yAxisCanvas.id = `${spec.id}-yAxis`
             yAxisCanvas.className = 'right-axis'
@@ -1152,7 +1203,7 @@ export class Chart {
             yAxisCanvas.style.left = '0'
 
             const renderer = new PaneRenderer(
-                { plotCanvas, yAxisCanvas },
+                { mainCanvas, overlayCanvas, yAxisCanvas },
                 pane,
                 {
                     rightAxisWidth: this.opt.rightAxisWidth,
@@ -1177,7 +1228,9 @@ export class Chart {
 
         this.paneRenderers.forEach((renderer) => {
             const dom = renderer.getDom()
-            canvasLayer.appendChild(dom.plotCanvas)
+            // 先添加 mainCanvas，再添加 overlayCanvas（overlay 在上层）
+            canvasLayer.appendChild(dom.mainCanvas)
+            canvasLayer.appendChild(dom.overlayCanvas)
             rightAxisLayer.appendChild(dom.yAxisCanvas)
         })
 
@@ -1322,7 +1375,8 @@ export class Chart {
             renderer.resize(vp.plotWidth, h, vp.dpr)
             this.rendererPluginManager.notifyResize(pane.id, wrapPaneInfo(pane))
             const dom = renderer.getDom()
-            dom.plotCanvas.style.top = `${y}px`
+            dom.mainCanvas.style.top = `${y}px`
+            dom.overlayCanvas.style.top = `${y}px`
             dom.yAxisCanvas.style.top = `${y}px`
             dom.yAxisCanvas.style.left = '0px'
 

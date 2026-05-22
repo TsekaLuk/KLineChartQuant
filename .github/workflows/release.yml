@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          current_tag="${GITHUB_REF_NAME}"
+          git fetch --force --tags
+
+          previous_tag="$(git tag --sort=-creatordate | awk -v current="$current_tag" '$0 != current { print; exit }')"
+
+          if [ -n "$previous_tag" ]; then
+            range="$previous_tag..$current_tag"
+          else
+            range="$current_tag"
+          fi
+
+          notes_file="release-notes.md"
+
+          CURRENT_TAG="$current_tag" PREVIOUS_TAG="$previous_tag" RANGE="$range" python <<'PY'
+          import os
+          import re
+          import subprocess
+          from collections import OrderedDict
+
+          current_tag = os.environ["CURRENT_TAG"]
+          previous_tag = os.environ.get("PREVIOUS_TAG", "")
+          git_range = os.environ["RANGE"]
+
+          result = subprocess.run(
+              ["git", "log", "--format=%H%x09%s", git_range],
+              capture_output=True,
+              text=True,
+              check=True,
+          )
+
+          lines = [line for line in result.stdout.splitlines() if line.strip()]
+
+          sections = OrderedDict([
+              ("🚀 Performance", []),
+              ("🏗️ Architecture", []),
+              ("✨ Features", []),
+              ("🔧 Improvements", []),
+              ("🐛 Fixes", []),
+          ])
+
+          arch_keywords = (
+              "architecture",
+              "renderer",
+              "rendering pipeline",
+              "plugin",
+              "updatelevel",
+              "overlay",
+              "layer",
+              "scheduler",
+          )
+
+          def clean_subject(subject: str) -> str:
+              cleaned = re.sub(r"^[a-z]+(?:\([^)]*\))?!?:\s*", "", subject, flags=re.IGNORECASE)
+              cleaned = cleaned.strip()
+              if not cleaned:
+                  cleaned = subject.strip()
+              if cleaned:
+                  cleaned = cleaned[0].upper() + cleaned[1:]
+              return cleaned
+
+          def classify(raw_subject: str, cleaned_subject: str) -> str:
+              raw_lower = raw_subject.lower()
+              cleaned_lower = cleaned_subject.lower()
+              if raw_lower.startswith("perf"):
+                  return "🚀 Performance"
+              if raw_lower.startswith("feat"):
+                  return "✨ Features"
+              if raw_lower.startswith("fix"):
+                  return "🐛 Fixes"
+              if raw_lower.startswith("refactor") and any(keyword in cleaned_lower for keyword in arch_keywords):
+                  return "🏗️ Architecture"
+              if any(keyword in cleaned_lower for keyword in arch_keywords):
+                  return "🏗️ Architecture"
+              return "🔧 Improvements"
+
+          for line in lines:
+              full_sha, subject = line.split("\t", 1)
+              short_sha = full_sha[:7]
+              cleaned = clean_subject(subject)
+              section = classify(subject, cleaned)
+              sections[section].append(f"- {cleaned} ({short_sha})")
+
+          body = []
+          if previous_tag:
+              body.append(f"Changes since {previous_tag}\n")
+          else:
+              body.append(f"Release {current_tag}\n")
+
+          has_entries = False
+          for title, items in sections.items():
+              if not items:
+                  continue
+              has_entries = True
+              body.append(title)
+              body.extend(items)
+              body.append("")
+
+          if not has_entries:
+              body.append("🔧 Improvements")
+              body.append(f"- Release {current_tag}")
+              body.append("")
+
+          output = "\n".join(body).rstrip() + "\n"
+          with open("release-notes.md", "w", encoding="utf-8") as f:
+              f.write(output)
+          PY
+
+          {
+            echo 'previous_tag<<EOF'
+            echo "$previous_tag"
+            echo 'EOF'
+            echo 'range<<EOF'
+            echo "$range"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+          else
+            gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+          fi

@@ -756,22 +756,27 @@ function clearAllSubPanes(): void {
   )
 }
 
-// 从语义化配置初始化指标状态（单向数据流：config → state）
+// 从语义化配置初始化指标状态（单向数据流：config → chart）
 function initIndicatorsFromConfig(): void {
   const config = props.semanticConfig
+  const chart = chartRef.value
+  if (!chart) return
 
-  // 初始化主图指标
+  // 初始化主图指标 - 直接调用Chart API
   const mainIndicators = config.indicators?.main
   if (mainIndicators) {
     for (const indicator of mainIndicators) {
       if (indicator.enabled) {
+        // 同步Vue状态（用于UI展示）
         if (!activeIndicators.value.includes(indicator.type)) {
           activeIndicators.value.push(indicator.type)
         }
-        // 初始化参数
+        // 保存参数
         if (indicator.params) {
           indicatorParams.value[indicator.type] = indicator.params as Record<string, unknown>
         }
+        // 启用指标（Chart内部管理渲染器）
+        chart.enableMainIndicator(indicator.type, indicator.params as Record<string, number | boolean>)
       }
     }
   }
@@ -779,14 +784,15 @@ function initIndicatorsFromConfig(): void {
   // 副图指标参数由 syncSubPanesFromChart 处理
 }
 
-// 监听主图指标状态和参数变化，控制渲染器（单向数据流：state → chart）
+// 监听主图指标参数变化，同步到Chart（状态由Chart管理，Vue只同步参数）
 watch(
   [activeIndicators, indicatorParams],
   ([indicators]) => {
     const chart = chartRef.value
     if (!chart) return
 
-    // 更新 mainIndicatorLegend 渲染器配置
+    // 只更新mainIndicatorLegend的配置（用于图例显示）
+    // 渲染器的启用/禁用由Chart内部管理
     chart.updateRendererConfig('mainIndicatorLegend', {
       indicators: {
         MA: {
@@ -807,27 +813,6 @@ watch(
         },
       },
     })
-
-    // MA 线渲染器
-    chart.setRendererEnabled('ma', indicators.includes('MA'))
-
-    // 更新 MA Scheduler 配置（无状态渲染器的数据源）
-    chart.getIndicatorScheduler().updateMAConfig({
-      ma5: indicators.includes('MA'),
-      ma10: indicators.includes('MA'),
-      ma20: indicators.includes('MA'),
-      ma30: indicators.includes('MA'),
-      ma60: indicators.includes('MA'),
-    })
-
-    // BOLL 线渲染器
-    chart.setRendererEnabled('boll', indicators.includes('BOLL'))
-
-    // EXPMA 线渲染器
-    chart.setRendererEnabled('expma', indicators.includes('EXPMA'))
-
-    // ENE 线渲染器
-    chart.setRendererEnabled('ene', indicators.includes('ENE'))
 
     scheduleRender()
   },
@@ -927,15 +912,20 @@ function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
   return config.getTitleInfo(data, crosshairIdx.value, params)
 }
 
-// 指标切换处理（只更新状态，渲染器由 watch 控制）
+// 指标切换处理（直接调用Chart API）
 function handleIndicatorToggle(indicatorId: string, active: boolean) {
-  // 主图指标处理
+  const chart = chartRef.value
+  if (!chart) return
+
+  // 主图指标处理 - 直接调用Chart API
   if (
     indicatorId === 'MA' ||
     indicatorId === 'BOLL' ||
     indicatorId === 'EXPMA' ||
     indicatorId === 'ENE'
   ) {
+    chart.toggleMainIndicator(indicatorId, active)
+    // 同步本地状态用于UI展示
     if (active) {
       if (!activeIndicators.value.includes(indicatorId)) {
         activeIndicators.value.push(indicatorId)
@@ -943,35 +933,26 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
     } else {
       activeIndicators.value = activeIndicators.value.filter((id) => id !== indicatorId)
     }
-    // 渲染器状态由 watch activeIndicators 控制
     return
   }
 
-  // 副图指标处理
+  // 副图指标处理（保持原有逻辑）
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
     if (active) {
-      // 更新 activeIndicators 状态
       if (!activeIndicators.value.includes(indicatorId)) {
         activeIndicators.value.push(indicatorId)
       }
 
-      // 检查是否已有该指标的 pane
       const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
-      if (existingPane) {
-        // 已存在，无需再添加
-        return
-      }
+      if (existingPane) return
 
-      // 尝试添加新副图
       if (!addSubPane(indicatorId as SubIndicatorType)) {
-        // 达到上限，替换最后一个
         const lastPane = subPanes.value[subPanes.value.length - 1]
         if (lastPane) {
           switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
         }
       }
     } else {
-      // 更新 activeIndicators 状态
       activeIndicators.value = activeIndicators.value.filter((id) => id !== indicatorId)
 
       // 找到并移除该指标的所有 pane
@@ -1011,27 +992,14 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
   // 保存参数配置
   indicatorParams.value[indicatorId] = params
 
-  // 主图指标参数更新
+  // 主图指标参数更新 - 使用Chart API
   if (
     indicatorId === 'MA' ||
     indicatorId === 'BOLL' ||
     indicatorId === 'EXPMA' ||
     indicatorId === 'ENE'
   ) {
-    // BOLL 配置通过 Scheduler 更新（渲染器无状态）
-    if (indicatorId === 'BOLL') {
-      chartRef.value?.getIndicatorScheduler().updateBOLLConfig(params as Partial<BOLLSchedulerConfig>)
-    }
-    // EXPMA 配置通过 Scheduler 更新（渲染器无状态）
-    if (indicatorId === 'EXPMA') {
-      chartRef.value?.getIndicatorScheduler().updateEXPMAConfig(params as Partial<EXPMASchedulerConfig>)
-    }
-    // ENE 配置通过 Scheduler 更新（渲染器无状态）
-    if (indicatorId === 'ENE') {
-      chartRef.value?.getIndicatorScheduler().updateENEConfig(params as Partial<ENESchedulerConfig>)
-    }
-    // 更新图例以显示新参数
-    updateMainIndicatorLegendConfig()
+    chartRef.value?.updateMainIndicatorParams(indicatorId, params as Record<string, number | boolean>)
     scheduleRender()
     return
   }
@@ -1353,6 +1321,7 @@ onMounted(() => {
   chart.useRenderer(createGridLinesRendererPlugin()) // 网格线渲染到所有 pane
   chart.useRenderer(createExtremaMarkersRendererPlugin())
   chart.useRenderer(createMARendererPlugin())
+  chart.setRendererEnabled('ma', false) // 默认禁用，由语义化配置控制
   chart.useRenderer(createBOLLRendererPlugin())
   chart.setRendererEnabled('boll', false) // 默认禁用，由语义化配置控制
   chart.useRenderer(createEXPMARendererPlugin())

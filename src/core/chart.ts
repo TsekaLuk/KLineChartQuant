@@ -24,8 +24,14 @@ import {
     type XAxisRange,
 } from '@/plugin'
 import { createSubIndicatorRenderer, type SubIndicatorType } from '@/core/renderers/Indicator'
+import { createMARendererPlugin } from '@/core/renderers/Indicator/ma'
+import { createBOLLRendererPlugin } from '@/core/renderers/Indicator/boll'
+import { createEXPMARendererPlugin } from '@/core/renderers/Indicator/expma'
+import { createENERendererPlugin } from '@/core/renderers/Indicator/ene'
+import { createMainIndicatorLegendRendererPlugin } from '@/core/renderers/Indicator/mainIndicatorLegend'
 import { DrawingStore } from '@/core/drawing'
 import { createDrawingRendererPlugin } from '@/core/drawing/plugin'
+import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig } from '@/core/indicators/scheduler'
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig, calcKWidthPx }
@@ -178,6 +184,266 @@ export class Chart {
 
     /** 上次可见范围（用于检测视口变化） */
     private lastVisibleRange: VisibleRange = { start: 0, end: 0 }
+
+    /** 当前激活的主图指标列表（如 ['boll', 'ma']） */
+    private activeMainIndicators: Set<string> = new Set()
+
+    /** 主图指标参数配置 */
+    private mainIndicatorParams: Record<string, Record<string, number | boolean>> = {
+        MA: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
+        BOLL: { period: 20, multiplier: 2, showUpper: true, showMiddle: true, showLower: true, showBand: true },
+        EXPMA: { fastPeriod: 12, slowPeriod: 50 },
+        ENE: { period: 10, deviation: 11 },
+    }
+
+    /**
+     * 启用主图指标
+     * @param indicatorId 指标ID: 'MA' | 'BOLL' | 'EXPMA' | 'ENE'
+     * @param params 可选的指标参数
+     * @returns 是否成功启用
+     */
+    enableMainIndicator(indicatorId: string, params?: Record<string, number | boolean>): boolean {
+        const id = indicatorId.toUpperCase()
+        if (!['MA', 'BOLL', 'EXPMA', 'ENE'].includes(id)) {
+            console.warn(`[Chart] 未知的主图指标: ${indicatorId}`)
+            return false
+        }
+
+        if (this.activeMainIndicators.has(id)) {
+            // 已启用，更新参数
+            if (params) {
+                this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
+                this.updateIndicatorSchedulerConfig(id)
+            }
+            return true
+        }
+
+        this.activeMainIndicators.add(id)
+
+        // 合并默认参数和传入参数
+        if (params) {
+            this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
+        }
+
+        // 启用对应的渲染器
+        this.enableMainIndicatorRenderer(id)
+
+        // 更新调度器配置
+        this.updateIndicatorSchedulerConfig(id)
+
+        this.scheduleDraw()
+        return true
+    }
+
+    /**
+     * 禁用主图指标
+     * @param indicatorId 指标ID
+     * @returns 是否成功禁用
+     */
+    disableMainIndicator(indicatorId: string): boolean {
+        const id = indicatorId.toUpperCase()
+        if (!this.activeMainIndicators.has(id)) return false
+
+        this.activeMainIndicators.delete(id)
+
+        // 禁用对应的渲染器
+        this.disableMainIndicatorRenderer(id)
+
+        // 更新调度器配置
+        this.updateIndicatorSchedulerConfig(id)
+
+        this.scheduleDraw()
+        return true
+    }
+
+    /**
+     * 切换主图指标启用状态
+     * @param indicatorId 指标ID
+     * @param enabled 是否启用
+     */
+    toggleMainIndicator(indicatorId: string, enabled: boolean): void {
+        if (enabled) {
+            this.enableMainIndicator(indicatorId)
+        } else {
+            this.disableMainIndicator(indicatorId)
+        }
+    }
+
+    /**
+     * 获取当前激活的主图指标列表
+     * @returns 激活的指标ID数组
+     */
+    getActiveMainIndicators(): string[] {
+        return Array.from(this.activeMainIndicators)
+    }
+
+    /**
+     * 检查主图指标是否激活
+     * @param indicatorId 指标ID
+     */
+    isMainIndicatorActive(indicatorId: string): boolean {
+        return this.activeMainIndicators.has(indicatorId.toUpperCase())
+    }
+
+    /**
+     * 更新主图指标参数
+     * @param indicatorId 指标ID
+     * @param params 参数对象
+     */
+    updateMainIndicatorParams(indicatorId: string, params: Record<string, number | boolean>): void {
+        const id = indicatorId.toUpperCase()
+        if (!this.mainIndicatorParams[id]) {
+            this.mainIndicatorParams[id] = {}
+        }
+        this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
+
+        // 同步更新渲染器配置
+        const rendererName = id.toLowerCase()
+        const renderer = this.getRenderer(rendererName)
+        if (renderer && renderer.setConfig) {
+            renderer.setConfig(this.mainIndicatorParams[id])
+        }
+
+        // 更新调度器
+        this.updateIndicatorSchedulerConfig(id)
+        this.scheduleDraw()
+    }
+
+    /**
+     * 获取主图指标参数
+     * @param indicatorId 指标ID
+     */
+    getMainIndicatorParams(indicatorId: string): Record<string, number | boolean> | null {
+        return this.mainIndicatorParams[indicatorId.toUpperCase()] ?? null
+    }
+
+    /**
+     * 清除所有主图指标
+     */
+    clearMainIndicators(): void {
+        for (const id of this.activeMainIndicators) {
+            this.disableMainIndicatorRenderer(id)
+        }
+        this.activeMainIndicators.clear()
+        this.scheduleDraw()
+    }
+
+    /**
+     * 启用主图指标渲染器（内部方法）
+     */
+    private enableMainIndicatorRenderer(indicatorId: string): void {
+        const rendererMap: Record<string, () => void> = {
+            'MA': () => {
+                if (!this.getRenderer('ma')) {
+                    this.useRenderer(createMARendererPlugin())
+                }
+                this.setRendererEnabled('ma', true)
+            },
+            'BOLL': () => {
+                if (!this.getRenderer('boll')) {
+                    this.useRenderer(createBOLLRendererPlugin())
+                }
+                this.setRendererEnabled('boll', true)
+            },
+            'EXPMA': () => {
+                if (!this.getRenderer('expma')) {
+                    this.useRenderer(createEXPMARendererPlugin())
+                }
+                this.setRendererEnabled('expma', true)
+            },
+            'ENE': () => {
+                if (!this.getRenderer('ene')) {
+                    this.useRenderer(createENERendererPlugin())
+                }
+                this.setRendererEnabled('ene', true)
+            },
+        }
+
+        const fn = rendererMap[indicatorId]
+        if (fn) fn()
+
+        // 确保图例渲染器已注册
+        if (!this.getRenderer('mainIndicatorLegend')) {
+            this.useRenderer(createMainIndicatorLegendRendererPlugin({ yPaddingPx: this.opt.yPaddingPx }))
+        }
+    }
+
+    /**
+     * 禁用主图指标渲染器（内部方法）
+     */
+    private disableMainIndicatorRenderer(indicatorId: string): void {
+        const rendererMap: Record<string, string> = {
+            'MA': 'ma',
+            'BOLL': 'boll',
+            'EXPMA': 'expma',
+            'ENE': 'ene',
+        }
+
+        const rendererName = rendererMap[indicatorId]
+        if (rendererName) {
+            this.setRendererEnabled(rendererName, false)
+        }
+    }
+
+    /**
+     * 更新调度器配置（内部方法）
+     */
+    private updateIndicatorSchedulerConfig(indicatorId: string): void {
+        const isActive = this.activeMainIndicators.has(indicatorId)
+        const params = this.mainIndicatorParams[indicatorId]
+
+        switch (indicatorId) {
+            case 'MA':
+                this.indicatorScheduler.updateMAConfig({
+                    ma5: isActive,
+                    ma10: isActive,
+                    ma20: isActive,
+                    ma30: isActive,
+                    ma60: isActive,
+                })
+                break
+            case 'BOLL':
+                if (isActive) {
+                    this.indicatorScheduler.updateBOLLConfig(params as unknown as BOLLSchedulerConfig)
+                } else {
+                    this.indicatorScheduler.updateBOLLConfig({ ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false } as unknown as BOLLSchedulerConfig)
+                }
+                break
+            case 'EXPMA':
+                if (isActive) {
+                    this.indicatorScheduler.updateEXPMAConfig(params as unknown as EXPMASchedulerConfig)
+                }
+                break
+            case 'ENE':
+                if (isActive) {
+                    this.indicatorScheduler.updateENEConfig(params as unknown as ENESchedulerConfig)
+                }
+                break
+        }
+    }
+
+    /**
+     * @deprecated 使用 enableMainIndicator/disableMainIndicator 替代
+     */
+    setActiveMainIndicators(indicators: string[]): void {
+        // 计算需要启用和禁用的指标
+        const newSet = new Set(indicators.map(i => i.toUpperCase()))
+        const currentSet = new Set(this.activeMainIndicators)
+
+        // 禁用不再激活的
+        for (const id of currentSet) {
+            if (!newSet.has(id)) {
+                this.disableMainIndicator(id)
+            }
+        }
+
+        // 启用新激活的
+        for (const id of newSet) {
+            if (!currentSet.has(id)) {
+                this.enableMainIndicator(id)
+            }
+        }
+    }
 
     /**
      * 创建图表实例
@@ -403,14 +669,20 @@ export class Chart {
         const sharedYAxisRanges: YAxisRange[] = []
         const sharedXAxisRanges: XAxisRange[] = []
 
+        // 获取主图指标极值（用于与K线极值合并）
+        // 先设置当前激活的指标
+        this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
+        const mainIndicatorRange = this.indicatorScheduler.getMainIndicatorPriceRange()
+
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
             const mainCtx = renderer.getDom().mainCanvas.getContext('2d')
             const overlayCtx = renderer.getDom().overlayCanvas.getContext('2d')
             const yAxisCtx = renderer.getDom().yAxisCanvas.getContext('2d')
 
-            // 更新价格范围
-            pane.updateRange(this.data, range)
+            // 更新价格范围（主图Pane合并K线和指标极值，副图只使用自身数据）
+            const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
+            pane.updateRange(this.data, range, indicatorRange)
 
             // 根据更新级别清空对应 Canvas
             const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
@@ -995,6 +1267,17 @@ export class Chart {
         const priceOffset = pane.yAxis.deltaYToPriceOffset(deltaY)
         const currentOffset = pane.yAxis.getPriceOffset()
         pane.yAxis.setPriceOffset(currentOffset + priceOffset)
+        this.scheduleDraw()
+    }
+
+    /**
+     * 重置价格轴垂直偏移
+     * @param paneId 目标 pane ID
+     */
+    resetPriceOffset(paneId: string): void {
+        const renderer = this.paneRenderers.find(r => r.getPane().id === paneId)
+        if (!renderer) return
+        renderer.getPane().yAxis.resetPriceOffset()
         this.scheduleDraw()
     }
 

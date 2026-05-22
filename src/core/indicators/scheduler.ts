@@ -269,11 +269,22 @@ export class IndicatorScheduler {
     private dirtyKstState = true
     private dirtyFastkState = true
 
+    /** 当前激活的主图指标列表 */
+    private activeMainIndicators: Set<string> = new Set()
+
     /**
      * 设置 PluginHost，用于读写 StateStore
      */
     setPluginHost(host: PluginHost): void {
         this.pluginHost = host
+    }
+
+    /**
+     * 设置当前激活的主图指标（用于极值计算过滤）
+     * @param indicators 激活的指标ID列表，如 ['ma', 'boll', 'expma', 'ene']
+     */
+    setActiveMainIndicators(indicators: string[]): void {
+        this.activeMainIndicators = new Set(indicators.map(i => i.toLowerCase()))
     }
 
     /**
@@ -923,5 +934,67 @@ export class IndicatorScheduler {
         this.dirtyWmsrState = false
         this.dirtyKstState = false
         this.dirtyFastkState = false
+    }
+
+    /**
+     * 获取主图指标极值（用于与K线极值合并计算价格轴范围）
+     * @returns 主图指标的价格范围，无指标时返回 null
+     */
+    getMainIndicatorPriceRange(): { min: number; max: number } | null {
+        let min = Infinity
+        let max = -Infinity
+        const { start, end } = this.visibleRange
+
+        // MA极值（仅当MA被激活时计算）
+        if (this.activeMainIndicators.has('ma') && Object.keys(this.cachedSeries).length > 0) {
+            for (const values of Object.values(this.cachedSeries)) {
+                for (let i = start; i < end && i < values.length; i++) {
+                    const v = values[i]
+                    if (v !== undefined) {
+                        min = Math.min(min, v)
+                        max = Math.max(max, v)
+                    }
+                }
+            }
+        }
+
+        // BOLL极值（仅当BOLL被激活时计算）
+        if (this.activeMainIndicators.has('boll') && this.cachedBollSeries.length > 0) {
+            for (let i = start; i < end && i < this.cachedBollSeries.length; i++) {
+                const p = this.cachedBollSeries[i]
+                if (p) {
+                    min = Math.min(min, p.upper, p.middle, p.lower)
+                    max = Math.max(max, p.upper, p.middle, p.lower)
+                }
+            }
+        }
+
+        // EXPMA极值（仅当EXPMA被激活时计算）
+        if (this.activeMainIndicators.has('expma') && this.cachedExpmaSeries.length > 0) {
+            for (let i = start; i < end && i < this.cachedExpmaSeries.length; i++) {
+                const p = this.cachedExpmaSeries[i]
+                if (p) {
+                    min = Math.min(min, p.fast, p.slow)
+                    max = Math.max(max, p.fast, p.slow)
+                }
+            }
+        }
+
+        // ENE极值（仅当ENE被激活时计算）
+        if (this.activeMainIndicators.has('ene') && this.cachedEneSeries.length > 0) {
+            for (let i = start; i < end && i < this.cachedEneSeries.length; i++) {
+                const p = this.cachedEneSeries[i]
+                if (p) {
+                    min = Math.min(min, p.upper, p.middle, p.lower)
+                    max = Math.max(max, p.upper, p.middle, p.lower)
+                }
+            }
+        }
+
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+            return null
+        }
+
+        return { min, max }
     }
 }

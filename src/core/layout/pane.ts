@@ -145,9 +145,17 @@ export class Pane {
    * 根据当前可见索引区间更新 priceRange 并同步到 yAxis
    * @param data 全量 K 线数据
    * @param range 当前视口可见的索引范围（由 getVisibleRange 计算）
+   * @param indicatorRange 可选的指标极值范围，与K线极值合并
    */
-  updateRange(data: KLineData[], range: VisibleRange) {
+  updateRange(data: KLineData[], range: VisibleRange, indicatorRange?: { min: number; max: number } | null) {
     this.priceRange = getVisiblePriceRange(data, range.start, range.end)
+
+    // 如果有指标极值，合并到价格范围
+    if (indicatorRange && Number.isFinite(indicatorRange.min) && Number.isFinite(indicatorRange.max)) {
+      this.priceRange.minPrice = Math.min(this.priceRange.minPrice, indicatorRange.min)
+      this.priceRange.maxPrice = Math.max(this.priceRange.maxPrice, indicatorRange.max)
+    }
+
     this.yAxis.setRange(this.priceRange)
   }
 }

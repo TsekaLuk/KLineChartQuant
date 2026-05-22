@@ -127,7 +127,12 @@ export class InteractionController {
 
     /** 更新用户设置 */
     updateSettings(settings: Record<string, boolean>): void {
+        const prev = this.settings.disableMainPaneVerticalScroll
         this.settings = { ...settings }
+        // 开启自适应时，重置主图垂直偏移
+        if (!prev && this.settings.disableMainPaneVerticalScroll) {
+            this.chart.resetPriceOffset('main')
+        }
     }
 
     getInteractionSnapshot(): InteractionSnapshot {
@@ -359,11 +364,11 @@ export class InteractionController {
                 this.applyPanScroll(container, this.scrollStartX + deltaX)
 
                 const deltaY = e.clientY - this.dragStartY
+                this.dragStartY = e.clientY
                 if (deltaY !== 0 && this.activePaneIdOnDrag === 'main') {
                     if (!this.settings.disableMainPaneVerticalScroll) {
                         this.chart.translatePrice(this.activePaneIdOnDrag, deltaY)
                     }
-                    this.dragStartY = e.clientY
                 }
             }
             return

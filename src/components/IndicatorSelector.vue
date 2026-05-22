@@ -178,7 +178,8 @@ const allIndicators: Indicator[] = [
     label: 'VOL',
     name: '成交量',
     pane: 'sub',
-    description: '成交量反映市场活跃度，柱状图显示每根K线的交易量。上涨时柱子为红色，下跌时为绿色。',
+    description:
+      '成交量反映市场活跃度，柱状图显示每根K线的交易量。上涨时柱子为红色，下跌时为绿色。',
   },
   {
     id: 'BOLL',

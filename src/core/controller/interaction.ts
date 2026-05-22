@@ -839,7 +839,6 @@ export class InteractionController {
         this.kLinePositions = null
         this.visibleRange = null
         this.kWidthPx = null
-        this.settings = {}
     }
 
     /** 获取十字线指向的 K 线索引 */

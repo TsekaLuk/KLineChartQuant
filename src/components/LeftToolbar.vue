@@ -1,11 +1,7 @@
 <template>
   <nav class="left-toolbar" aria-label="图表工具栏">
     <div class="left-toolbar__group">
-      <div
-        v-for="tool in primaryTools"
-        :key="tool.id"
-        class="tool-item"
-      >
+      <div v-for="tool in primaryTools" :key="tool.id" class="tool-item">
         <button
           type="button"
           class="left-toolbar__button"
@@ -206,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watchEffect, toRaw } from 'vue'
 import IconTablerPointer from '~icons/tabler/pointer'
 import IconTablerChartLine from '~icons/tabler/chart-line'
 import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
@@ -275,12 +271,14 @@ const primaryTools: ToolDef[] = [
   },
 ]
 
-// ═══ 类型导出（供父组件使用）═══
+// 类型导出
 export type { SettingItem } from '../config/chartSettings'
 
 // 设置项分组
 const mainSettings = computed(() => DEFAULT_SETTINGS.filter((s) => s.group === 'main'))
-const experimentalSettings = computed(() => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental'))
+const experimentalSettings = computed(() =>
+  DEFAULT_SETTINGS.filter((s) => s.group === 'experimental'),
+)
 
 const selectedToolId = ref('cursor')
 const openGroupId = ref<string | null>(null)
@@ -662,7 +660,10 @@ onUnmounted(() => {
   justify-content: center;
   cursor: pointer;
   color: #888;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
   padding: 0;
 }
 

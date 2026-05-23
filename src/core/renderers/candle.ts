@@ -38,8 +38,23 @@ export function createCandleRenderer(): RendererPlugin {
                 ? analyzeVolumePriceRelationBatch(klineData, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
                 : null
 
-            for (let i = range.start; i < range.end && i < klineData.length; i++) {
+            // 第一遍：收集所有K线渲染数据，按趋势分组
+            type KLineRenderData = {
+                i: number
+                aligned: ReturnType<typeof createAlignedKLineFromPx>
+                trend: kLineTrend
+                openY: number
+                closeY: number
+                highY: number
+                lowY: number
+                alignedHighY: number
+                alignedLowY: number
+                e: KLineData
+            }
+            const upKLines: KLineRenderData[] = []
+            const downKLines: KLineRenderData[] = []
 
+            for (let i = range.start; i < range.end && i < klineData.length; i++) {
                 const e = klineData[i]
                 if (!e) continue
 
@@ -72,45 +87,103 @@ export function createCandleRenderer(): RendererPlugin {
                 )
 
                 const trend: kLineTrend = getKLineTrend(e)
-                const color = trend === 'up' ? PRICE_COLORS.UP : PRICE_COLORS.DOWN
+                const renderData: KLineRenderData = {
+                    i,
+                    aligned,
+                    trend,
+                    openY,
+                    closeY,
+                    highY,
+                    lowY,
+                    alignedHighY,
+                    alignedLowY,
+                    e
+                }
 
-                ctx.fillStyle = color
-                ctx.fillRect(aligned.bodyRect.x, aligned.bodyRect.y, aligned.bodyRect.width, aligned.bodyRect.height)
+                if (trend === 'up') {
+                    upKLines.push(renderData)
+                } else {
+                    downKLines.push(renderData)
+                }
+            }
 
-                const wickWidth = aligned.wickRect.width
-                const wickX = aligned.wickRect.x
-                const bodyTop = aligned.bodyRect.y
-                const bodyBottom = aligned.bodyRect.y + aligned.bodyRect.height
-                const bodyHigh = Math.max(e.open, e.close)
-                const bodyLow = Math.min(e.open, e.close)
+            // 批量绘制红色K线实体（上涨）
+            ctx.fillStyle = PRICE_COLORS.UP
+            for (const k of upKLines) {
+                ctx.fillRect(k.aligned.bodyRect.x, k.aligned.bodyRect.y, k.aligned.bodyRect.width, k.aligned.bodyRect.height)
+            }
 
-                if (e.high > bodyHigh) {
-                    const wick = createVerticalLineRect(wickX, alignedHighY, bodyTop, dpr)
+            // 批量绘制绿色K线实体（下跌）
+            ctx.fillStyle = PRICE_COLORS.DOWN
+            for (const k of downKLines) {
+                ctx.fillRect(k.aligned.bodyRect.x, k.aligned.bodyRect.y, k.aligned.bodyRect.width, k.aligned.bodyRect.height)
+            }
+
+            const wickWidth = upKLines[0]?.aligned.wickRect.width ?? downKLines[0]?.aligned.wickRect.width ?? 1
+
+            // 批量绘制红色K线影线
+            ctx.fillStyle = PRICE_COLORS.UP
+            for (const k of upKLines) {
+                const wickX = k.aligned.wickRect.x
+                const bodyTop = k.aligned.bodyRect.y
+                const bodyBottom = k.aligned.bodyRect.y + k.aligned.bodyRect.height
+                const bodyHigh = Math.max(k.e.open, k.e.close)
+                const bodyLow = Math.min(k.e.open, k.e.close)
+
+                if (k.e.high > bodyHigh) {
+                    const wick = createVerticalLineRect(wickX, k.alignedHighY, bodyTop, dpr)
                     if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
                 }
-                if (e.low < bodyLow) {
-                    const wick = createVerticalLineRect(wickX, bodyBottom, alignedLowY, dpr)
+                if (k.e.low < bodyLow) {
+                    const wick = createVerticalLineRect(wickX, bodyBottom, k.alignedLowY, dpr)
                     if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
                 }
+            }
 
-                // 绘制量价关系标记（小缩放下不显示，避免拥挤；可通过设置关闭）
-                const relation = relations?.[i - range.start]
-                const MIN_ZOOM_LEVEL_FOR_MARKER = 2
-                if (showVolumePriceMarkers &&
-                    relation !== undefined && relation !== VolumePriceRelation.OTHERS &&
-                    markerManager &&
-                    (context.zoomLevel ?? 1) >= MIN_ZOOM_LEVEL_FOR_MARKER) {
-                    // 根据量价关系决定标记位置
-                    const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-                        relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-                    const markerY = isRising ? alignedHighY - 15 : alignedLowY + 15
-                    // 使用传下来的 kLineCenters（已物理像素对齐的影线中心）
-                    const posIndex = i - range.start
-                    const markerX = context.kLineCenters[posIndex]!
+            // 批量绘制绿色K线影线
+            ctx.fillStyle = PRICE_COLORS.DOWN
+            for (const k of downKLines) {
+                const wickX = k.aligned.wickRect.x
+                const bodyTop = k.aligned.bodyRect.y
+                const bodyBottom = k.aligned.bodyRect.y + k.aligned.bodyRect.height
+                const bodyHigh = Math.max(k.e.open, k.e.close)
+                const bodyLow = Math.min(k.e.open, k.e.close)
 
-                    drawVolumePriceMarker(ctx, markerX, markerY, relation!, i, kWidth, 4, markerManager as MarkerManager, dpr)
+                if (k.e.high > bodyHigh) {
+                    const wick = createVerticalLineRect(wickX, k.alignedHighY, bodyTop, dpr)
+                    if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
                 }
+                if (k.e.low < bodyLow) {
+                    const wick = createVerticalLineRect(wickX, bodyBottom, k.alignedLowY, dpr)
+                    if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
+                }
+            }
 
+            // 绘制量价关系标记（按原有逻辑，不区分颜色批量处理）
+            const MIN_ZOOM_LEVEL_FOR_MARKER = 2
+            if (showVolumePriceMarkers && markerManager && (context.zoomLevel ?? 1) >= MIN_ZOOM_LEVEL_FOR_MARKER) {
+                for (const k of upKLines) {
+                    const relation = relations?.[k.i - range.start]
+                    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
+                        const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME ||
+                            relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
+                        const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
+                        const posIndex = k.i - range.start
+                        const markerX = context.kLineCenters[posIndex]!
+                        drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager as MarkerManager, dpr)
+                    }
+                }
+                for (const k of downKLines) {
+                    const relation = relations?.[k.i - range.start]
+                    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
+                        const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME ||
+                            relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
+                        const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
+                        const posIndex = k.i - range.start
+                        const markerX = context.kLineCenters[posIndex]!
+                        drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager as MarkerManager, dpr)
+                    }
+                }
             }
 
             ctx.restore()

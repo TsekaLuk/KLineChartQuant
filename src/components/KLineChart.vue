@@ -119,6 +119,7 @@ import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 import { Chart, type PaneSpec } from '@/core/chart'
+import type { KLineData } from '@/types/price'
 import { createChartStore, TRAILING_DRAWING_SLOTS, type ChartStore } from '@/core/chart-store'
 import { zoomLevelToKWidth, kGapFromDpr, computeZoom, computeZoomToLevel } from '@/core/utils/zoom'
 import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
@@ -264,6 +265,59 @@ function scheduleRender() {
 
 function handleSettingsChange(settings: Record<string, boolean>) {
   chartRef.value?.updateSettings(settings)
+
+  // 万条K线性能测试
+  if (settings.performanceTest10kKlines) {
+    const testData = generate10kKLineData()
+    console.time('updateData-10k')
+    chartRef.value?.updateData(testData)
+    console.timeEnd('updateData-10k')
+    store.actions.setDataLength(testData.length)
+    store.actions.bumpDataVersion()
+  } else {
+    // 如果关闭性能测试，恢复原始数据
+    // 通过重新应用语义化配置来恢复
+    if (semanticController.value && chartRef.value?.getData()?.length === 10000) {
+      semanticController.value.applyConfig(props.semanticConfig)
+    }
+  }
+}
+
+// 生成1万条K线测试数据
+function generate10kKLineData() {
+  const data: KLineData[] = []
+  const startTime = new Date('2020-01-01').getTime()
+  const dayMs = 24 * 60 * 60 * 1000
+
+  let lastClose = 3000 // 起始价格
+
+  for (let i = 0; i < 10000; i++) {
+    const timestamp = startTime + i * dayMs
+
+    // 生成随机波动
+    const volatility = 0.02 // 2%日波动率
+    const trend = 0.0001 // 轻微上涨趋势
+    const change = (Math.random() - 0.5) * 2 * volatility + trend
+
+    const open = lastClose
+    const close = open * (1 + change)
+    const high = Math.max(open, close) * (1 + Math.random() * 0.01)
+    const low = Math.min(open, close) * (1 - Math.random() * 0.01)
+    const volume = Math.floor(1000000 + Math.random() * 5000000)
+
+    data.push({
+      timestamp,
+      open: parseFloat(open.toFixed(2)),
+      high: parseFloat(high.toFixed(2)),
+      low: parseFloat(low.toFixed(2)),
+      close: parseFloat(close.toFixed(2)),
+      volume,
+    })
+
+    lastClose = close
+  }
+
+  return data
 }
 
 function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {
@@ -1239,10 +1293,7 @@ defineExpose({
 })
 
 onMounted(() => {
-  useAnchorPositioning.value =
-    typeof CSS !== 'undefined' &&
-    CSS.supports('anchor-name: --kmap-anchor') &&
-    CSS.supports('position-anchor: --kmap-anchor')
+  useAnchorPositioning.value = false
 
   const container = containerRef.value
   const canvasLayer = canvasLayerRef.value

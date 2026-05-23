@@ -32,6 +32,7 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **Plugin Architecture** - Renderer plugin-based design, supporting dynamic registration, configuration, and lifecycle management
 - **Custom Markers** - Supports semantic configuration of custom markers and custom information
 - **High Performance** - Smoothly handles tens of thousands of data points, no lag during zoom or pan
+- **WebGL Rendering** - K-lines, volume bars, and MACD bars rendered via WebGL for GPU-accelerated performance, reaching **190fps on 200Hz displays** with per-frame GPU time under **1ms**
 - **Optimized Interaction** - Stable zoom anchor, precise crosshair cursor, smooth drag
 
 ## 🚀 Quick Start
@@ -133,6 +134,7 @@ const config: SemanticChartConfig = {
 
 ## 🚀 What's New
 
+- **v0.6.3** WebGL rendering for K-lines, volume bars, and MACD bars; significant performance boost across the board
 - **v0.6.1** Dual-layer canvas architecture: Main + Overlay separation with UpdateLevel filtering, achieves stable **180fps with low jitter on 200Hz displays**
 - **v0.6.0** Stateless indicator pipeline: MA/BOLL/EXPMA/ENE/RSI/CCI/STOCH/MOM/WMSR/KST/FASTK now use unified Calculator → Scheduler → StateStore → Renderer architecture for better performance and maintainability
 - **v0.5.6** Logarithmic price axis with evenly distributed grid lines at pixel level

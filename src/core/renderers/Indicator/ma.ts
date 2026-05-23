@@ -7,9 +7,8 @@ import { MA_COLORS } from '@/core/theme/colors'
 // Re-export MAFlags from calculators for backward compatibility
 export type { MAFlags } from '@/core/indicators/calculators'
 
-/**
- * MA 周期到颜色的映射
- */
+type LinePoint = { x: number; y: number }
+
 const MA_COLOR_MAP: Record<number, string> = {
     5: MA_COLORS.MA5,
     10: MA_COLORS.MA10,
@@ -39,17 +38,14 @@ function buildMACacheKey(
     ].join('|')
 }
 
-/**
- * 创建 MA 均线渲染器插件（带绘制缓存）
- */
 export function createMARendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
     let cachedKey = ''
-    let cachedPaths = new Map<number, Path2D>()
+    let cachedLines = new Map<number, LinePoint[]>()
 
     function clearCache() {
         cachedKey = ''
-        cachedPaths = new Map()
+        cachedLines = new Map()
     }
 
     return {
@@ -69,7 +65,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
+            const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
             const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
 
             if (!state || state.visibleMin > state.visibleMax) {
@@ -85,12 +81,11 @@ export function createMARendererPlugin(): RendererPluginWithHost {
             const cacheKey = buildMACacheKey(range, kLineCenters, pane, state.enabledPeriods)
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
-                cachedPaths = new Map()
+                cachedLines = new Map()
 
                 for (const [periodStr, values] of Object.entries(state.series)) {
                     const period = Number(periodStr)
-                    const path = new Path2D()
-                    let started = false
+                    const points: LinePoint[] = []
 
                     for (let i = range.start; i < range.end && i < values.length; i++) {
                         const maValue = values[i]
@@ -99,20 +94,45 @@ export function createMARendererPlugin(): RendererPluginWithHost {
                         const centerX = kLineCenters[i - range.start]
                         if (centerX === undefined) continue
 
-                        const y = alignToPhysicalPixelCenter(pane.yAxis.priceToY(maValue), dpr)
-                        if (!started) {
-                            path.moveTo(centerX, y)
-                            started = true
-                        } else {
-                            path.lineTo(centerX, y)
-                        }
+                        points.push({ x: centerX, y: pane.yAxis.priceToY(maValue) })
                     }
 
-                    if (started) {
-                        cachedPaths.set(period, path)
+                    if (points.length >= 2) {
+                        cachedLines.set(period, points)
                     }
                 }
             }
+
+            let usedWebGL = false
+            if (lineWebGLSurface?.isAvailable()) {
+                let allOk = true
+                for (const period of state.enabledPeriods) {
+                    const points = cachedLines.get(period)
+                    if (!points) continue
+                    const ok = lineWebGLSurface.drawLineStrip(
+                        { points, width: 1 },
+                        MA_COLOR_MAP[period] ?? MA_COLORS.MA5,
+                        scrollLeft
+                    )
+                    if (!ok) {
+                        allOk = false
+                        break
+                    }
+                }
+
+                if (allOk) {
+                    usedWebGL = true
+                    const canvas = lineWebGLSurface.getCanvas()
+                    if (canvas.width > 0 && canvas.height > 0) {
+                        const prevImageSmoothingEnabled = ctx.imageSmoothingEnabled
+                        ctx.imageSmoothingEnabled = false
+                        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / dpr, canvas.height / dpr)
+                        ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
+                    }
+                }
+            }
+
+            if (usedWebGL) return
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -121,10 +141,16 @@ export function createMARendererPlugin(): RendererPluginWithHost {
             ctx.lineCap = 'round'
 
             for (const period of state.enabledPeriods) {
-                const path = cachedPaths.get(period)
-                if (!path) continue
+                const points = cachedLines.get(period)
+                if (!points || points.length < 2) continue
                 ctx.strokeStyle = MA_COLOR_MAP[period] ?? MA_COLORS.MA5
-                ctx.stroke(path)
+                ctx.beginPath()
+                ctx.moveTo(points[0]!.x, points[0]!.y)
+                for (let i = 1; i < points.length; i++) {
+                    const point = points[i]!
+                    ctx.lineTo(point.x, point.y)
+                }
+                ctx.stroke()
             }
 
             ctx.restore()
@@ -140,7 +166,6 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         },
 
         setConfig(_newConfig: Record<string, unknown>) {
-            // 外部控制器应调用 chart.getIndicatorScheduler().updateMAConfig()
         },
     }
 }

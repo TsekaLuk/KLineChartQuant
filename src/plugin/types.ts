@@ -3,7 +3,7 @@
  */
 
 import type { KLineData } from '@/types/price'
-import type { CandleWebGLSurface } from '@/core/renderers/webgl/candleSurface'
+import type { CandleWebGLSurface, LineWebGLSurface } from '@/core/renderers/webgl/candleSurface'
 
 /** 插件生命周期状态 */
 export enum PluginState {
@@ -281,6 +281,8 @@ export interface RenderContext {
   overlayCtx?: CanvasRenderingContext2D
   /** price pane 可选的 WebGL candle surface */
   candleWebGLSurface?: CandleWebGLSurface
+  /** line indicator 可选的 WebGL line surface */
+  lineWebGLSurface?: LineWebGLSurface
   /** 当前缩放级别（1 ~ zoomLevels） */
   zoomLevel?: number
   /** 总缩放级别数 */

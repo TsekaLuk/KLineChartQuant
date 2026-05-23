@@ -5,6 +5,8 @@ import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { EXPMA_COLORS } from '@/core/theme/colors'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/expmaState'
 
+type LinePoint = { x: number; y: number }
+
 function buildEXPMACacheKey(
     range: { start: number; end: number },
     kLineCenters: number[],
@@ -24,19 +26,16 @@ function buildEXPMACacheKey(
     ].join('|')
 }
 
-/**
- * 创建 EXPMA（指数平滑移动平均线）渲染器插件（带绘制缓存）
- */
 export function createEXPMARendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
     let cachedKey = ''
-    let cachedFastPath: Path2D | null = null
-    let cachedSlowPath: Path2D | null = null
+    let cachedFastPoints: LinePoint[] = []
+    let cachedSlowPoints: LinePoint[] = []
 
     function clearCache() {
         cachedKey = ''
-        cachedFastPath = null
-        cachedSlowPath = null
+        cachedFastPoints = []
+        cachedSlowPoints = []
     }
 
     return {
@@ -56,7 +55,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
+            const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
             const klineData = data as KLineData[]
             const state = pluginHost?.getSharedState<EXPMARenderState>(EXPMA_STATE_KEY)
 
@@ -76,10 +75,8 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
 
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
-                cachedFastPath = new Path2D()
-                cachedSlowPath = new Path2D()
-                let fastStarted = false
-                let slowStarted = false
+                cachedFastPoints = []
+                cachedSlowPoints = []
 
                 for (let i = drawStart; i < drawEnd; i++) {
                     const expma = expmaData[i]
@@ -88,27 +85,42 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
                     const centerX = kLineCenters[i - range.start]
                     if (centerX === undefined) continue
 
-                    const fastY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(expma.fast), dpr)
-                    const slowY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(expma.slow), dpr)
+                    cachedFastPoints.push({ x: centerX, y: pane.yAxis.priceToY(expma.fast) })
+                    cachedSlowPoints.push({ x: centerX, y: pane.yAxis.priceToY(expma.slow) })
+                }
+            }
 
-                    if (!fastStarted) {
-                        cachedFastPath.moveTo(centerX, fastY)
-                        fastStarted = true
-                    } else {
-                        cachedFastPath.lineTo(centerX, fastY)
-                    }
-
-                    if (!slowStarted) {
-                        cachedSlowPath.moveTo(centerX, slowY)
-                        slowStarted = true
-                    } else {
-                        cachedSlowPath.lineTo(centerX, slowY)
-                    }
+            let usedWebGL = false
+            if (lineWebGLSurface?.isAvailable()) {
+                let allOk = true
+                if (cachedFastPoints.length >= 2) {
+                    allOk = lineWebGLSurface.drawLineStrip(
+                        { points: cachedFastPoints, width: 1 },
+                        EXPMA_COLORS.FAST,
+                        scrollLeft
+                    )
+                }
+                if (allOk && cachedSlowPoints.length >= 2) {
+                    allOk = lineWebGLSurface.drawLineStrip(
+                        { points: cachedSlowPoints, width: 1 },
+                        EXPMA_COLORS.SLOW,
+                        scrollLeft
+                    )
                 }
 
-                if (!fastStarted) cachedFastPath = null
-                if (!slowStarted) cachedSlowPath = null
+                if (allOk) {
+                    usedWebGL = true
+                    const canvas = lineWebGLSurface.getCanvas()
+                    if (canvas.width > 0 && canvas.height > 0) {
+                        const prevImageSmoothingEnabled = ctx.imageSmoothingEnabled
+                        ctx.imageSmoothingEnabled = false
+                        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / dpr, canvas.height / dpr)
+                        ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
+                    }
+                }
             }
+
+            if (usedWebGL) return
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -116,14 +128,26 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
 
-            if (cachedFastPath) {
+            if (cachedFastPoints.length >= 2) {
                 ctx.strokeStyle = EXPMA_COLORS.FAST
-                ctx.stroke(cachedFastPath)
+                ctx.beginPath()
+                ctx.moveTo(cachedFastPoints[0]!.x, cachedFastPoints[0]!.y)
+                for (let i = 1; i < cachedFastPoints.length; i++) {
+                    const point = cachedFastPoints[i]!
+                    ctx.lineTo(point.x, point.y)
+                }
+                ctx.stroke()
             }
 
-            if (cachedSlowPath) {
+            if (cachedSlowPoints.length >= 2) {
                 ctx.strokeStyle = EXPMA_COLORS.SLOW
-                ctx.stroke(cachedSlowPath)
+                ctx.beginPath()
+                ctx.moveTo(cachedSlowPoints[0]!.x, cachedSlowPoints[0]!.y)
+                for (let i = 1; i < cachedSlowPoints.length; i++) {
+                    const point = cachedSlowPoints[i]!
+                    ctx.lineTo(point.x, point.y)
+                }
+                ctx.stroke()
             }
 
             ctx.restore()
@@ -135,7 +159,6 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         },
 
         setConfig(_newConfig: Record<string, unknown>) {
-            // 外部控制器应调用 chart.getIndicatorScheduler().updateEXPMAConfig()
         },
     }
 }

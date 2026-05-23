@@ -1,4 +1,4 @@
-import { CandleWebGLSurface } from './renderers/webgl/candleSurface'
+import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
 
 export type PaneRendererDom = {
     mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
@@ -20,6 +20,7 @@ export type PaneRendererOptions = {
 
 export type PaneRendererWebGLHandles = {
     candleSurface: CandleWebGLSurface | null
+    lineSurface: LineWebGLSurface | null
 }
 
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
@@ -43,6 +44,7 @@ export class PaneRenderer {
         }
         this.webgl = {
             candleSurface: new CandleWebGLSurface(),
+            lineSurface: new LineWebGLSurface(),
         }
     }
 
@@ -144,11 +146,13 @@ export class PaneRenderer {
         }
 
         this.webgl.candleSurface?.resize(width, height, dpr)
+        this.webgl.lineSurface?.resize(width, height, dpr)
     }
 
     /** 销毁 PaneRenderer 实例 */
     destroy() {
         this.contexts = null
         this.webgl.candleSurface?.destroy()
+        this.webgl.lineSurface?.destroy()
     }
 }

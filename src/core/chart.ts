@@ -728,6 +728,7 @@ export class Chart {
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
             const { mainCtx, overlayCtx, yAxisCtx } = renderer.getContexts()
+            const { candleSurface } = renderer.getWebGL()
 
             if (!useCachedOverlayFrame) {
                 const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
@@ -741,6 +742,7 @@ export class Chart {
                 mainCtx.setTransform(1, 0, 0, 1, 0, 0)
                 mainCtx.scale(vp.dpr, vp.dpr)
                 mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
+                candleSurface?.clear()
             }
 
             if (shouldUpdateOverlay && overlayCtx) {
@@ -774,6 +776,7 @@ export class Chart {
                 markerManager: this.markerManager,
                 crosshairIndex: this.interaction.getCrosshairIndex(),
                 yAxisCtx: yAxisCtx ?? undefined,
+                candleWebGLSurface: candleSurface ?? undefined,
                 zoomLevel: this.currentZoomLevel,
                 zoomLevelCount: this.zoomLevelCount,
                 viewport: {

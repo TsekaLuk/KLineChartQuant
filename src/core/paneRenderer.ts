@@ -1,3 +1,5 @@
+import { CandleWebGLSurface } from './renderers/webgl/candleSurface'
+
 export type PaneRendererDom = {
     mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
     overlayCanvas: HTMLCanvasElement   // 覆盖层：十字线、Tooltip（透明）
@@ -16,6 +18,10 @@ export type PaneRendererOptions = {
     priceLabelWidth?: number
 }
 
+export type PaneRendererWebGLHandles = {
+    candleSurface: CandleWebGLSurface | null
+}
+
 /* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
    创建并管理 mainCanvas / overlayCanvas / yAxisCanvas
    持有 Pane 实例（布局、Y 轴、价格范围）
@@ -26,6 +32,7 @@ export class PaneRenderer {
     private pane: import('./layout/pane').Pane
     private opt: PaneRendererOptions
     private contexts: PaneRendererContexts | null = null
+    private webgl: PaneRendererWebGLHandles
 
     constructor(dom: PaneRendererDom, pane: import('./layout/pane').Pane, opt: PaneRendererOptions) {
         this.dom = dom
@@ -33,6 +40,9 @@ export class PaneRenderer {
         this.opt = {
             ...opt,
             priceLabelWidth: opt.priceLabelWidth || 60,
+        }
+        this.webgl = {
+            candleSurface: pane.role === 'price' ? new CandleWebGLSurface() : null,
         }
     }
 
@@ -55,6 +65,10 @@ export class PaneRenderer {
             }
         }
         return this.contexts
+    }
+
+    getWebGL(): PaneRendererWebGLHandles {
+        return this.webgl
     }
 
     /**
@@ -128,10 +142,13 @@ export class PaneRenderer {
         if (yAxisCanvas.style.height !== yAxisCssHeight) {
             yAxisCanvas.style.height = yAxisCssHeight
         }
+
+        this.webgl.candleSurface?.resize(width, height, dpr)
     }
 
     /** 销毁 PaneRenderer 实例 */
     destroy() {
         this.contexts = null
+        this.webgl.candleSurface?.destroy()
     }
 }

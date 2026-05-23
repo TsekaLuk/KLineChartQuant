@@ -9,6 +9,38 @@ import { VolumePriceRelation } from '@/types/volumePrice'
 import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '@/utils/volumePrice'
 import type { MarkerManager } from '@/core/marker/registry'
 
+type Rect = {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
+type CandleRenderData = {
+    i: number
+    aligned: ReturnType<typeof createAlignedKLineFromPx>
+    trend: kLineTrend
+    openY: number
+    closeY: number
+    highY: number
+    lowY: number
+    alignedHighY: number
+    alignedLowY: number
+    e: KLineData
+}
+
+type PreparedCandles = {
+    upKLines: CandleRenderData[]
+    downKLines: CandleRenderData[]
+    upBodyRects: Rect[]
+    downBodyRects: Rect[]
+    upWickRects: Rect[]
+    downWickRects: Rect[]
+    wickWidth: number
+    relations: VolumePriceRelation[] | null
+    showVolumePriceMarkers: boolean
+}
+
 /**
  * 创建 K 线蜡烛图渲染器插件
  */
@@ -26,169 +58,223 @@ export function createCandleRenderer(): RendererPlugin {
             const klineData = data as KLineData[]
             if (!klineData.length) return
 
-            const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+            const prepared = prepareCandles({
+                pane,
+                data: klineData,
+                range,
+                kWidth,
+                kGap,
+                dpr,
+                kLinePositions,
+                settings,
+            })
 
-            ctx.save()
-            ctx.translate(-scrollLeft, 0)
-            const positions = kLinePositions || []
-
-            // 批量计算量价关系（未开启标记时跳过计算）
-            const showVolumePriceMarkers = settings?.showVolumePriceMarkers !== false
-            const relations = showVolumePriceMarkers
-                ? analyzeVolumePriceRelationBatch(klineData, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
-                : null
-
-            // 第一遍：收集所有K线渲染数据，按趋势分组
-            type KLineRenderData = {
-                i: number
-                aligned: ReturnType<typeof createAlignedKLineFromPx>
-                trend: kLineTrend
-                openY: number
-                closeY: number
-                highY: number
-                lowY: number
-                alignedHighY: number
-                alignedLowY: number
-                e: KLineData
-            }
-            const upKLines: KLineRenderData[] = []
-            const downKLines: KLineRenderData[] = []
-
-            for (let i = range.start; i < range.end && i < klineData.length; i++) {
-                const e = klineData[i]
-                if (!e) continue
-
-                const openY = pane.yAxis.priceToY(e.open)
-                const closeY = pane.yAxis.priceToY(e.close)
-                const highY = pane.yAxis.priceToY(e.high)
-                const lowY = pane.yAxis.priceToY(e.low)
-
-                // 使用 Chart 统一计算的 x 坐标
-                const leftLogical = positions[i - range.start]
-                if (!leftLogical) continue
-
-                // 对齐 Y 坐标到物理像素网格
-                const alignY = (logical: number) => Math.round(logical * dpr) / dpr
-                const alignedOpenY = alignY(openY)
-                const alignedCloseY = alignY(closeY)
-                const alignedHighY = alignY(highY)
-                const alignedLowY = alignY(lowY)
-                const alignedRawRectY = Math.min(alignedOpenY, alignedCloseY)
-                const alignedRawRectH = Math.max(Math.abs(alignedOpenY - alignedCloseY), 1)
-
-                const roundedLeftPx = Math.round(leftLogical * dpr)
-
-                const aligned = createAlignedKLineFromPx(
-                    roundedLeftPx,
-                    alignedRawRectY,
-                    kWidthPx,
-                    alignedRawRectH,
-                    dpr
-                )
-
-                const trend: kLineTrend = getKLineTrend(e)
-                const renderData: KLineRenderData = {
-                    i,
-                    aligned,
-                    trend,
-                    openY,
-                    closeY,
-                    highY,
-                    lowY,
-                    alignedHighY,
-                    alignedLowY,
-                    e
-                }
-
-                if (trend === 'up') {
-                    upKLines.push(renderData)
-                } else {
-                    downKLines.push(renderData)
-                }
+            const usedWebGL = drawCandlesWithWebGL(context, prepared)
+            if (!usedWebGL) {
+                console.log('[candle] Canvas2D')
+                drawCandlesWithCanvas2D(ctx, scrollLeft, prepared)
+            } else {
+                console.log('[candle] WebGL')
+                compositeWebGLToMainCanvas(ctx, context)
             }
 
-            // 批量绘制红色K线实体（上涨）
-            ctx.fillStyle = PRICE_COLORS.UP
-            for (const k of upKLines) {
-                ctx.fillRect(k.aligned.bodyRect.x, k.aligned.bodyRect.y, k.aligned.bodyRect.width, k.aligned.bodyRect.height)
-            }
-
-            // 批量绘制绿色K线实体（下跌）
-            ctx.fillStyle = PRICE_COLORS.DOWN
-            for (const k of downKLines) {
-                ctx.fillRect(k.aligned.bodyRect.x, k.aligned.bodyRect.y, k.aligned.bodyRect.width, k.aligned.bodyRect.height)
-            }
-
-            const wickWidth = upKLines[0]?.aligned.wickRect.width ?? downKLines[0]?.aligned.wickRect.width ?? 1
-
-            // 批量绘制红色K线影线
-            ctx.fillStyle = PRICE_COLORS.UP
-            for (const k of upKLines) {
-                const wickX = k.aligned.wickRect.x
-                const bodyTop = k.aligned.bodyRect.y
-                const bodyBottom = k.aligned.bodyRect.y + k.aligned.bodyRect.height
-                const bodyHigh = Math.max(k.e.open, k.e.close)
-                const bodyLow = Math.min(k.e.open, k.e.close)
-
-                if (k.e.high > bodyHigh) {
-                    const wick = createVerticalLineRect(wickX, k.alignedHighY, bodyTop, dpr)
-                    if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
-                }
-                if (k.e.low < bodyLow) {
-                    const wick = createVerticalLineRect(wickX, bodyBottom, k.alignedLowY, dpr)
-                    if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
-                }
-            }
-
-            // 批量绘制绿色K线影线
-            ctx.fillStyle = PRICE_COLORS.DOWN
-            for (const k of downKLines) {
-                const wickX = k.aligned.wickRect.x
-                const bodyTop = k.aligned.bodyRect.y
-                const bodyBottom = k.aligned.bodyRect.y + k.aligned.bodyRect.height
-                const bodyHigh = Math.max(k.e.open, k.e.close)
-                const bodyLow = Math.min(k.e.open, k.e.close)
-
-                if (k.e.high > bodyHigh) {
-                    const wick = createVerticalLineRect(wickX, k.alignedHighY, bodyTop, dpr)
-                    if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
-                }
-                if (k.e.low < bodyLow) {
-                    const wick = createVerticalLineRect(wickX, bodyBottom, k.alignedLowY, dpr)
-                    if (wick) ctx.fillRect(wick.x, wick.y, wickWidth, wick.height)
-                }
-            }
-
-            // 绘制量价关系标记（按原有逻辑，不区分颜色批量处理）
-            const MIN_ZOOM_LEVEL_FOR_MARKER = 2
-            if (showVolumePriceMarkers && markerManager && (context.zoomLevel ?? 1) >= MIN_ZOOM_LEVEL_FOR_MARKER) {
-                for (const k of upKLines) {
-                    const relation = relations?.[k.i - range.start]
-                    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
-                        const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-                            relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-                        const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
-                        const posIndex = k.i - range.start
-                        const markerX = context.kLineCenters[posIndex]!
-                        drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager as MarkerManager, dpr)
-                    }
-                }
-                for (const k of downKLines) {
-                    const relation = relations?.[k.i - range.start]
-                    if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
-                        const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME ||
-                            relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
-                        const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
-                        const posIndex = k.i - range.start
-                        const markerX = context.kLineCenters[posIndex]!
-                        drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager as MarkerManager, dpr)
-                    }
-                }
-            }
-
-            ctx.restore()
+            drawVolumePriceMarkers(context, prepared, markerManager as MarkerManager | undefined)
         },
     }
+}
+
+function prepareCandles(args: {
+    pane: RenderContext['pane']
+    data: KLineData[]
+    range: { start: number; end: number }
+    kWidth: number
+    kGap: number
+    dpr: number
+    kLinePositions: number[]
+    settings?: RenderContext['settings']
+}): PreparedCandles {
+    const { pane, data, range, kWidth, kGap, dpr, kLinePositions, settings } = args
+    const { kWidthPx } = getPhysicalKLineConfig(kWidth, kGap, dpr)
+    const showVolumePriceMarkers = settings?.showVolumePriceMarkers !== false
+    const relations = showVolumePriceMarkers
+        ? analyzeVolumePriceRelationBatch(data, range.start, range.end, DEFAULT_VOLUME_PRICE_CONFIG)
+        : null
+
+    const upKLines: CandleRenderData[] = []
+    const downKLines: CandleRenderData[] = []
+    const upBodyRects: Rect[] = []
+    const downBodyRects: Rect[] = []
+    const upWickRects: Rect[] = []
+    const downWickRects: Rect[] = []
+
+    for (let i = range.start; i < range.end && i < data.length; i++) {
+        const e = data[i]
+        if (!e) continue
+
+        const openY = pane.yAxis.priceToY(e.open)
+        const closeY = pane.yAxis.priceToY(e.close)
+        const highY = pane.yAxis.priceToY(e.high)
+        const lowY = pane.yAxis.priceToY(e.low)
+
+        const leftLogical = kLinePositions[i - range.start]
+        if (leftLogical === undefined) continue
+
+        const alignY = (logical: number) => Math.round(logical * dpr) / dpr
+        const alignedOpenY = alignY(openY)
+        const alignedCloseY = alignY(closeY)
+        const alignedHighY = alignY(highY)
+        const alignedLowY = alignY(lowY)
+        const alignedRawRectY = Math.min(alignedOpenY, alignedCloseY)
+        const alignedRawRectH = Math.max(Math.abs(alignedOpenY - alignedCloseY), 1)
+
+        const roundedLeftPx = Math.round(leftLogical * dpr)
+        const aligned = createAlignedKLineFromPx(
+            roundedLeftPx,
+            alignedRawRectY,
+            kWidthPx,
+            alignedRawRectH,
+            dpr
+        )
+
+        const trend: kLineTrend = getKLineTrend(e)
+        const renderData: CandleRenderData = {
+            i,
+            aligned,
+            trend,
+            openY,
+            closeY,
+            highY,
+            lowY,
+            alignedHighY,
+            alignedLowY,
+            e,
+        }
+
+        const bodyRect = aligned.bodyRect
+        const targetKLines = trend === 'up' ? upKLines : downKLines
+        const targetBodies = trend === 'up' ? upBodyRects : downBodyRects
+        const targetWicks = trend === 'up' ? upWickRects : downWickRects
+
+        targetKLines.push(renderData)
+        targetBodies.push(bodyRect)
+
+        const bodyTop = aligned.bodyRect.y
+        const bodyBottom = aligned.bodyRect.y + aligned.bodyRect.height
+        const bodyHigh = Math.max(e.open, e.close)
+        const bodyLow = Math.min(e.open, e.close)
+
+        if (e.high > bodyHigh) {
+            const wick = createVerticalLineRect(aligned.wickRect.x, alignedHighY, bodyTop, dpr)
+            if (wick) targetWicks.push(wick)
+        }
+        if (e.low < bodyLow) {
+            const wick = createVerticalLineRect(aligned.wickRect.x, bodyBottom, alignedLowY, dpr)
+            if (wick) targetWicks.push(wick)
+        }
+    }
+
+    const wickWidth = upKLines[0]?.aligned.wickRect.width ?? downKLines[0]?.aligned.wickRect.width ?? 1
+
+    return {
+        upKLines,
+        downKLines,
+        upBodyRects,
+        downBodyRects,
+        upWickRects,
+        downWickRects,
+        wickWidth,
+        relations,
+        showVolumePriceMarkers,
+    }
+}
+
+function drawCandlesWithCanvas2D(ctx: CanvasRenderingContext2D, scrollLeft: number, prepared: PreparedCandles): void {
+    ctx.save()
+    ctx.translate(-scrollLeft, 0)
+
+    ctx.fillStyle = PRICE_COLORS.UP
+    for (const rect of prepared.upBodyRects) {
+        ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+    }
+
+    ctx.fillStyle = PRICE_COLORS.DOWN
+    for (const rect of prepared.downBodyRects) {
+        ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+    }
+
+    ctx.fillStyle = PRICE_COLORS.UP
+    for (const rect of prepared.upWickRects) {
+        ctx.fillRect(rect.x, rect.y, prepared.wickWidth, rect.height)
+    }
+
+    ctx.fillStyle = PRICE_COLORS.DOWN
+    for (const rect of prepared.downWickRects) {
+        ctx.fillRect(rect.x, rect.y, prepared.wickWidth, rect.height)
+    }
+
+    ctx.restore()
+}
+
+function drawCandlesWithWebGL(context: RenderContext, prepared: PreparedCandles): boolean {
+    const surface = context.candleWebGLSurface
+    if (!surface || !surface.isAvailable()) return false
+
+    surface.clear()
+
+    const bodyUpOk = prepared.upBodyRects.length === 0 || surface.drawRects(prepared.upBodyRects, PRICE_COLORS.UP, context.scrollLeft)
+    const bodyDownOk = prepared.downBodyRects.length === 0 || surface.drawRects(prepared.downBodyRects, PRICE_COLORS.DOWN, context.scrollLeft)
+    const wickUpOk = prepared.upWickRects.length === 0 || surface.drawRects(prepared.upWickRects, PRICE_COLORS.UP, context.scrollLeft)
+    const wickDownOk = prepared.downWickRects.length === 0 || surface.drawRects(prepared.downWickRects, PRICE_COLORS.DOWN, context.scrollLeft)
+
+    return bodyUpOk && bodyDownOk && wickUpOk && wickDownOk
+}
+
+function compositeWebGLToMainCanvas(ctx: CanvasRenderingContext2D, context: RenderContext): void {
+    const surface = context.candleWebGLSurface
+    if (!surface) return
+
+    const canvas = surface.getCanvas()
+    if (canvas.width <= 0 || canvas.height <= 0) return
+
+    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / context.dpr, canvas.height / context.dpr)
+}
+
+function drawVolumePriceMarkers(
+    context: RenderContext,
+    prepared: PreparedCandles,
+    markerManager: MarkerManager | undefined
+): void {
+    const { ctx, range, kWidth, dpr } = context
+    if (!prepared.showVolumePriceMarkers || !markerManager || (context.zoomLevel ?? 1) < 2) {
+        return
+    }
+
+    ctx.save()
+    ctx.translate(-context.scrollLeft, 0)
+
+    for (const k of prepared.upKLines) {
+        const relation = prepared.relations?.[k.i - range.start]
+        if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
+            const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME || relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
+            const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
+            const posIndex = k.i - range.start
+            const markerX = context.kLineCenters[posIndex]!
+            drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager, dpr)
+        }
+    }
+
+    for (const k of prepared.downKLines) {
+        const relation = prepared.relations?.[k.i - range.start]
+        if (relation !== undefined && relation !== VolumePriceRelation.OTHERS) {
+            const isRising = relation === VolumePriceRelation.RISE_WITH_VOLUME || relation === VolumePriceRelation.RISE_WITHOUT_VOLUME
+            const markerY = isRising ? k.alignedHighY - 15 : k.alignedLowY + 15
+            const posIndex = k.i - range.start
+            const markerX = context.kLineCenters[posIndex]!
+            drawVolumePriceMarker(ctx, markerX, markerY, relation, k.i, kWidth, 4, markerManager, dpr)
+        }
+    }
+
+    ctx.restore()
 }
 
 /**
@@ -214,13 +300,11 @@ export function drawVolumePriceMarker(
     markerManager: MarkerManager,
     dpr: number
 ): void {
-    // 对齐坐标到物理像素网格
     const align = (v: number) => Math.round(v * dpr) / dpr
     x = align(x)
     y = align(y)
 
     const sideLength = Math.min(kWidth, 20)
-    // 等边三角形的高度 = 边长 * √3 / 2
     const height = sideLength * Math.sqrt(3) / 2
 
     let color: string
@@ -228,22 +312,18 @@ export function drawVolumePriceMarker(
 
     switch (relation) {
         case VolumePriceRelation.RISE_WITH_VOLUME:
-            // 量价齐升 - 红色向上箭头
             color = '#FF4444'
             isUp = true
             break
         case VolumePriceRelation.RISE_WITHOUT_VOLUME:
-            // 缩量上涨 - 绿色向上箭头
             color = '#00C853'
             isUp = true
             break
         case VolumePriceRelation.FALL_WITH_VOLUME:
-            // 放量下跌 - 红色向下箭头
             color = '#FF4444'
             isUp = false
             break
         case VolumePriceRelation.FALL_WITHOUT_VOLUME:
-            // 缩量下跌 - 绿色向下箭头
             color = '#00C853'
             isUp = false
             break
@@ -255,23 +335,19 @@ export function drawVolumePriceMarker(
     ctx.beginPath()
 
     if (isUp) {
-        // 向上三角形：底边在下，顶点在上
-        // y 是 highY，三角形底边距离 highY 有 gap 的间距
-        const baseY = align(y - gap)           // 底边 y 坐标
-        const tipY = align(baseY - height)     // 顶点 y 坐标
+        const baseY = align(y - gap)
+        const tipY = align(baseY - height)
 
-        ctx.moveTo(x, tipY)                                    // 顶点
-        ctx.lineTo(align(x - sideLength / 2), baseY)           // 左下角
-        ctx.lineTo(align(x + sideLength / 2), baseY)           // 右下角
+        ctx.moveTo(x, tipY)
+        ctx.lineTo(align(x - sideLength / 2), baseY)
+        ctx.lineTo(align(x + sideLength / 2), baseY)
     } else {
-        // 向下三角形：底边在上，顶点在下
-        // y 是 lowY，三角形底边距离 lowY 有 gap 的间距
-        const baseY = align(y + gap)           // 底边 y 坐标
-        const tipY = align(baseY + height)     // 顶点 y 坐标
+        const baseY = align(y + gap)
+        const tipY = align(baseY + height)
 
-        ctx.moveTo(x, tipY)                                    // 顶点
-        ctx.lineTo(align(x - sideLength / 2), baseY)           // 左上角
-        ctx.lineTo(align(x + sideLength / 2), baseY)           // 右上角
+        ctx.moveTo(x, tipY)
+        ctx.lineTo(align(x - sideLength / 2), baseY)
+        ctx.lineTo(align(x + sideLength / 2), baseY)
     }
 
     ctx.closePath()
@@ -281,25 +357,21 @@ export function drawVolumePriceMarker(
 
     ctx.restore()
 
-    // 计算三角形的包围盒坐标
     let boundingX: number
     let boundingY: number
 
     if (isUp) {
-        // 向上三角形：底边在下，顶点在上
-        const baseY = align(y - gap)           // 底边 y 坐标
-        const tipY = align(baseY - height)     // 顶点 y 坐标
-        boundingX = align(x - sideLength / 2)  // 左上角 x
-        boundingY = tipY                        // 左上角 y（顶点 y）
+        const baseY = align(y - gap)
+        const tipY = align(baseY - height)
+        boundingX = align(x - sideLength / 2)
+        boundingY = tipY
     } else {
-        // 向下三角形：底边在上，顶点在下
-        const baseY = align(y + gap)           // 底边 y 坐标
-        const tipY = align(baseY + height)     // 顶点 y 坐标
-        boundingX = align(x - sideLength / 2)  // 左上角 x
-        boundingY = baseY                       // 左上角 y（底边 y）
+        const baseY = align(y + gap)
+        const tipY = align(baseY + height)
+        boundingX = align(x - sideLength / 2)
+        boundingY = baseY
     }
 
-    // 根据 VolumePriceRelation 获取对应的 markerType
     let markerTypeKey: string
     switch (relation) {
         case VolumePriceRelation.RISE_WITH_VOLUME:

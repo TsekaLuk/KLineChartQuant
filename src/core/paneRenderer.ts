@@ -42,7 +42,7 @@ export class PaneRenderer {
             priceLabelWidth: opt.priceLabelWidth || 60,
         }
         this.webgl = {
-            candleSurface: pane.role === 'price' ? new CandleWebGLSurface() : null,
+            candleSurface: new CandleWebGLSurface(),
         }
     }
 

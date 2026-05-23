@@ -71,10 +71,8 @@ export function createCandleRenderer(): RendererPlugin {
 
             const usedWebGL = drawCandlesWithWebGL(context, prepared)
             if (!usedWebGL) {
-                console.log('[candle] Canvas2D')
                 drawCandlesWithCanvas2D(ctx, scrollLeft, prepared)
             } else {
-                console.log('[candle] WebGL')
                 compositeWebGLToMainCanvas(ctx, context)
             }
 

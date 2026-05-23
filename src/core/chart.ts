@@ -163,6 +163,9 @@ export class Chart {
     /** 缓存的 scrollLeft（通过 scroll 事件同步，避免每帧读取 DOM 触发强制回流） */
     private cachedScrollLeft = 0
 
+    /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
+    private overlayHadCrosshair = false
+
     /** 用户设置配置（传递给渲染器） */
     private settings: ChartSettings = {}
 
@@ -720,6 +723,8 @@ export class Chart {
         this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
         const mainIndicatorRange = useCachedOverlayFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
 
+        const hasCrosshair = this.interaction.getCrosshairIndex() !== null
+
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
             const { mainCtx, overlayCtx, yAxisCtx } = renderer.getContexts()
@@ -730,7 +735,7 @@ export class Chart {
             }
 
             const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
-            const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
+            const shouldUpdateOverlay = (level === UpdateLevel.Overlay || level === UpdateLevel.All) && (hasCrosshair || this.overlayHadCrosshair)
 
             if (shouldUpdateMain && mainCtx) {
                 mainCtx.setTransform(1, 0, 0, 1, 0, 0)
@@ -793,6 +798,9 @@ export class Chart {
                 this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
             }
         }
+
+        // 更新 overlay 十字线状态标记
+        this.overlayHadCrosshair = hasCrosshair
 
         const xAxisCtx = this.xAxisCtx ?? this.dom.xAxisCanvas.getContext('2d')
         if (!this.xAxisCtx) {

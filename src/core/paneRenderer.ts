@@ -68,6 +68,11 @@ export class PaneRenderer {
         const overlayCanvas = this.dom.overlayCanvas
         const yAxisCanvas = this.dom.yAxisCanvas
 
+        // 先读取 parentClientWidth，避免在写入样式后读取触发强制回流
+        const fallbackYAxisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth || 60)
+        const parentClientWidth = yAxisCanvas.parentElement?.clientWidth ?? 0
+        const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth
+
         // Main Canvas
         const mainWidth = Math.round(width * dpr)
         if (mainCanvas.width !== mainWidth) {
@@ -104,9 +109,6 @@ export class PaneRenderer {
         }
 
         // YAxis Canvas
-        const fallbackYAxisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth || 60)
-        const parentClientWidth = yAxisCanvas.parentElement?.clientWidth ?? 0
-        const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth
         const yAxisWidth = Math.round(canvasYAxisWidth * dpr)
         if (yAxisCanvas.width !== yAxisWidth) {
             yAxisCanvas.width = yAxisWidth

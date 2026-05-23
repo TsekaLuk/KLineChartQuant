@@ -515,6 +515,10 @@ export class InteractionController {
     private beginScalePriceDrag(clientY: number, mouseY: number) {
         const pane = this.getPaneByY(mouseY)
         if (!pane) return false
+        // 主图禁用垂直滚动时，禁止价格轴缩放
+        if (pane.id === 'main' && this.settings.disableMainPaneVerticalScroll) {
+            return false
+        }
         this.isDragging = true
         this.dragMode = 'scale-price'
         this.dragStartY = clientY

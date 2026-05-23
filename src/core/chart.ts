@@ -154,8 +154,14 @@ export class Chart {
     /** 统一监听容器尺寸与 DPR 变化 */
     private resizeObserver?: ResizeObserver
 
+    /** scroll 事件处理器引用（用于 cleanup） */
+    private onScroll?: () => void
+
     /** 最近一次观测到的容器尺寸 */
     private observedSize = { width: 0, height: 0 }
+
+    /** 缓存的 scrollLeft（通过 scroll 事件同步，避免每帧读取 DOM 触发强制回流） */
+    private cachedScrollLeft = 0
 
     /** 用户设置配置（传递给渲染器） */
     private settings: ChartSettings = {}
@@ -165,6 +171,9 @@ export class Chart {
 
     /** 视口变化回调（供外部同步 DPR/尺寸） */
     private onViewportChange?: (viewport: Viewport) => void
+
+    /** 共享 X 轴上下文缓存 */
+    private xAxisCtx: CanvasRenderingContext2D | null = null
 
     /** pane 布局回流回调（Chart -> UI 单向） */
     private onPaneLayoutChange?: (panes: PaneSpec[]) => void
@@ -499,6 +508,11 @@ export class Chart {
         const target = this.dom.container
         if (!target) return
 
+        // 初始化 scrollLeft 缓存
+        this.cachedScrollLeft = target.scrollLeft
+        this.onScroll = () => { this.cachedScrollLeft = target.scrollLeft }
+        target.addEventListener('scroll', this.onScroll, { passive: true })
+
         this.resizeObserver = new ResizeObserver((entries) => {
             const entry = entries[0]
             if (!entry) return
@@ -557,6 +571,11 @@ export class Chart {
 
     getCurrentDpr(): number {
         return this.getEffectiveDpr()
+    }
+
+    /** 获取缓存的 scrollLeft（避免读取 DOM 触发强制回流） */
+    getCachedScrollLeft(): number {
+        return this.cachedScrollLeft
     }
 
     /** 获取插件宿主 */
@@ -690,18 +709,14 @@ export class Chart {
         }
 
         // 4. 设置交互控制器
-        const { kWidthPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, vp.dpr)
         this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
 
         // 5. 遍历所有 Pane 渲染
-        // 共享的标签数组，所有 pane 的渲染器都会向其中添加标签
         const sharedYAxisLabels: YAxisLabel[] = []
         const sharedXAxisLabels: XAxisLabel[] = []
         const sharedYAxisRanges: YAxisRange[] = []
         const sharedXAxisRanges: XAxisRange[] = []
 
-        // 获取主图指标极值（用于与K线极值合并）
-        // 先设置当前激活的指标
         this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
         const mainIndicatorRange = useCachedOverlayFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
 
@@ -1336,8 +1351,9 @@ export class Chart {
         if (container) {
             const contentWidth = this.getContentWidth()
             const maxScrollLeft = Math.max(0, contentWidth - container.clientWidth)
-            if (container.scrollLeft > maxScrollLeft) {
+            if (this.cachedScrollLeft > maxScrollLeft) {
                 container.scrollLeft = maxScrollLeft
+                this.cachedScrollLeft = maxScrollLeft
             }
         }
 
@@ -1465,7 +1481,15 @@ export class Chart {
         this.preciseDpr = 0
         this.observedSize = { width: 0, height: 0 }
 
+        // 清理 scroll 监听
+        if (this.onScroll) {
+            this.dom.container?.removeEventListener('scroll', this.onScroll)
+            this.onScroll = undefined
+        }
+
         this.viewport = null
+        this.cachedDrawFrame = null
+        this.xAxisCtx = null
         this.paneRenderers.forEach((r) => r.destroy())
         this.paneRenderers = []
 
@@ -1729,7 +1753,7 @@ export class Chart {
         }
 
         // 对齐 scrollLeft，消除 translate 亚像素偏移
-        const scrollLeft = Math.round(container.scrollLeft * dpr) / dpr
+        const scrollLeft = Math.round(this.cachedScrollLeft * dpr) / dpr
 
         const canvasLayerWidth = `${viewWidth}px`
         if (this.dom.canvasLayer.style.width !== canvasLayerWidth) {

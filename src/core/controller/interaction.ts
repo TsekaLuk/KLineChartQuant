@@ -214,7 +214,7 @@ export class InteractionController {
         if (!location) return
 
         const { mouseX, mouseY } = location
-        const scrollLeft = container.scrollLeft
+        const scrollLeft = this.chart.getCachedScrollLeft()
 
         const markerManager = this.chart.getMarkerManager()
         const worldX = scrollLeft + mouseX
@@ -247,7 +247,7 @@ export class InteractionController {
         this.updatePlotHoverFromPoint(e.clientX, e.clientY)
         this.dragStartX = e.clientX
         this.dragStartY = e.clientY
-        this.scrollStartX = container.scrollLeft
+        this.scrollStartX = this.chart.getCachedScrollLeft()
         this.activePaneIdOnDrag = pane?.id || null
 
         this.chart.scheduleDraw()
@@ -645,7 +645,7 @@ export class InteractionController {
 
         this.hoveredRightAxisPaneId = null
 
-        const scrollLeft = container.scrollLeft
+        const scrollLeft = this.chart.getCachedScrollLeft()
         const dpr = this.chart.getCurrentDpr()
 
         const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)

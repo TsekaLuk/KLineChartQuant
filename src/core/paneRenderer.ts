@@ -4,6 +4,12 @@ export type PaneRendererDom = {
     yAxisCanvas: HTMLCanvasElement     // Y轴刻度
 }
 
+export type PaneRendererContexts = {
+    mainCtx: CanvasRenderingContext2D | null
+    overlayCtx: CanvasRenderingContext2D | null
+    yAxisCtx: CanvasRenderingContext2D | null
+}
+
 export type PaneRendererOptions = {
     rightAxisWidth: number
     yPaddingPx: number
@@ -19,6 +25,7 @@ export class PaneRenderer {
     private dom: PaneRendererDom
     private pane: import('./layout/pane').Pane
     private opt: PaneRendererOptions
+    private contexts: PaneRendererContexts | null = null
 
     constructor(dom: PaneRendererDom, pane: import('./layout/pane').Pane, opt: PaneRendererOptions) {
         this.dom = dom
@@ -37,6 +44,17 @@ export class PaneRenderer {
     /** 获取 DOM 元素 */
     getDom(): PaneRendererDom {
         return this.dom
+    }
+
+    getContexts(): PaneRendererContexts {
+        if (!this.contexts) {
+            this.contexts = {
+                mainCtx: this.dom.mainCanvas.getContext('2d'),
+                overlayCtx: this.dom.overlayCanvas.getContext('2d', { desynchronized: true }),
+                yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
+            }
+        }
+        return this.contexts
     }
 
     /**
@@ -112,6 +130,6 @@ export class PaneRenderer {
 
     /** 销毁 PaneRenderer 实例 */
     destroy() {
-        // 无需清理的资源
+        this.contexts = null
     }
 }

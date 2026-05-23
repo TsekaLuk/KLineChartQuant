@@ -41,7 +41,8 @@ export class InteractionController {
         const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
         const clampedScrollLeft = Math.min(Math.max(0, nextScrollLeft), maxScrollLeft)
         const dpr = this.chart.getCurrentDpr()
-        container.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
+        const rounded = Math.round(clampedScrollLeft * dpr) / dpr
+        container.scrollLeft = rounded
     }
 
     /** 垂直拖动相关 */
@@ -114,6 +115,9 @@ export class InteractionController {
     /** 当前帧的可见 K 线索引范围 */
     private visibleRange: { start: number; end: number } | null = null
 
+    /** hover 去重快照 */
+    private lastHoverRenderKey = ''
+
     /** K 线宽度（物理像素），用于计算 K 线中心偏移 */
     private kWidthPx: number | null = null
 
@@ -163,6 +167,22 @@ export class InteractionController {
         this.onInteractionChangeCallback?.(this.getInteractionSnapshot())
     }
 
+    private getHoverRenderKey(): string {
+        const crosshairX = this.crosshairPos ? Math.round(this.crosshairPos.x * this.chart.getCurrentDpr()) : 'n'
+        const crosshairY = this.crosshairPos ? Math.round(this.crosshairPos.y * this.chart.getCurrentDpr()) : 'n'
+        return [
+            this.crosshairIndex ?? 'n',
+            this.hoveredIndex ?? 'n',
+            this.activePaneId ?? 'n',
+            this.hoveredRightAxisPaneId ?? 'n',
+            this.hoveredSeparatorUpperPaneId ?? 'n',
+            this.hoveredMarkerId ?? 'n',
+            this.hoveredCustomMarker?.id ?? 'n',
+            crosshairX,
+            crosshairY,
+        ].join('|')
+    }
+
     /**
      * [触屏]:处理 Pointer 按下事件
      * @param e PointerEvent
@@ -193,7 +213,6 @@ export class InteractionController {
         const location = this.getPlotPointerLocation(e.clientX, e.clientY)
         if (!location) return
 
-        const container = this.chart.getDom().container
         const { mouseX, mouseY } = location
         const scrollLeft = container.scrollLeft
 
@@ -380,7 +399,11 @@ export class InteractionController {
         this.hoveredSeparatorUpperPaneId = this.hitTestPaneSeparator(location.mouseY)
 
         this.updatePlotHoverFromPoint(e.clientX, e.clientY)
-        this.chart.scheduleDraw()
+        const hoverRenderKey = this.getHoverRenderKey()
+        if (hoverRenderKey !== this.lastHoverRenderKey) {
+            this.lastHoverRenderKey = hoverRenderKey
+            this.chart.scheduleDraw(UpdateLevel.Overlay)
+        }
         this.notifyInteractionChange()
     }
 
@@ -430,7 +453,11 @@ export class InteractionController {
         }
 
         this.updateRightAxisHoverFromPoint(e.clientX, e.clientY)
-        this.chart.scheduleDraw()
+        const hoverRenderKey = this.getHoverRenderKey()
+        if (hoverRenderKey !== this.lastHoverRenderKey) {
+            this.lastHoverRenderKey = hoverRenderKey
+            this.chart.scheduleDraw(UpdateLevel.Overlay)
+        }
         this.notifyInteractionChange()
     }
 
@@ -535,6 +562,7 @@ export class InteractionController {
     }
 
     clearHover() {
+        this.lastHoverRenderKey = ''
         this.hoveredRightAxisPaneId = null
         this.crosshairPos = null
         this.crosshairIndex = null
@@ -848,6 +876,7 @@ export class InteractionController {
         this.hoveredCustomMarker = null
         this.kLinePositions = null
         this.visibleRange = null
+        this.lastHoverRenderKey = ''
         this.kWidthPx = null
     }
 

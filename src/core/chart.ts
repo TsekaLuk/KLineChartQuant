@@ -186,6 +186,16 @@ export class Chart {
     /** 上次可见范围（用于检测视口变化） */
     private lastVisibleRange: VisibleRange = { start: 0, end: 0 }
 
+    /** Overlay 帧复用的最近主渲染结果 */
+    private cachedDrawFrame: {
+        viewport: Viewport
+        range: VisibleRange
+        kLinePositions: KLinePositions
+        kLineCenters: number[]
+        kBarRects: Array<{ x: number; width: number }>
+        kWidthPx: number
+    } | null = null
+
     /** 当前激活的主图指标列表（如 ['boll', 'ma']） */
     private activeMainIndicators: Set<string> = new Set()
 
@@ -611,52 +621,72 @@ export class Chart {
         // 重置 Marker 标记
         this.markerManager.clear()
 
-        // 1. 计算视口信息
-        const vp = this.computeViewport()
+        const useCachedOverlayFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
+        const vp = useCachedOverlayFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
         if (!vp) return
 
         // 数据为空时跳过渲染
         if (this.data.length === 0) return
 
-        // 2. 计算可视 K 线数据范围
-        const { start, end } = getVisibleRange(
-            vp.scrollLeft,
-            vp.plotWidth,
-            this.opt.kWidth,
-            this.opt.kGap,
-            this.data.length,
-            vp.dpr
-        )
-
-        const range: VisibleRange = { start, end }
+        const range = useCachedOverlayFrame
+            ? this.cachedDrawFrame!.range
+            : (() => {
+                const { start, end } = getVisibleRange(
+                    vp.scrollLeft,
+                    vp.plotWidth,
+                    this.opt.kWidth,
+                    this.opt.kGap,
+                    this.data.length,
+                    vp.dpr
+                )
+                return { start, end }
+            })()
 
         // 2.5 视口变更时更新指标调度器（在渲染前确保 StateStore 是最新的）
-        if (range.start !== this.lastVisibleRange.start || range.end !== this.lastVisibleRange.end) {
+        if (!useCachedOverlayFrame && (range.start !== this.lastVisibleRange.start || range.end !== this.lastVisibleRange.end)) {
             this.indicatorScheduler.updateVisibleRange(range)
             this.lastVisibleRange = range
         }
 
-        // 3. 计算 K 线坐标
-        const kLinePositions = this.calcKLinePositions(range)
+        const kLinePositions = useCachedOverlayFrame
+            ? this.cachedDrawFrame!.kLinePositions
+            : this.calcKLinePositions(range)
 
-        // 3.5 预计算像素对齐后的中心和柱矩形
-        const physConfig = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, vp.dpr)
-        // 确保 barWidthPx 为奇数，使 (barWidthPx-1)/2 为整数，避免 round 误差
-        let barWidthPx = Math.max(1, physConfig.unitPx - 1)
-        if (barWidthPx % 2 === 0) barWidthPx -= 1
+        let kLineCenters: number[]
+        let kBarRects: Array<{ x: number; width: number }>
+        let kWidthPx: number
 
-        const kLineCenters: number[] = new Array(kLinePositions.length)
-        const kBarRects: Array<{ x: number; width: number }> = new Array(kLinePositions.length)
+        if (useCachedOverlayFrame) {
+            kLineCenters = this.cachedDrawFrame!.kLineCenters
+            kBarRects = this.cachedDrawFrame!.kBarRects
+            kWidthPx = this.cachedDrawFrame!.kWidthPx
+        } else {
+            const physConfig = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, vp.dpr)
+            let barWidthPx = Math.max(1, physConfig.unitPx - 1)
+            if (barWidthPx % 2 === 0) barWidthPx -= 1
 
-        for (let i = 0; i < kLinePositions.length; i++) {
-            const x = kLinePositions[i]!
-            // 与 candle 渲染器的影线位置算法保持完全一致
-            const leftPx = Math.round(x * vp.dpr)
-            const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
-            kLineCenters[i] = wickXPx / vp.dpr
+            kLineCenters = new Array(kLinePositions.length)
+            kBarRects = new Array(kLinePositions.length)
 
-            const barLeftPx = wickXPx - (barWidthPx - 1) / 2
-            kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
+            for (let i = 0; i < kLinePositions.length; i++) {
+                const x = kLinePositions[i]!
+                const leftPx = Math.round(x * vp.dpr)
+                const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
+                kLineCenters[i] = wickXPx / vp.dpr
+
+                const barLeftPx = wickXPx - (barWidthPx - 1) / 2
+                kBarRects[i] = { x: barLeftPx / vp.dpr, width: barWidthPx / vp.dpr }
+            }
+
+            kWidthPx = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, vp.dpr).kWidthPx
+            this.cachedDrawFrame = {
+                viewport: { ...vp },
+                range: { ...range },
+                kLinePositions: [...kLinePositions],
+                kLineCenters: [...kLineCenters],
+                kBarRects: kBarRects.map((rect) => ({ ...rect })),
+                kWidthPx,
+            }
         }
 
         // 4. 设置交互控制器
@@ -673,31 +703,26 @@ export class Chart {
         // 获取主图指标极值（用于与K线极值合并）
         // 先设置当前激活的指标
         this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
-        const mainIndicatorRange = this.indicatorScheduler.getMainIndicatorPriceRange()
+        const mainIndicatorRange = useCachedOverlayFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
 
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
-            const mainCtx = renderer.getDom().mainCanvas.getContext('2d')
-            const overlayCtx = renderer.getDom().overlayCanvas.getContext('2d')
-            const yAxisCtx = renderer.getDom().yAxisCanvas.getContext('2d')
+            const { mainCtx, overlayCtx, yAxisCtx } = renderer.getContexts()
 
-            // 更新价格范围（主图Pane合并K线和指标极值，副图只使用自身数据）
-            const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
-            pane.updateRange(this.data, range, indicatorRange)
+            if (!useCachedOverlayFrame) {
+                const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
+                pane.updateRange(this.data, range, indicatorRange)
+            }
 
-            // 根据更新级别清空对应 Canvas
             const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
             const shouldUpdateOverlay = level === UpdateLevel.Overlay || level === UpdateLevel.All
 
-            // 清空 mainCanvas
             if (shouldUpdateMain && mainCtx) {
                 mainCtx.setTransform(1, 0, 0, 1, 0, 0)
                 mainCtx.scale(vp.dpr, vp.dpr)
-                // 多清除 1px 避免右边界残留
                 mainCtx.clearRect(0, 0, vp.plotWidth + 1, pane.height + 2 / vp.dpr)
             }
 
-            // 清空 overlayCanvas
             if (shouldUpdateOverlay && overlayCtx) {
                 const overlayWidth = overlayCtx.canvas.width / vp.dpr
                 overlayCtx.setTransform(1, 0, 0, 1, 0, 0)
@@ -705,15 +730,13 @@ export class Chart {
                 overlayCtx.clearRect(0, 0, overlayWidth + 1, pane.height + 2 / vp.dpr)
             }
 
-            // 清空 yAxisCanvas
-            if (yAxisCtx) {
+            if (yAxisCtx && !useCachedOverlayFrame) {
                 const yAxisWidth = yAxisCtx.canvas.width / vp.dpr
                 yAxisCtx.setTransform(1, 0, 0, 1, 0, 0)
                 yAxisCtx.scale(vp.dpr, vp.dpr)
                 yAxisCtx.clearRect(0, 0, yAxisWidth, pane.height + 2 / vp.dpr)
             }
 
-            // 构建渲染上下文
             const context: RenderContext = {
                 ctx: mainCtx!,
                 overlayCtx: overlayCtx ?? undefined,
@@ -745,18 +768,21 @@ export class Chart {
                 xAxisRanges: sharedXAxisRanges,
             }
 
-            // 插件渲染器绘制（支持 UpdateLevel 过滤）
-            // 注意：即使 mainCtx 不存在，仍需运行渲染器（overlay 层可能独立更新）
             const errors = this.rendererPluginManager.render(pane.id, context, level)
             if (errors.length > 0) {
                 this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
             }
+
+            const yAxisErrors = this.rendererPluginManager.renderPlugin('yAxis', context)
+            if (yAxisErrors.length > 0) {
+                this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
+            }
         }
 
-        // 6. 渲染时间轴（通过插件管理器的特殊方法）
-        // 使用共享的 X 轴标签数组，包含所有 pane 渲染器添加的标签
-
-        const xAxisCtx = this.dom.xAxisCanvas.getContext('2d')
+        const xAxisCtx = this.xAxisCtx ?? this.dom.xAxisCanvas.getContext('2d')
+        if (!this.xAxisCtx) {
+            this.xAxisCtx = xAxisCtx
+        }
         if (xAxisCtx) {
             const timeAxisContext: RenderContext = {
                 ctx: xAxisCtx,

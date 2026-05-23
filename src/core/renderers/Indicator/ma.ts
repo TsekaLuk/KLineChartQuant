@@ -18,117 +18,119 @@ const MA_COLOR_MAP: Record<number, string> = {
     60: MA_COLORS.MA60,
 }
 
-/**
- * 绘制单条 MA 线
- */
-function drawMALine(
-    ctx: CanvasRenderingContext2D,
-    maData: (number | undefined)[],
-    context: RenderContext,
-    color: string
-) {
-    const { pane, range, dpr, kLineCenters } = context
-
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-
-    let isFirst = true
-
-    for (let i = range.start; i < range.end && i < maData.length; i++) {
-        const maValue = maData[i]
-        if (maValue === undefined) continue
-
-        const centerX = kLineCenters[i - range.start]
-        if (centerX === undefined) continue
-        const logicY = pane.yAxis.priceToY(maValue)
-
-        const x = centerX
-        const y = alignToPhysicalPixelCenter(logicY, dpr)
-
-        if (isFirst) {
-            ctx.moveTo(x, y)
-            isFirst = false
-        } else {
-            ctx.lineTo(x, y)
-        }
-    }
-
-    ctx.stroke()
+function buildMACacheKey(
+    range: { start: number; end: number },
+    kLineCenters: number[],
+    pane: RenderContext['pane'],
+    enabledPeriods: number[]
+): string {
+    const dr = pane.yAxis.getDisplayRange()
+    return [
+        range.start,
+        range.end,
+        kLineCenters.length,
+        kLineCenters[0]?.toFixed(2) ?? 'n',
+        kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
+        dr.maxPrice.toFixed(6),
+        dr.minPrice.toFixed(6),
+        pane.yAxis.getPriceOffset().toFixed(6),
+        pane.yAxis.getScaleType(),
+        enabledPeriods.join(','),
+    ].join('|')
 }
 
 /**
- * 创建 MA 均线渲染器插件（无状态版本）
- *
- * 设计原则：
- * 1. 不持有任何计算缓存或配置状态
- * 2. 所有数据从 StateStore 读取（通过 MA_STATE_KEY）
- * 3. 配置变更通过外部 IndicatorScheduler 处理，不经过本渲染器
- * 4. 纯绘制函数，无副作用
+ * 创建 MA 均线渲染器插件（带绘制缓存）
  */
 export function createMARendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
+    let cachedKey = ''
+    let cachedPaths = new Map<number, Path2D>()
+
+    function clearCache() {
+        cachedKey = ''
+        cachedPaths = new Map()
+    }
 
     return {
         name: 'ma',
         version: '2.0.0',
-        description: 'MA均线渲染器（无状态）',
+        description: 'MA均线渲染器（带绘制缓存）',
         debugName: 'MA均线',
         paneId: 'main',
         priority: RENDERER_PRIORITY.INDICATOR,
 
-        /**
-         * 安装时捕获 PluginHost 引用
-         */
         onInstall(host: PluginHost): void {
             pluginHost = host
         },
 
-        /**
-         * 声明使用的 StateStore 命名空间
-         * 框架在卸载时会自动清理这些命名空间
-         */
         getDeclaredNamespaces(): string[] {
             return [MA_STATE_KEY]
         },
 
-        /**
-         * 绘制 MA 线
-         * 从 StateStore 读取预计算数据，仅执行绘制
-         */
         draw(context: RenderContext) {
-            const { ctx, scrollLeft } = context
-
-            // 从 StateStore 读取 MA 状态
+            const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
             const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
 
-            // 无有效数据时提前返回（visibleMin > visibleMax 表示空数据）
-            if (!state || state.visibleMin > state.visibleMax) return
+            if (!state || state.visibleMin > state.visibleMax) {
+                clearCache()
+                return
+            }
 
-            // 无启用的周期时提前返回
-            if (state.enabledPeriods.length === 0) return
+            if (state.enabledPeriods.length === 0) {
+                clearCache()
+                return
+            }
+
+            const cacheKey = buildMACacheKey(range, kLineCenters, pane, state.enabledPeriods)
+            if (cachedKey !== cacheKey) {
+                cachedKey = cacheKey
+                cachedPaths = new Map()
+
+                for (const [periodStr, values] of Object.entries(state.series)) {
+                    const period = Number(periodStr)
+                    const path = new Path2D()
+                    let started = false
+
+                    for (let i = range.start; i < range.end && i < values.length; i++) {
+                        const maValue = values[i]
+                        if (maValue === undefined) continue
+
+                        const centerX = kLineCenters[i - range.start]
+                        if (centerX === undefined) continue
+
+                        const y = alignToPhysicalPixelCenter(pane.yAxis.priceToY(maValue), dpr)
+                        if (!started) {
+                            path.moveTo(centerX, y)
+                            started = true
+                        } else {
+                            path.lineTo(centerX, y)
+                        }
+                    }
+
+                    if (started) {
+                        cachedPaths.set(period, path)
+                    }
+                }
+            }
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
+            ctx.lineWidth = 1
+            ctx.lineJoin = 'round'
+            ctx.lineCap = 'round'
 
-            // 绘制所有启用的 MA 线
-            for (const [periodStr, values] of Object.entries(state.series)) {
-                const period = Number(periodStr)
-                const color = MA_COLOR_MAP[period] ?? MA_COLORS.MA5
-                drawMALine(ctx, values, context, color)
+            for (const period of state.enabledPeriods) {
+                const path = cachedPaths.get(period)
+                if (!path) continue
+                ctx.strokeStyle = MA_COLOR_MAP[period] ?? MA_COLORS.MA5
+                ctx.stroke(path)
             }
 
             ctx.restore()
         },
 
-        /**
-         * 获取配置（兼容性接口）
-         * 返回空对象，实际配置由外部 IndicatorScheduler 管理
-         */
         getConfig() {
-            // 从 StateStore 读取当前启用的周期作为配置
             const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
             const config: Record<string, boolean> = {}
             state?.enabledPeriods.forEach(period => {
@@ -137,15 +139,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
             return config
         },
 
-        /**
-         * 设置配置（兼容性接口，无实际操作）
-         *
-         * 重要：本渲染器为无状态设计，不持有配置。
-         * 配置变更应通过外部控制器调用 IndicatorScheduler.updateMAConfig() 完成。
-         * 此处保留接口兼容性，但不更新任何内部状态。
-         */
         setConfig(_newConfig: Record<string, unknown>) {
-            // 无状态渲染器不存储配置
             // 外部控制器应调用 chart.getIndicatorScheduler().updateMAConfig()
         },
     }

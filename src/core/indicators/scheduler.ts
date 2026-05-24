@@ -11,6 +11,7 @@ import {
     calcWMSRData,
     calcKSTData,
     calcFASTKData,
+    calcMACDData,
 } from './calculators'
 import type {
     MAFlags,
@@ -19,6 +20,7 @@ import type {
     ENEPoint,
     STOCHPoint,
     KSTPoint,
+    MACDPoint,
 } from './calculators'
 import { DEFAULT_MA_PERIODS } from './calculators'
 import type { MARenderState } from './maState'
@@ -44,6 +46,8 @@ import type { KSTRenderState } from './kstState'
 import { createKSTStateKey } from './kstState'
 import type { FASTKRenderState } from './fastkState'
 import { createFASTKStateKey } from './fastkState'
+import type { MACDRenderState, MACDSchedulerConfig } from './macdState'
+import { createMACDStateKey } from './macdState'
 
 /**
  * 可见范围
@@ -149,6 +153,18 @@ export interface FASTKSchedulerConfig {
 }
 
 /**
+ * MACD 调度器配置
+ */
+export interface MACDSchedulerConfig {
+    fastPeriod: number
+    slowPeriod: number
+    signalPeriod: number
+    showDIF: boolean
+    showDEA: boolean
+    showBAR: boolean
+}
+
+/**
  * 指标调度器
  *
  * 职责：
@@ -244,6 +260,18 @@ export class IndicatorScheduler {
     private fastkPaneId: string = 'sub_FASTK'
     private cachedFastkSeries: (number | undefined)[] = []
 
+    // MACD 配置和缓存
+    private macdConfig: MACDSchedulerConfig = {
+        fastPeriod: 12,
+        slowPeriod: 26,
+        signalPeriod: 9,
+        showDIF: true,
+        showDEA: true,
+        showBAR: true,
+    }
+    private macdPaneId: string = 'sub_MACD'
+    private cachedMacdSeries: MACDPoint[] = []
+
     // 双脏标记（数据/视口）
     private dirtyData = true   // 数据变更 → 重算所有 series + 极值
     private dirtyRange = true  // 仅视口变更 → 仅重算极值
@@ -259,6 +287,7 @@ export class IndicatorScheduler {
     private dirtyWmsrConfig = true
     private dirtyKstConfig = true
     private dirtyFastkConfig = true
+    private dirtyMacdConfig = true
 
     // 各指标 state 脏标记（series 或极值重算时置位，控制 state 写入）
     private dirtyRsiState = true
@@ -268,6 +297,7 @@ export class IndicatorScheduler {
     private dirtyWmsrState = true
     private dirtyKstState = true
     private dirtyFastkState = true
+    private dirtyMacdState = true
 
     /** 当前激活的主图指标列表 */
     private activeMainIndicators: Set<string> = new Set()
@@ -438,6 +468,20 @@ export class IndicatorScheduler {
     }
 
     /**
+     * MACD 配置变更时调用
+     * @param config 新的 MACD 配置
+     * @param paneId MACD pane ID（可选，默认 'sub_MACD'）
+     */
+    updateMACDConfig(config: Partial<MACDSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.macdPaneId = paneId
+        }
+        this.macdConfig = { ...this.macdConfig, ...config }
+        this.dirtyMacdConfig = true
+        this.computeIfDirty()
+    }
+
+    /**
      * 视口变更时调用
      * @param visibleRange 新的可见范围
      */
@@ -467,7 +511,8 @@ export class IndicatorScheduler {
     private computeIfDirty(): void {
         if (!this.dirtyData && !this.dirtyRange &&
             !this.dirtyBollConfig && !this.dirtyExpmaConfig && !this.dirtyEneConfig && !this.dirtyRsiConfig &&
-            !this.dirtyCciConfig && !this.dirtyStochConfig && !this.dirtyMomConfig && !this.dirtyWmsrConfig && !this.dirtyKstConfig && !this.dirtyFastkConfig) {
+            !this.dirtyCciConfig && !this.dirtyStochConfig && !this.dirtyMomConfig && !this.dirtyWmsrConfig &&
+            !this.dirtyKstConfig && !this.dirtyFastkConfig && !this.dirtyMacdConfig) {
             return
         }
         if (!this.pluginHost) return
@@ -584,6 +629,20 @@ export class IndicatorScheduler {
                 this.cachedFastkSeries = calcFASTKData(this.currentData, this.fastkConfig.period)
             } else {
                 this.cachedFastkSeries = []
+            }
+        }
+
+        // MACD series（dirtyData 或 dirtyMacdConfig 时重算）
+        if (this.dirtyData || this.dirtyMacdConfig) {
+            if (this.macdConfig.showDIF || this.macdConfig.showDEA || this.macdConfig.showBAR) {
+                this.cachedMacdSeries = calcMACDData(
+                    this.currentData,
+                    this.macdConfig.fastPeriod,
+                    this.macdConfig.slowPeriod,
+                    this.macdConfig.signalPeriod
+                )
+            } else {
+                this.cachedMacdSeries = []
             }
         }
 
@@ -741,6 +800,20 @@ export class IndicatorScheduler {
                 if (v !== undefined) {
                     fastkVisibleMin = Math.min(fastkVisibleMin, v)
                     fastkVisibleMax = Math.max(fastkVisibleMax, v)
+                }
+            }
+        }
+
+        // MACD 极值（扫描 dif、dea、macd）
+        let macdVisibleMin = Infinity
+        let macdVisibleMax = -Infinity
+        this.dirtyMacdState = this.dirtyData || this.dirtyRange || this.dirtyMacdConfig
+        if (this.dirtyMacdState) {
+            for (let i = this.visibleRange.start; i < this.visibleRange.end && i < this.cachedMacdSeries.length; i++) {
+                const p = this.cachedMacdSeries[i]
+                if (p) {
+                    macdVisibleMin = Math.min(macdVisibleMin, p.dif, p.dea, p.macd)
+                    macdVisibleMax = Math.max(macdVisibleMax, p.dif, p.dea, p.macd)
                 }
             }
         }
@@ -912,6 +985,30 @@ export class IndicatorScheduler {
             this.pluginHost.setSharedState<FASTKRenderState>(fastkStateKey, fastkState, 'indicator_scheduler')
         }
 
+        // MACD State（仅 dirtyMacdState 时写入）
+        if (this.dirtyMacdState) {
+            const macdStateKey = createMACDStateKey(this.macdPaneId)
+            const latestIndex = this.visibleRange.end - 1
+            const latestPoint = latestIndex >= 0 && latestIndex < this.cachedMacdSeries.length
+                ? this.cachedMacdSeries[latestIndex]
+                : null
+            const macdState: MACDRenderState = {
+                timestamp: Date.now(),
+                series: this.cachedMacdSeries,
+                params: this.macdConfig,
+                valueMin: -Infinity,
+                valueMax: Infinity,
+                visibleMin: macdVisibleMin,
+                visibleMax: macdVisibleMax,
+                latestValues: latestPoint ? {
+                    dif: latestPoint.dif,
+                    dea: latestPoint.dea,
+                    macd: latestPoint.macd,
+                } : undefined,
+            }
+            this.pluginHost.setSharedState<MACDRenderState>(macdStateKey, macdState, 'indicator_scheduler')
+        }
+
         // 重置脏标记
         this.dirtyData = false
         this.dirtyRange = false
@@ -925,6 +1022,7 @@ export class IndicatorScheduler {
         this.dirtyWmsrConfig = false
         this.dirtyKstConfig = false
         this.dirtyFastkConfig = false
+        this.dirtyMacdConfig = false
 
         // 重置 state 脏标记
         this.dirtyRsiState = false
@@ -934,6 +1032,7 @@ export class IndicatorScheduler {
         this.dirtyWmsrState = false
         this.dirtyKstState = false
         this.dirtyFastkState = false
+        this.dirtyMacdState = false
     }
 
     /**

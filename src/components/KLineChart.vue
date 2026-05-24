@@ -171,6 +171,7 @@ import type {
   WMSRSchedulerConfig,
   KSTSchedulerConfig,
   FASTKSchedulerConfig,
+  MACDSchedulerConfig,
 } from '@/core/indicators/scheduler'
 
 const props = withDefaults(
@@ -682,6 +683,14 @@ function addSubPane(
   )
   if (!success) return false
 
+  // MACD 初始化：推送配置到 Scheduler
+  if (indicatorId === 'MACD') {
+    chartRef.value?.getIndicatorScheduler().updateMACDConfig(
+      params ?? getDefaultParams(indicatorId) as Partial<MACDSchedulerConfig>,
+      paneId,
+    )
+  }
+
   // RSI 初始化：推送配置到 Scheduler
   if (indicatorId === 'RSI') {
     chartRef.value?.getIndicatorScheduler().updateRSIConfig(
@@ -1054,6 +1063,18 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
     indicatorId === 'ENE'
   ) {
     chartRef.value?.updateMainIndicatorParams(indicatorId, params as Record<string, number | boolean>)
+    scheduleRender()
+    return
+  }
+
+  // MACD 配置通过 Scheduler 更新
+  if (indicatorId === 'MACD') {
+    chartRef.value?.getIndicatorScheduler().updateMACDConfig(params as Partial<MACDSchedulerConfig>, 'sub_MACD')
+    subPanes.value
+      .filter((p) => p.indicatorId === 'MACD')
+      .forEach((pane) => {
+        pane.params = { ...params }
+      })
     scheduleRender()
     return
   }

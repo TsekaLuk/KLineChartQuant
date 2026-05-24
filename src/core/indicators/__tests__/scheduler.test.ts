@@ -215,8 +215,8 @@ describe('IndicatorScheduler', () => {
       // Update only viewport
       scheduler.updateVisibleRange({ start: 50, end: 60 })
 
-      // Should write all 5 indicator states (MA, BOLL, EXPMA, ENE, RSI)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(5)
+      // Should write all 12 indicator states (MA, BOLL, EXPMA, ENE, RSI, CCI, STOCH, MOM, WMSR, KST, FASTK, MACD)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(12)
 
       const state = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
       expect(state).toBeDefined()
@@ -232,8 +232,8 @@ describe('IndicatorScheduler', () => {
       const data2 = createTestData(100, 200)
       scheduler.update(data2, { start: 0, end: 100 })
 
-      // Should be called 10 times (5 indicators × 2 data updates)
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(10)
+      // Should be called 24 times (12 indicators × 2 data updates)
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(24)
     })
   })
 
@@ -246,8 +246,8 @@ describe('IndicatorScheduler', () => {
 
       scheduler.recompute()
 
-      // Should write all 5 indicator states
-      expect(mockHost.setSharedState).toHaveBeenCalledTimes(5)
+      // Should write all 12 indicator states
+      expect(mockHost.setSharedState).toHaveBeenCalledTimes(12)
     })
 
     it('should recalculate with same data and range', () => {
@@ -531,12 +531,14 @@ describe('Per-indicator dirty flags', () => {
 
     scheduler.updateBOLLConfig({ period: 10 })
 
-    // MA state should still be written (for extremes recalculation)
-    // but the series should be unchanged
+    // MA state should NOT be written (only BOLL state should be written)
+    // because MA's dirty flags are not set
     const maStateAfter = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    expect(maStateAfter).toBeDefined()
-    // Series should be same reference (not recalculated)
-    expect(maStateAfter!.series[5]).toEqual(maSeriesBefore)
+    expect(maStateAfter).toBeUndefined()
+    // Verify BOLL state was written
+    const bollStateAfter = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
+    expect(bollStateAfter).toBeDefined()
+    expect(bollStateAfter!.params.period).toBe(10)
   })
 
   it('updateEXPMAConfig should not recalculate MA series', () => {
@@ -550,8 +552,13 @@ describe('Per-indicator dirty flags', () => {
 
     scheduler.updateEXPMAConfig({ fastPeriod: 6 })
 
+    // MA state should NOT be written (only EXPMA state should be written)
     const maStateAfter = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    expect(maStateAfter!.series[5]).toEqual(maSeriesBefore)
+    expect(maStateAfter).toBeUndefined()
+    // Verify EXPMA state was written
+    const expmaStateAfter = getStateFromMockCalls<EXPMARenderState>(mockHost, EXPMA_STATE_KEY)
+    expect(expmaStateAfter).toBeDefined()
+    expect(expmaStateAfter!.params.fastPeriod).toBe(6)
   })
 
   it('updateENEConfig should not recalculate MA series', () => {
@@ -565,8 +572,13 @@ describe('Per-indicator dirty flags', () => {
 
     scheduler.updateENEConfig({ period: 20 })
 
+    // MA state should NOT be written (only ENE state should be written)
     const maStateAfter = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
-    expect(maStateAfter!.series[5]).toEqual(maSeriesBefore)
+    expect(maStateAfter).toBeUndefined()
+    // Verify ENE state was written
+    const eneStateAfter = getStateFromMockCalls<ENERenderState>(mockHost, ENE_STATE_KEY)
+    expect(eneStateAfter).toBeDefined()
+    expect(eneStateAfter!.params.period).toBe(20)
   })
 
   it('updateBOLLConfig should recalculate BOLL extremes', () => {

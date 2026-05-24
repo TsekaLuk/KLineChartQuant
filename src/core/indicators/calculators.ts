@@ -652,3 +652,131 @@ export function calcFASTKData(data: KLineData[], period: number): (number | unde
 
     return result
 }
+
+// ============================================================================
+// MACD 指数平滑异同移动平均线
+// ============================================================================
+
+/**
+ * MACD 数据点
+ */
+export interface MACDPoint {
+    /** DIF 线值 */
+    dif: number
+    /** DEA 线值 */
+    dea: number
+    /** MACD 柱状图值 */
+    macd: number
+}
+
+/**
+ * 默认 MACD 参数
+ */
+export const DEFAULT_MACD_FAST_PERIOD = 12
+export const DEFAULT_MACD_SLOW_PERIOD = 26
+export const DEFAULT_MACD_SIGNAL_PERIOD = 9
+
+/**
+ * 计算 EMA（指数移动平均）值
+ * EMA(today) = close × K + EMA(yesterday) × (1 - K)
+ * K = 2 / (period + 1)
+ * @param data K线数据数组
+ * @param period 周期
+ * @returns EMA 值数组，第一个值使用第一个收盘价
+ */
+export function calcEMA(data: KLineData[], period: number): number[] {
+    const result: number[] = new Array(data.length)
+    const k = 2 / (period + 1)
+
+    if (data.length === 0) return result
+
+    // 第一个 EMA 值使用第一个收盘价
+    result[0] = data[0]!.close
+
+    for (let i = 1; i < data.length; i++) {
+        const item = data[i]
+        if (!item) continue
+        result[i] = item.close * k + result[i - 1]! * (1 - k)
+    }
+
+    return result
+}
+
+/**
+ * 基于数值数组计算 EMA
+ * @param values 数值数组（可能包含 undefined）
+ * @param period 周期
+ * @returns EMA 值数组
+ */
+export function calcEMAFromArray(values: (number | undefined)[], period: number): (number | undefined)[] {
+    const result: (number | undefined)[] = new Array(values.length)
+    const k = 2 / (period + 1)
+
+    const firstValid = values.findIndex(v => v !== undefined)
+    if (firstValid === -1) return result
+
+    result[firstValid] = values[firstValid]
+
+    for (let i = firstValid + 1; i < values.length; i++) {
+        const val = values[i]
+        const prev = result[i - 1]
+        if (val === undefined || prev === undefined) continue
+        result[i] = val * k + prev * (1 - k)
+    }
+
+    return result
+}
+
+/**
+ * 计算 MACD 数据
+ * DIF = EMA(close, fastPeriod) - EMA(close, slowPeriod)
+ * DEA = EMA(DIF, signalPeriod)
+ * MACD = (DIF - DEA) × 2
+ * @param data K线数据数组
+ * @param fastPeriod 快线周期（默认12）
+ * @param slowPeriod 慢线周期（默认26）
+ * @param signalPeriod 信号线周期（默认9）
+ * @returns MACD 数据点数组，前 slowPeriod-1 个可能为 undefined
+ */
+export function calcMACDData(
+    data: KLineData[],
+    fastPeriod: number,
+    slowPeriod: number,
+    signalPeriod: number
+): MACDPoint[] {
+    const result: MACDPoint[] = new Array(data.length)
+
+    if (data.length < slowPeriod) return result
+
+    // 计算 EMA12 和 EMA26
+    const emaFast = calcEMA(data, fastPeriod)
+    const emaSlow = calcEMA(data, slowPeriod)
+
+    // 计算 DIF
+    const dif: (number | undefined)[] = new Array(data.length)
+    for (let i = 0; i < data.length; i++) {
+        const fast = emaFast[i]
+        const slow = emaSlow[i]
+        if (fast !== undefined && slow !== undefined) {
+            dif[i] = fast - slow
+        }
+    }
+
+    // 计算 DEA（DIF 的 signalPeriod 日 EMA）
+    const dea = calcEMAFromArray(dif, signalPeriod)
+
+    // 计算 MACD 柱
+    for (let i = 0; i < data.length; i++) {
+        const d = dif[i]
+        const e = dea[i]
+        if (d !== undefined && e !== undefined) {
+            result[i] = {
+                dif: d,
+                dea: e,
+                macd: (d - e) * 2,
+            }
+        }
+    }
+
+    return result
+}

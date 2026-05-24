@@ -1508,6 +1508,16 @@ onMounted(() => {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
   chart.updateSettings(initialSettings)
 
+  // 应用万条K线性能测试设置（如果有）
+  if (initialSettings.performanceTest10kKlines) {
+    const testData = generate10kKLineData()
+    console.time('updateData-10k')
+    chart.updateData(testData)
+    console.timeEnd('updateData-10k')
+    store.actions.setDataLength(testData.length)
+    store.actions.bumpDataVersion()
+  }
+
   // 初始化绘图交互控制器
   drawingController.value = new DrawingInteractionController(chart)
   drawingController.value.setCallbacks({

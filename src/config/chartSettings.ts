@@ -12,7 +12,7 @@ export interface SettingItem {
 
 /** 默认设置配置 */
 export const DEFAULT_SETTINGS = [
-  { key: 'showVolumePriceMarkers', label: '显示量价关系标记', type: 'boolean', default: true, group: 'main' },
+  { key: 'showVolumePriceMarkers', label: '显示量价关系标记', type: 'boolean', default: false, group: 'main' },
   { key: 'logarithmicScale', label: '对数价格轴', type: 'boolean', default: false, group: 'main' },
   { key: 'enableWebGLRendering', label: '启用 WebGL 硬件加速渲染', type: 'boolean', default: true, group: 'main' },
   { key: 'disableMainPaneVerticalScroll', label: '主图纵轴刻度自适应调整', type: 'boolean', default: true, group: 'experimental' },

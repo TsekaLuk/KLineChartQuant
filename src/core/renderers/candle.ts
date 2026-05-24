@@ -105,14 +105,31 @@ function prepareCandles(args: {
     const upWickRects: Rect[] = []
     const downWickRects: Rect[] = []
 
+    // 预取 displayRange，避免循环内每根 K 线 4 次 getDisplayRange()
+    const { maxPrice, minPrice } = pane.yAxis.getDisplayRange()
+    const paddingTop = pane.yAxis.getPaddingTop()
+    const paddingBottom = pane.yAxis.getPaddingBottom()
+    const viewHeight = Math.max(1, pane.height - paddingTop - paddingBottom)
+    const isLinear = pane.yAxis.getScaleType() !== 'log'
+    let fastPriceToY: (price: number) => number
+    if (isLinear) {
+        const priceRange = maxPrice - minPrice || 1
+        const scaleK = viewHeight / priceRange
+        const scaleB = paddingTop + viewHeight
+        fastPriceToY = (price: number) => scaleB - (price - minPrice) * scaleK
+    } else {
+        // 对数模式回退到标准方法
+        fastPriceToY = (price: number) => pane.yAxis.priceToY(price)
+    }
+
     for (let i = range.start; i < range.end && i < data.length; i++) {
         const e = data[i]
         if (!e) continue
 
-        const openY = pane.yAxis.priceToY(e.open)
-        const closeY = pane.yAxis.priceToY(e.close)
-        const highY = pane.yAxis.priceToY(e.high)
-        const lowY = pane.yAxis.priceToY(e.low)
+        const openY = fastPriceToY(e.open)
+        const closeY = fastPriceToY(e.close)
+        const highY = fastPriceToY(e.high)
+        const lowY = fastPriceToY(e.low)
 
         const leftLogical = kLinePositions[i - range.start]
         if (leftLogical === undefined) continue

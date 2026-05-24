@@ -121,7 +121,7 @@ import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
 import { Chart, type PaneSpec } from '@/core/chart'
 import type { KLineData } from '@/types/price'
 import { createChartStore, TRAILING_DRAWING_SLOTS, type ChartStore } from '@/core/chart-store'
-import { zoomLevelToKWidth, kGapFromDpr, computeZoom, computeZoomToLevel } from '@/core/utils/zoom'
+import { zoomLevelToKWidth, kGapFromKWidth, computeZoom, computeZoomToLevel } from '@/core/utils/zoom'
 import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
 import { createCandleRenderer } from '@/core/renderers/candle'
 import { createGridLinesRendererPlugin } from '@/core/renderers/gridLines'
@@ -198,7 +198,7 @@ const props = withDefaults(
   }>(),
   {
     yPaddingPx: 0,
-    minKWidth: 2,
+    minKWidth: 1,
     maxKWidth: 50,
     rightAxisWidth: 0,
     bottomAxisHeight: 24,
@@ -247,7 +247,15 @@ store.actions.setZoomState(
     zoomLevelCount: props.zoomLevels,
     dpr: store.state.viewportDpr,
   }),
-  kGapFromDpr(store.state.viewportDpr),
+  kGapFromKWidth(
+    zoomLevelToKWidth(store.state.zoomLevel, {
+      minKWidth: props.minKWidth,
+      maxKWidth: props.maxKWidth,
+      zoomLevelCount: props.zoomLevels,
+      dpr: store.state.viewportDpr,
+    }),
+    store.state.viewportDpr,
+  ),
 )
 
 // 为逐步迁移保留的局部别名
@@ -962,7 +970,9 @@ function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): v
   }
 }
 
-// 获取副图标题信息
+// 获取副图标题信息（带缓存，只在 crosshairIdx 或 data 变化时重算）
+const _titleInfoCache = new Map<string, { idx: number; dataLen: number; result: TitleInfo | null }>()
+
 function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
   const pane = subPanes.value.find((p) => p.id === paneId)
   if (!pane) return null
@@ -970,9 +980,21 @@ function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
   const data = chartRef.value?.getData()
   if (!data || data.length === 0) return null
 
+  const idx = crosshairIdx.value
+  const dataLen = data.length
+
+  // 缓存命中：crosshairIdx 和 dataLen 都没变
+  const cached = _titleInfoCache.get(paneId)
+  if (cached && cached.idx === idx && cached.dataLen === dataLen) {
+    return cached.result
+  }
+
   const config = SUB_PANE_INDICATOR_CONFIGS[pane.indicatorId]
   const params = pane.params as Record<string, number>
-  return config.getTitleInfo(data, crosshairIdx.value, params)
+  const result = config.getTitleInfo(data, idx, params)
+
+  _titleInfoCache.set(paneId, { idx, dataLen, result })
+  return result
 }
 
 // 指标切换处理（直接调用Chart API）
@@ -1485,7 +1507,7 @@ onMounted(() => {
       store.actions.setViewWidth(vp.plotWidth)
     }
 
-    const newKGap = kGapFromDpr(vp.dpr)
+    const newKGap = kGapFromKWidth(store.state.kWidth, vp.dpr)
     const zoomStateChanged = store.state.kGap !== newKGap
     if (zoomStateChanged) {
       store.actions.setZoomState(store.state.zoomLevel, store.state.kWidth, newKGap)

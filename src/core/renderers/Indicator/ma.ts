@@ -35,6 +35,7 @@ function buildMACacheKey(
         pane.yAxis.getPriceOffset().toFixed(6),
         pane.yAxis.getScaleType(),
         enabledPeriods.join(','),
+        pane.height.toFixed(2),
     ].join('|')
 }
 

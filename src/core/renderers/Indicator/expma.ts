@@ -23,6 +23,7 @@ function buildEXPMACacheKey(
         dr.minPrice.toFixed(6),
         pane.yAxis.getPriceOffset().toFixed(6),
         pane.yAxis.getScaleType(),
+        pane.height.toFixed(2),
     ].join('|')
 }
 

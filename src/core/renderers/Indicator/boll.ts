@@ -31,6 +31,7 @@ function buildBOLLCacheKey(
         Number(showLower),
         Number(showBand),
         period,
+        pane.height.toFixed(2),
     ].join('|')
 }
 

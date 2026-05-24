@@ -152,13 +152,26 @@ function generatePixelUniformLogTicks(options: {
     return positions
 }
 
+// calculateValueTickPositions 缓存
+let _cvtpCacheKey = ''
+let _cvtpCacheResult: TickPositionWithValue[] = []
+
+function buildCvtpCacheKey(options: CalculateValueTickPositionsOptions): string {
+    return `${options.valueMin}:${options.valueMax}:${options.height}:${options.paddingTop}:${options.paddingBottom}:${options.isMain}:${options.scaleType ?? 'linear'}:${options.hideEdgeTicks ?? false}`
+}
+
 export function calculateValueTickPositions(
     options: CalculateValueTickPositionsOptions
 ): TickPositionWithValue[] {
+    // 缓存命中：所有参数相同则直接返回
+    const key = buildCvtpCacheKey(options)
+    if (key === _cvtpCacheKey) return _cvtpCacheResult
+
     const { valueMin, valueMax, scaleType = 'linear' } = options
 
     if (scaleType === 'log') {
         if (valueMin <= 0) {
+            // 递归调用走线性路径，线性路径会更新缓存
             return calculateValueTickPositions({ ...options, scaleType: 'linear' })
         }
 
@@ -180,16 +193,22 @@ export function calculateValueTickPositions(
             positions = positions.slice(1, -1)
         }
 
-        return positions.map((position, index) => ({ ...position, index }))
+        const result = positions.map((position, index) => ({ ...position, index }))
+        _cvtpCacheKey = key
+        _cvtpCacheResult = result
+        return result
     }
 
     const basePositions = calculateTickPositions(options)
     const totalTicks = calculateTickCount(options.height, options.isMain)
     const valueRange = valueMax - valueMin || 1
 
-    return basePositions.map((pos) => {
+    const result = basePositions.map((pos) => {
         const step = valueRange / Math.max(1, totalTicks - 1)
         const value = valueMax - step * pos.index
         return { ...pos, value }
     })
+    _cvtpCacheKey = key
+    _cvtpCacheResult = result
+    return result
 }

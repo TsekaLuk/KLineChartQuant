@@ -1,9 +1,9 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import type { KLineData } from '@/types/price'
 import { TEXT_COLORS, MACD_COLORS } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
-import { calcMACDAtIndex } from './macd'
+import type { MACDRenderState } from '@/core/indicators/macdState'
+import { createMACDStateKey } from '@/core/indicators/macdState'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256
@@ -26,35 +26,70 @@ function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
 export interface MACDLegendOptions {
     /** Y 轴内边距（与主图保持一致） */
     yPaddingPx?: number
+    /** 目标 pane ID（默认 'sub'） */
+    paneId?: string
 }
 
 /**
  * 创建 MACD 图例渲染器插件
- * 在副图左上角显示当前 MACD 指标值
+ * 从 StateStore 读取 MACD 状态，不再在 draw 时计算
  */
-export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}): RendererPlugin {
+export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}): RendererPluginWithHost {
     const yPaddingPx = options.yPaddingPx ?? 0
+    const paneId = options.paneId ?? 'sub'
 
     let fastPeriod = 12
     let slowPeriod = 26
     let signalPeriod = 9
 
+    let pluginHost: PluginHost | null = null
+    const stateKey = createMACDStateKey(paneId)
+
     return {
-        name: 'macdLegend',
-        version: '1.0.0',
-        description: 'MACD 图例渲染器',
+        name: `macdLegend_${paneId}`,
+        version: '2.0.0',
+        description: 'MACD 图例渲染器（StateStore 版）',
         debugName: 'MACD 图例',
-        paneId: 'sub',
+        paneId,
         priority: RENDERER_PRIORITY.FOREGROUND,
 
-        draw(context: RenderContext) {
-            const { ctx, data, range } = context
-            const klineData = data as KLineData[]
-            if (!klineData.length) return
+        onInstall(host: PluginHost): void {
+            pluginHost = host
+        },
 
-            const lastIndex = Math.min(range.end - 1, klineData.length - 1)
-            const macdValue = calcMACDAtIndex(klineData, lastIndex, fastPeriod, slowPeriod, signalPeriod)
+        draw(context: RenderContext) {
+            const { ctx, range } = context
+
+            // 从 StateStore 读取 MACD 状态
+            const state = pluginHost?.getSharedState<MACDRenderState>(stateKey)
+            if (!state || state.visibleMin > state.visibleMax) return
+
+            // 获取最新值
+            let macdValue: { dif: number; dea: number; macd: number } | null = null
+
+            // 优先使用 latestValues（scheduler 已计算好）
+            if (state.latestValues) {
+                macdValue = state.latestValues
+            } else {
+                // 回退：从 series 读取最后一个可见点
+                const lastIndex = Math.min(range.end - 1, state.series.length - 1)
+                const point = state.series[lastIndex]
+                if (point) {
+                    macdValue = {
+                        dif: point.dif,
+                        dea: point.dea,
+                        macd: point.macd,
+                    }
+                }
+            }
+
             if (!macdValue) return
+
+            // 从 state.params 读取当前参数
+            const params = state.params
+            fastPeriod = params.fastPeriod
+            slowPeriod = params.slowPeriod
+            signalPeriod = params.signalPeriod
 
             const fontSize = 11
             const gap = 12

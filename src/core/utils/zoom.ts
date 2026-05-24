@@ -19,7 +19,7 @@ export interface ZoomResult {
   newScrollLeft: number
 }
 
-const PHYS_K_GAP = 3
+const PHYS_K_GAP_MAX = 3
 
 /** 将缩放级别转换为 K 线宽度（逻辑像素） */
 export function zoomLevelToKWidth(level: number, config: ZoomConfig): number {
@@ -27,9 +27,11 @@ export function zoomLevelToKWidth(level: number, config: ZoomConfig): number {
   return config.minKWidth + t * (config.maxKWidth - config.minKWidth)
 }
 
-/** 由 DPR 推导 K 线间隙（逻辑像素） */
-export function kGapFromDpr(dpr: number): number {
-  return PHYS_K_GAP / dpr
+/** 根据K线宽度和DPR推导间隙（逻辑像素），K线越窄间距越小 */
+export function kGapFromKWidth(kWidth: number, dpr: number): number {
+  const kWidthPx = Math.round(kWidth * dpr)
+  const kGapPx = Math.max(1, Math.min(PHYS_K_GAP_MAX, Math.round(kWidthPx * 0.6)))
+  return kGapPx / dpr
 }
 
 /**
@@ -49,7 +51,7 @@ export function computeZoom(
   if (targetLevel === currentLevel) return null
 
   const newKWidth = zoomLevelToKWidth(targetLevel, config)
-  const newKGap = kGapFromDpr(config.dpr)
+  const newKGap = kGapFromKWidth(newKWidth, config.dpr)
 
   const oldConfig = getPhysicalKLineConfig(currentKWidth, currentKGap, config.dpr)
   const newConfig = getPhysicalKLineConfig(newKWidth, newKGap, config.dpr)

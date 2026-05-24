@@ -498,6 +498,7 @@ export class Chart {
         // 初始化指标调度器
         this.indicatorScheduler = new IndicatorScheduler()
         this.indicatorScheduler.setPluginHost(this.pluginHost)
+        this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
 
         this.initPanes()
         this.useRenderer(createDrawingRendererPlugin({ store: this.drawingStore }))
@@ -1511,6 +1512,7 @@ export class Chart {
 
         this.onViewportChange = undefined
         this.onPaneLayoutChange = undefined
+        this.indicatorScheduler.destroy()
         await this.pluginHost.destroy()
     }
 

@@ -86,9 +86,17 @@ export function formatMonthOrYear(timestamp: number): { text: string; isYear: bo
  * @example
  * monthKey(1736793600000) // "2025-1"
  */
-export function monthKey(timestamp: number): string {
+/**
+ * 生成月份键值用于比较
+ * 返回数字 year * 12 + month，比字符串比较更快且无分配
+ * 使用 new Date 保证本地时区正确（与显示一致）
+ *
+ * @example
+ * monthKey(1736793600000) // 24301 (2025*12 + 0)
+ */
+export function monthKey(timestamp: number): number {
     const d = new Date(timestamp)
-    return `${d.getFullYear()}-${d.getMonth()}`
+    return d.getFullYear() * 12 + d.getMonth()
 }
 
 // ========== 便捷别名 ==========
@@ -119,21 +127,46 @@ export const formatYMDShanghai = formatDateToYYYYMMDD
  * findMonthBoundaries(data) // [0, 2, 4]
  * // 解释：第0个K线是1月第一个，第2个K线是2月第一个，第4个K线是3月第一个
  */
+// findMonthBoundaries 缓存
+let _cacheDataRef: Array<{ timestamp: number } | undefined> | null = null
+let _cacheLen = 0
+let _cacheFirstTs = 0
+let _cacheLastTs = 0
+let _cacheResult: number[] = []
+
+/**
+ * 查找每个月份第一个K线的索引
+ * 结果按数据引用缓存，同一份数据多次调用直接返回缓存
+ */
 export function findMonthBoundaries(data: Array<{ timestamp: number } | undefined>): number[] {
     if (data.length === 0) return []
 
-    const boundaries: number[] = [0] // 第一个数据点总是某月的第一个
-    let lastMonthKey = monthKey(data[0]!.timestamp)
+    // 缓存命中：同一引用 + 同长度 + 首尾时间戳不变
+    if (_cacheDataRef === data && _cacheLen === data.length) {
+        const firstTs = data[0]?.timestamp
+        const lastTs = data[data.length - 1]?.timestamp
+        if (firstTs === _cacheFirstTs && lastTs === _cacheLastTs) {
+            return _cacheResult
+        }
+    }
+
+    const boundaries: number[] = [0]
+    let lastKey = monthKey(data[0]!.timestamp)
 
     for (let i = 1; i < data.length; i++) {
         const cur = data[i]
         if (!cur) continue
         const curKey = monthKey(cur.timestamp)
-        if (curKey !== lastMonthKey) {
+        if (curKey !== lastKey) {
             boundaries.push(i)
-            lastMonthKey = curKey
+            lastKey = curKey
         }
     }
 
+    _cacheDataRef = data
+    _cacheLen = data.length
+    _cacheFirstTs = data[0]?.timestamp ?? 0
+    _cacheLastTs = data[data.length - 1]?.timestamp ?? 0
+    _cacheResult = boundaries
     return boundaries
 }

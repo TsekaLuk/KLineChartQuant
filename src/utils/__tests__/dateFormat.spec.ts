@@ -107,21 +107,18 @@ describe('formatMonthOrYear', () => {
 
 describe('monthKey', () => {
   it('应该生成正确的月份键值', () => {
-    // 2025-01-14 UTC
-    expect(monthKey(1736793600000)).toBe('2025-0')
+    // 2025-01-14 UTC → year*12+month = 2025*12+0 = 24300
+    expect(monthKey(1736793600000)).toBe(24300)
   })
 
   it('应该区分不同月份', () => {
     const janKey = monthKey(1735660800000) // 2025-01-01
     const febKey = monthKey(1738387200000) // 2025-02-01
-    const marKey = monthKey(1740643200000) // 2025-02-01 (需要更新为3月)
-    
-    expect(janKey).toBe('2025-0')
-    expect(febKey).toBe('2025-1')
-    // 1740643200000 实际上是2025-02-01，不是3月
-    // 使用正确的时间戳: 1743360000000 = 2025-03-01
+
+    expect(janKey).toBe(24300)
+    expect(febKey).toBe(24301)
     const correctMarKey = monthKey(1743360000000) // 2025-03-01
-    expect(correctMarKey).toBe('2025-2')
+    expect(correctMarKey).toBe(24302)
     expect(janKey).not.toBe(febKey)
     expect(febKey).not.toBe(correctMarKey)
   })
@@ -129,9 +126,9 @@ describe('monthKey', () => {
   it('应该区分不同年份的相同月份', () => {
     const jan2024 = monthKey(1704067200000) // 2024-01
     const jan2025 = monthKey(1735660800000) // 2025-01
-    
-    expect(jan2024).toBe('2024-0')
-    expect(jan2025).toBe('2025-0')
+
+    expect(jan2024).toBe(24288)
+    expect(jan2025).toBe(24300)
     expect(jan2024).not.toBe(jan2025)
   })
 })

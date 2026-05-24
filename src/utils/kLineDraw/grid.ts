@@ -7,7 +7,7 @@ import {
     createVerticalLineRect,
     roundToPhysicalPixel,
 } from '@/core/draw/pixelAlign'
-import { formatMonthOrYear, monthKey } from '@/utils/dateFormat'
+import { formatMonthOrYear, findMonthBoundaries } from '@/utils/dateFormat'
 import { GRID_COLORS, TEXT_COLORS, PRICE_COLORS } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 
@@ -159,29 +159,31 @@ export function drawGridLayer(
     ctx.textBaseline = 'bottom'
     ctx.textAlign = 'center'
 
+    // 使用缓存的月份边界代替逐个 monthKey 比较
+    const boundaries = findMonthBoundaries(data)
+    const boundarySet = new Set(boundaries)
+
     for (let i = Math.max(startIndex, 1); i < endIndex && i < data.length; i++) {
+        if (!boundarySet.has(i)) continue
+
         const cur = data[i]
-        const prev = data[i - 1]
-        if (!cur || !prev) continue
+        if (!cur) continue
 
-        // “间隔一个月画”：当月份变化时画线
-        if (monthKey(cur.timestamp) !== monthKey(prev.timestamp)) {
-            const x = option.kGap + i * unit
-            const cx = x // 分割线在该根K线的左边界
-            // 竖线只画到 x 轴日期线以上（不要覆盖日期区域）
-            const vRect = createVerticalLineRect(cx, 0, plotBottomY, dpr)
-            if (vRect) {
-                ctx.fillStyle = gridColor
-                ctx.fillRect(vRect.x, vRect.y, vRect.width, vRect.height)
-            }
-
-            // 日期文字放在分割线附近
-            const textX = roundToPhysicalPixel(cx + 2, dpr)
-            const { text, isYear } = formatMonthOrYear(cur.timestamp)
-            ctx.fillStyle = textColor
-            setCanvasFont(ctx, getFont(fontSize, { bold: isYear }))
-            ctx.fillText(text, textX, roundToPhysicalPixel(baseY, dpr))
+        const x = option.kGap + i * unit
+        const cx = x // 分割线在该根K线的左边界
+        // 竖线只画到 x 轴日期线以上（不要覆盖日期区域）
+        const vRect = createVerticalLineRect(cx, 0, plotBottomY, dpr)
+        if (vRect) {
+            ctx.fillStyle = gridColor
+            ctx.fillRect(vRect.x, vRect.y, vRect.width, vRect.height)
         }
+
+        // 日期文字放在分割线附近
+        const textX = roundToPhysicalPixel(cx + 2, dpr)
+        const { text, isYear } = formatMonthOrYear(cur.timestamp)
+        ctx.fillStyle = textColor
+        setCanvasFont(ctx, getFont(fontSize, { bold: isYear }))
+        ctx.fillText(text, textX, roundToPhysicalPixel(baseY, dpr))
     }
 
     ctx.restore()

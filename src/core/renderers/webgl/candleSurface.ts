@@ -298,6 +298,9 @@ export class LineWebGLSurface {
     private available = false
     private vertexCapacity = 0
 
+    // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
+    private geoCache = new WeakMap<Array<{ x: number; y: number }>, Map<number, { vertices: Float32Array; vertexCount: number }>>()
+
     constructor(canvas?: HTMLCanvasElement) {
         this.canvas = canvas ?? document.createElement('canvas')
         this.handles = this.initLineHandles()
@@ -346,7 +349,26 @@ export class LineWebGLSurface {
         const colorValue = parseColor(color)
         if (!colorValue) return false
 
-        const geometry = buildJoinedPolylineGeometry(line.points, line.width / 2)
+        const halfWidth = line.width / 2
+        // 缓存命中：同一 points 引用 + 同 halfWidth
+        let geometry: { vertices: Float32Array; vertexCount: number } | null
+        let widthMap = this.geoCache.get(line.points)
+        if (widthMap) {
+            const cached = widthMap.get(halfWidth)
+            if (cached) {
+                geometry = cached
+            } else {
+                geometry = buildJoinedPolylineGeometry(line.points, halfWidth)
+                if (geometry) widthMap.set(halfWidth, geometry)
+            }
+        } else {
+            geometry = buildJoinedPolylineGeometry(line.points, halfWidth)
+            if (geometry) {
+                widthMap = new Map()
+                widthMap.set(halfWidth, geometry)
+                this.geoCache.set(line.points, widthMap)
+            }
+        }
         if (!geometry) return false
 
         const { gl } = handles

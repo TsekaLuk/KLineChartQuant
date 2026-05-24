@@ -780,3 +780,199 @@ export function calcMACDData(
 
     return result
 }
+
+// ============================================================================
+// SoA (Structure of Arrays) 包装函数
+// 用于验证 SoA 数据层与原始 AoS 计算的一致性
+// ============================================================================
+
+import type { KLineSoALayout } from './soa'
+import { SharedKLineBuffer } from './soa'
+
+/**
+ * 从 SoA 布局计算 BOLL 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period 周期
+ * @param multiplier 标准差倍数
+ * @returns BOLL 数据点数组
+ */
+export function calcBOLLDataSoA(
+    layout: KLineSoALayout,
+    period: number,
+    multiplier: number
+): BOLLPoint[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcBOLLData(data, period, multiplier)
+}
+
+/**
+ * 从 SoA 布局计算 EXPMA 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param fastPeriod 快线周期
+ * @param slowPeriod 慢线周期
+ * @returns EXPMA 数据点数组
+ */
+export function calcEXPMADataSoA(
+    layout: KLineSoALayout,
+    fastPeriod: number,
+    slowPeriod: number
+): EXPMAPoint[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcEXPMAData(data, fastPeriod, slowPeriod)
+}
+
+/**
+ * 从 SoA 布局计算 ENE 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period 周期
+ * @param deviation 偏离率百分比
+ * @returns ENE 数据点数组
+ */
+export function calcENEDataSoA(
+    layout: KLineSoALayout,
+    period: number,
+    deviation: number
+): ENEPoint[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcENEData(data, period, deviation)
+}
+
+/**
+ * 从 SoA 布局计算 MA 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period MA周期
+ * @returns MA 值数组
+ */
+export function calcMADataSoA(
+    layout: KLineSoALayout,
+    period: number
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcMAData(data, period)
+}
+
+/**
+ * 从 SoA 布局计算 RSI 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period RSI周期
+ * @returns RSI 值数组
+ */
+export function calcRSIDataSoA(
+    layout: KLineSoALayout,
+    period: number
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcRSIData(data, period)
+}
+
+/**
+ * 从 SoA 布局计算 CCI 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period 周期
+ * @returns CCI 值数组
+ */
+export function calcCCIDataSoA(
+    layout: KLineSoALayout,
+    period: number
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcCCIData(data, period)
+}
+
+/**
+ * 从 SoA 布局计算 STOCH 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param n RSV周期
+ * @param m K的M日移动平均周期
+ * @returns STOCH 数据点数组
+ */
+export function calcSTOCHDataSoA(
+    layout: KLineSoALayout,
+    n: number,
+    m: number
+): STOCHPoint[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcSTOCHData(data, n, m)
+}
+
+/**
+ * 从 SoA 布局计算 MOM 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period 周期
+ * @returns MOM 值数组
+ */
+export function calcMOMDataSoA(
+    layout: KLineSoALayout,
+    period: number
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcMOMData(data, period)
+}
+
+/**
+ * 从 SoA 布局计算 WMSR 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period 周期
+ * @returns WMSR 值数组
+ */
+export function calcWMSRDataSoA(
+    layout: KLineSoALayout,
+    period: number
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcWMSRData(data, period)
+}
+
+/**
+ * 从 SoA 布局计算 KST 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param roc1 第一个ROC周期
+ * @param roc2 第二个ROC周期
+ * @param roc3 第三个ROC周期
+ * @param roc4 第四个ROC周期
+ * @param signalPeriod 信号线周期
+ * @returns KST 数据点数组
+ */
+export function calcKSTDataSoA(
+    layout: KLineSoALayout,
+    roc1: number,
+    roc2: number,
+    roc3: number,
+    roc4: number,
+    signalPeriod: number
+): KSTPoint[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcKSTData(data, roc1, roc2, roc3, roc4, signalPeriod)
+}
+
+/**
+ * 从 SoA 布局计算 FASTK 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param period 周期
+ * @returns FASTK 值数组
+ */
+export function calcFASTKDataSoA(
+    layout: KLineSoALayout,
+    period: number
+): (number | undefined)[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcFASTKData(data, period)
+}
+
+/**
+ * 从 SoA 布局计算 MACD 数据（验证用包装函数）
+ * @param layout SoA 布局
+ * @param fastPeriod 快线周期
+ * @param slowPeriod 慢线周期
+ * @param signalPeriod 信号线周期
+ * @returns MACD 数据点数组
+ */
+export function calcMACDDataSoA(
+    layout: KLineSoALayout,
+    fastPeriod: number,
+    slowPeriod: number,
+    signalPeriod: number
+): MACDPoint[] {
+    const data = SharedKLineBuffer.toKLineData(layout)
+    return calcMACDData(data, fastPeriod, slowPeriod, signalPeriod)
+}

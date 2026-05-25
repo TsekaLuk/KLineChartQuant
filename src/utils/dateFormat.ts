@@ -3,6 +3,19 @@
  * 统一管理项目中所有日期相关的格式化逻辑
  */
 
+// ========== 模块级复用的 Intl.DateTimeFormat 实例 ==========
+// Intl.DateTimeFormat 构造极其昂贵（~36ms），必须复用
+const YMD_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+})
+
+// ========== 缓存配置 ==========
+const YMD_CACHE_SIZE = 1024
+const ymdCache = new Map<number, string>()
+
 /**
  * 将时间戳格式化为 YYYYMMDD 格式（纯数字，无分隔符）
  * @param timestamp - 时间戳（毫秒）
@@ -31,7 +44,7 @@ export function getCurrentDateYYYYMMDD(): string {
     const year = d.getFullYear()
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    return `${year}${month}${day}`
 }
 
 /**
@@ -43,20 +56,34 @@ export function getCurrentDateYYYYMMDD(): string {
  * formatDateToYYYYMMDD(1736793600000) // "2025-01-14"
  */
 export function formatDateToYYYYMMDD(timestamp: number): string {
-    const parts = new Intl.DateTimeFormat('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    })
-        .formatToParts(new Date(timestamp))
-        .reduce<Record<string, string>>((acc, p) => {
-            if (p.type !== 'literal') acc[p.type] = p.value
-            return acc
-        }, {})
+    // 缓存命中检查
+    const cached = ymdCache.get(timestamp)
+    if (cached !== undefined) return cached
 
-    return `${parts.year}-${parts.month}-${parts.day}`
+    // 使用复用的 formatter，避免每次构造开销
+    const parts = YMD_FORMATTER.formatToParts(new Date(timestamp))
+
+    // 用 for 循环替代 .reduce，避免临时对象分配
+    let y = '', m = '', d = ''
+    for (let i = 0; i < parts.length; i++) {
+        const p = parts[i]
+        if (p.type === 'year') y = p.value
+        else if (p.type === 'month') m = p.value
+        else if (p.type === 'day') d = p.value
+    }
+
+    const result = `${y}-${m}-${d}`
+
+    // 写入缓存，防膨胀
+    if (ymdCache.size >= YMD_CACHE_SIZE) ymdCache.clear()
+    ymdCache.set(timestamp, result)
+
+    return result
 }
+
+// ========== formatMonthOrYear 缓存 ==========
+const MONTH_YEAR_CACHE_SIZE = 512
+const monthYearCache = new Map<number, { text: string; isYear: boolean }>()
 
 /**
  * 格式化月份或年份用于显示
@@ -69,12 +96,21 @@ export function formatDateToYYYYMMDD(timestamp: number): string {
  * formatMonthOrYear(1706745600000) // { text: "2月", isYear: false } (2024年2月)
  */
 export function formatMonthOrYear(timestamp: number): { text: string; isYear: boolean } {
+    // 缓存命中检查
+    const cached = monthYearCache.get(timestamp)
+    if (cached !== undefined) return cached
+
     const d = new Date(timestamp)
     const year = d.getFullYear()
     const month = d.getMonth() + 1
     // 当年 1 月：直接标注年份；其它月份：标注"X月"
-    if (month === 1) return { text: String(year), isYear: true }
-    return { text: `${month}月`, isYear: false }
+    const result = month === 1 ? { text: String(year), isYear: true } : { text: `${month}月`, isYear: false }
+
+    // 写入缓存，防膨胀
+    if (monthYearCache.size >= MONTH_YEAR_CACHE_SIZE) monthYearCache.clear()
+    monthYearCache.set(timestamp, result)
+
+    return result
 }
 
 /**

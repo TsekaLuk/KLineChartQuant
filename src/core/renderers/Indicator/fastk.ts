@@ -45,6 +45,7 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
             dr.minPrice.toFixed(6),
             pane.yAxis.getPriceOffset().toFixed(6),
             pane.yAxis.getScaleType(),
+            pane.height.toFixed(2),
             params.showFASTK,
             params.period,
         ].join('|')

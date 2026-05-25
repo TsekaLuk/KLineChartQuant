@@ -47,6 +47,7 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
             dr.minPrice.toFixed(6),
             pane.yAxis.getPriceOffset().toFixed(6),
             pane.yAxis.getScaleType(),
+            pane.height.toFixed(2),
             params.showKST,
             params.showSignal,
             params.roc1,

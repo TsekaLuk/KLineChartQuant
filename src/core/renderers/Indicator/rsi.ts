@@ -49,6 +49,7 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
             dr.minPrice.toFixed(6),
             pane.yAxis.getPriceOffset().toFixed(6),
             pane.yAxis.getScaleType(),
+            pane.height.toFixed(2),
             params.showRSI1,
             params.showRSI2,
             params.showRSI3,

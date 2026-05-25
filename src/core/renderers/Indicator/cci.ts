@@ -45,6 +45,7 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
             dr.minPrice.toFixed(6),
             pane.yAxis.getPriceOffset().toFixed(6),
             pane.yAxis.getScaleType(),
+            pane.height.toFixed(2),
             params.showCCI,
             params.period,
         ].join('|')

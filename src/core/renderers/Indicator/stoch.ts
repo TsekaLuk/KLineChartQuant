@@ -47,6 +47,7 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
             dr.minPrice.toFixed(6),
             pane.yAxis.getPriceOffset().toFixed(6),
             pane.yAxis.getScaleType(),
+            pane.height.toFixed(2),
             params.showK,
             params.showD,
             params.n,

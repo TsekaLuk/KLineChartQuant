@@ -45,6 +45,7 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
             dr.minPrice.toFixed(6),
             pane.yAxis.getPriceOffset().toFixed(6),
             pane.yAxis.getScaleType(),
+            pane.height.toFixed(2),
             params.showWMSR,
             params.period,
         ].join('|')

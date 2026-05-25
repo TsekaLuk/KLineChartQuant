@@ -83,6 +83,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
       displayMin.toFixed(6),
       pane.yAxis.getPriceOffset().toFixed(6),
       pane.yAxis.getScaleType(),
+      pane.height.toFixed(2),
       config.showDIF,
       config.showDEA,
     ].join('|')

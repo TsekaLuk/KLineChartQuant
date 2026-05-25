@@ -10,6 +10,10 @@ type LineStrip = {
     width: number
 }
 
+type ColoredLineStrip = LineStrip & {
+    color: string
+}
+
 type FilledBand = {
     upperPoints: Array<{ x: number; y: number }>
     lowerPoints: Array<{ x: number; y: number }>
@@ -347,35 +351,43 @@ export class LineWebGLSurface {
     }
 
     drawLineStrip(line: LineStrip, color: string, scrollLeft: number): boolean {
+        return this.drawLineStrips([{ ...line, color }], scrollLeft)
+    }
+
+    drawLineStrips(lines: ColoredLineStrip[], scrollLeft: number): boolean {
         const handles = this.handles
-        if (!handles || line.points.length < 2 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
+        if (!handles || lines.length === 0 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
             return false
         }
 
-        const colorValue = parseColor(color)
-        if (!colorValue) return false
+        const entries: Array<{
+            colorValue: FloatColor
+            pointCount: number
+            vertices: Float32Array
+            mode: number
+        }> = []
+        for (const line of lines) {
+            if (line.points.length < 2) return false
 
-        const halfWidth = line.width / 2
-        // 缓存命中：同一 points 引用 + 同 halfWidth
-        let geometry: { vertices: Float32Array; vertexCount: number } | null
-        let widthMap = this.geoCache.get(line.points)
-        if (widthMap) {
-            const cached = widthMap.get(halfWidth)
-            if (cached) {
-                geometry = cached
-            } else {
-                geometry = buildJoinedPolylineGeometry(line.points, halfWidth)
-                if (geometry) widthMap.set(halfWidth, geometry)
+            const colorValue = parseColor(line.color)
+            if (!colorValue) return false
+
+            if (line.width === 1) {
+                const vertices = this.getThinLineVertices(line.points)
+                entries.push({ colorValue, pointCount: line.points.length, vertices, mode: handles.gl.LINE_STRIP })
+                continue
             }
-        } else {
-            geometry = buildJoinedPolylineGeometry(line.points, halfWidth)
-            if (geometry) {
-                widthMap = new Map()
-                widthMap.set(halfWidth, geometry)
-                this.geoCache.set(line.points, widthMap)
-            }
+
+            const geometry = this.getLineGeometry(line)
+            if (!geometry) return false
+
+            entries.push({
+                colorValue,
+                pointCount: geometry.vertexCount,
+                vertices: geometry.vertices,
+                mode: handles.gl.TRIANGLES,
+            })
         }
-        if (!geometry) return false
 
         const { gl } = handles
         gl.viewport(0, 0, this.canvas.width, this.canvas.height)
@@ -383,19 +395,49 @@ export class LineWebGLSurface {
         gl.bindVertexArray(handles.vao)
         gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
 
-        const floatCount = geometry.vertices.length
-        if (this.vertexCapacity < floatCount) {
-            this.vertexCapacity = nextBufferFloatCapacity(floatCount)
-            gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
-        }
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, geometry.vertices)
-
         gl.uniform2f(handles.resolutionLocation, this.logicalWidth, this.logicalHeight)
         gl.uniform1f(handles.scrollXLocation, scrollLeft)
-        gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-        gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount)
+
+        for (const entry of entries) {
+            const { colorValue, pointCount, vertices, mode } = entry
+            const floatCount = vertices.length
+            if (this.vertexCapacity < floatCount) {
+                this.vertexCapacity = nextBufferFloatCapacity(floatCount)
+                gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
+            }
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices)
+            gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
+            gl.drawArrays(mode, 0, pointCount)
+        }
+
         gl.bindVertexArray(null)
         return true
+    }
+
+    private getThinLineVertices(points: Array<{ x: number; y: number }>): Float32Array {
+        const vertices = new Float32Array(points.length * 2)
+        let writeIndex = 0
+        for (const point of points) {
+            vertices[writeIndex++] = point.x
+            vertices[writeIndex++] = point.y
+        }
+        return vertices
+    }
+
+    private getLineGeometry(line: LineStrip): { vertices: Float32Array; vertexCount: number } | null {
+        const halfWidth = line.width / 2
+        let widthMap = this.geoCache.get(line.points)
+        if (widthMap) {
+            const cached = widthMap.get(halfWidth)
+            if (cached) return cached
+        } else {
+            widthMap = new Map()
+            this.geoCache.set(line.points, widthMap)
+        }
+
+        const geometry = buildJoinedPolylineGeometry(line.points, halfWidth)
+        if (geometry) widthMap.set(halfWidth, geometry)
+        return geometry
     }
 
     drawFilledBand(band: FilledBand, color: string, scrollLeft: number): boolean {

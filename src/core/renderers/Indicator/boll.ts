@@ -110,14 +110,19 @@ function drawBOLLWithWebGL(
     }
     surface.clear()
 
+    const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
     if (data.showUpper && data.upperPoints.length >= 2) {
-        allOk = surface.drawLineStrip({ points: data.upperPoints, width: 1 }, BOLL_COLORS.UPPER, context.scrollLeft)
+        lineStrips.push({ points: data.upperPoints, width: 1, color: BOLL_COLORS.UPPER })
     }
-    if (allOk && data.showMiddle && data.middlePoints.length >= 2) {
-        allOk = surface.drawLineStrip({ points: data.middlePoints, width: 1 }, BOLL_COLORS.MIDDLE, context.scrollLeft)
+    if (data.showMiddle && data.middlePoints.length >= 2) {
+        lineStrips.push({ points: data.middlePoints, width: 1, color: BOLL_COLORS.MIDDLE })
     }
-    if (allOk && data.showLower && data.lowerPoints.length >= 2) {
-        allOk = surface.drawLineStrip({ points: data.lowerPoints, width: 1 }, BOLL_COLORS.LOWER, context.scrollLeft)
+    if (data.showLower && data.lowerPoints.length >= 2) {
+        lineStrips.push({ points: data.lowerPoints, width: 1, color: BOLL_COLORS.LOWER })
+    }
+
+    if (lineStrips.length > 0) {
+        allOk = surface.drawLineStrips(lineStrips, context.scrollLeft)
     }
     if (!allOk) {
         surface.clear()

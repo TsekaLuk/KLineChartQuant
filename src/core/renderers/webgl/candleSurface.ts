@@ -609,25 +609,25 @@ function buildJoinedPolylineGeometry(points: Array<{ x: number; y: number }>, ha
     const normals: PolylineNormal[] = new Array(points.length - 1)
     let validSegmentCount = 0
 
-    // 第一遍：计算所有法线
+    // 第一遍：计算所有法线（用 sqrt 替代 hypot，缓存逆长度）
     for (let i = 0; i < points.length - 1; i++) {
         const start = points[i]!
         const end = points[i + 1]!
         const dx = end.x - start.x
         const dy = end.y - start.y
-        const length = Math.hypot(dx, dy)
-        if (length <= 0) {
+        const lenSq = dx * dx + dy * dy
+        if (lenSq <= 0) {
             normals[i] = { nx: 0, ny: 0, valid: false }
             continue
         }
-        normals[i] = { nx: -dy / length, ny: dx / length, valid: true }
+        const invLen = 1 / Math.sqrt(lenSq)
+        normals[i] = { nx: -dy * invLen, ny: dx * invLen, valid: true }
         validSegmentCount++
     }
 
     if (validSegmentCount === 0) return null
 
     // 预分配顶点数组：每对有效相邻点生成12个float（6个顶点 * 2个坐标）
-    // 最多 (points.length - 1) 个线段
     const maxVerticesFloats = (points.length - 1) * 12
     const vertices = new Float32Array(maxVerticesFloats)
     let vertexWriteIndex = 0
@@ -649,14 +649,15 @@ function buildJoinedPolylineGeometry(points: Array<{ x: number; y: number }>, ha
         if (prevNormal?.valid && currNormal.valid) {
             miterNX = prevNormal.nx + currNormal.nx
             miterNY = prevNormal.ny + currNormal.ny
-            const miterLen = Math.hypot(miterNX, miterNY)
-            if (miterLen > 1e-6) {
-                miterNX /= miterLen
-                miterNY /= miterLen
+            const miterLenSq = miterNX * miterNX + miterNY * miterNY
+            if (miterLenSq > 1e-12) {
+                const invMiter = 1 / Math.sqrt(miterLenSq)
+                miterNX *= invMiter
+                miterNY *= invMiter
                 const dot = miterNX * currNormal.nx + miterNY * currNormal.ny
-                const safeDot = Math.max(0.2, Math.abs(dot))
-                miterNX *= 1 / safeDot
-                miterNY *= 1 / safeDot
+                const scale = 1 / Math.max(0.2, Math.abs(dot))
+                miterNX *= scale
+                miterNY *= scale
             } else {
                 miterNX = currNormal.nx
                 miterNY = currNormal.ny
@@ -678,14 +679,15 @@ function buildJoinedPolylineGeometry(points: Array<{ x: number; y: number }>, ha
         if (nextNormal?.valid && currNormal.valid) {
             nextMiterNX = currNormal.nx + nextNormal.nx
             nextMiterNY = currNormal.ny + nextNormal.ny
-            const miterLen = Math.hypot(nextMiterNX, nextMiterNY)
-            if (miterLen > 1e-6) {
-                nextMiterNX /= miterLen
-                nextMiterNY /= miterLen
+            const miterLenSq = nextMiterNX * nextMiterNX + nextMiterNY * nextMiterNY
+            if (miterLenSq > 1e-12) {
+                const invMiter = 1 / Math.sqrt(miterLenSq)
+                nextMiterNX *= invMiter
+                nextMiterNY *= invMiter
                 const dot = nextMiterNX * nextNormal.nx + nextMiterNY * nextNormal.ny
-                const safeDot = Math.max(0.2, Math.abs(dot))
-                nextMiterNX *= 1 / safeDot
-                nextMiterNY *= 1 / safeDot
+                const scale = 1 / Math.max(0.2, Math.abs(dot))
+                nextMiterNX *= scale
+                nextMiterNY *= scale
             } else {
                 nextMiterNX = currNormal.nx
                 nextMiterNY = currNormal.ny

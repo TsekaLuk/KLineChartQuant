@@ -67,11 +67,19 @@ function toRows(bucket: MetricBucket): CanvasProfilerReportRow[] {
 /** 全局开关：是否启用 Canvas Profiler 插桩 */
 let isProfilerEnabled = false
 
+/** 保存原始方法用于卸载 */
+const originalMethods = new Map<string, (...args: unknown[]) => unknown>()
+const originalSetters = new Map<string, PropertyDescriptor>()
+
 /** 启用/禁用 Canvas Profiler */
 export function setCanvasProfilerEnabled(enabled: boolean): void {
     isProfilerEnabled = enabled
-    if (enabled && typeof window !== 'undefined' && !window.__KMAP_CANVAS_PROFILER_INSTALLED__) {
-        installCanvasProfiler()
+    if (enabled) {
+        if (typeof window !== 'undefined' && !window.__KMAP_CANVAS_PROFILER_INSTALLED__) {
+            installCanvasProfiler()
+        }
+    } else {
+        uninstallCanvasProfiler()
     }
 }
 
@@ -122,7 +130,6 @@ function wrapMethod(
     proto: object,
     name: string,
     metrics: CanvasProfilerMetrics,
-    originalMethods: Map<string, (...args: unknown[]) => unknown>,
     options?: { captureSource?: boolean }
 ): void {
     const key = `${proto.constructor?.name ?? 'proto'}:${name}`
@@ -154,6 +161,11 @@ function wrapSetter(proto: object, prop: string, bucket: MetricBucket): void {
     const descriptor = Object.getOwnPropertyDescriptor(proto, prop)
     if (!descriptor?.set || !descriptor.configurable) return
 
+    const key = `${proto.constructor?.name ?? 'proto'}:${prop}`
+    if (originalSetters.has(key)) return
+
+    originalSetters.set(key, descriptor)
+
     Object.defineProperty(proto, prop, {
         configurable: true,
         enumerable: descriptor.enumerable ?? false,
@@ -175,21 +187,20 @@ export function installCanvasProfiler(): void {
     if (typeof window === 'undefined') return
     if (window.__KMAP_CANVAS_PROFILER_INSTALLED__) return
 
-    const metrics = createMetrics()
-    const originalMethods = new Map<string, (...args: unknown[]) => unknown>()
-
     const ctxProto = CanvasRenderingContext2D?.prototype
     const canvasProto = HTMLCanvasElement?.prototype
     if (!ctxProto || !canvasProto) return
 
-    wrapMethod(ctxProto, 'fillText', metrics, originalMethods, { captureSource: true })
-    wrapMethod(ctxProto, 'measureText', metrics, originalMethods, { captureSource: true })
-    wrapMethod(ctxProto, 'drawImage', metrics, originalMethods)
-    wrapMethod(ctxProto, 'save', metrics, originalMethods)
-    wrapMethod(ctxProto, 'restore', metrics, originalMethods)
-    wrapMethod(ctxProto, 'clip', metrics, originalMethods)
-    wrapMethod(ctxProto, 'setTransform', metrics, originalMethods)
-    wrapMethod(ctxProto, 'scale', metrics, originalMethods)
+    const metrics = createMetrics()
+
+    wrapMethod(ctxProto, 'fillText', metrics, { captureSource: true })
+    wrapMethod(ctxProto, 'measureText', metrics, { captureSource: true })
+    wrapMethod(ctxProto, 'drawImage', metrics)
+    wrapMethod(ctxProto, 'save', metrics)
+    wrapMethod(ctxProto, 'restore', metrics)
+    wrapMethod(ctxProto, 'clip', metrics)
+    wrapMethod(ctxProto, 'setTransform', metrics)
+    wrapMethod(ctxProto, 'scale', metrics)
 
     wrapSetter(ctxProto, 'font', metrics.ctxProps)
     wrapSetter(ctxProto, 'filter', metrics.ctxProps)
@@ -229,4 +240,57 @@ export function installCanvasProfiler(): void {
     }
 
     console.info('[kmap] Canvas profiler enabled. Use window.showCanvasReport() and window.resetCanvasReport().')
+}
+
+/** 卸载 Canvas Profiler，恢复原始方法 */
+export function uninstallCanvasProfiler(): void {
+    if (typeof window === 'undefined') return
+    if (!window.__KMAP_CANVAS_PROFILER_INSTALLED__) return
+
+    const ctxProto = CanvasRenderingContext2D?.prototype
+    const canvasProto = HTMLCanvasElement?.prototype
+
+    // 恢复原始方法
+    originalMethods.forEach((original, key) => {
+        const match = key.match(/^(.+):(.+)$/)
+        if (!match) return
+        const [, protoName, methodName] = match
+
+        let proto: object | null = null
+        if (protoName === 'CanvasRenderingContext2D') {
+            proto = ctxProto
+        } else if (protoName === 'HTMLCanvasElement') {
+            proto = canvasProto
+        }
+        if (proto) {
+            Reflect.set(proto, methodName, original)
+        }
+    })
+    originalMethods.clear()
+
+    // 恢复原始 setter
+    originalSetters.forEach((descriptor, key) => {
+        const match = key.match(/^(.+):(.+)$/)
+        if (!match) return
+        const [, protoName, propName] = match
+
+        let proto: object | null = null
+        if (protoName === 'CanvasRenderingContext2D') {
+            proto = ctxProto
+        } else if (protoName === 'HTMLCanvasElement') {
+            proto = canvasProto
+        }
+        if (proto && descriptor.configurable) {
+            Object.defineProperty(proto, propName, descriptor)
+        }
+    })
+    originalSetters.clear()
+
+    // 清理全局状态
+    window.__KMAP_CANVAS_PROFILER_INSTALLED__ = false
+    window.__KMAP_CANVAS_PROFILER_METRICS__ = undefined
+    window.showCanvasReport = undefined
+    window.resetCanvasReport = undefined
+
+    console.info('[kmap] Canvas profiler disabled.')
 }

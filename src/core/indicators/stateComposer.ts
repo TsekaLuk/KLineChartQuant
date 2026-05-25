@@ -49,19 +49,7 @@ interface VisibleRange {
     end: number
 }
 
-/**
- * 从 series bundle 组装所有 render states
- * 同时计算 visibleMin/visibleMax 等派生字段
- */
-export function composeRenderStates(
-    bundle: IndicatorSeriesBundle,
-    visibleRange: VisibleRange,
-    timestamp: number
-): {
-    ma: MARenderState
-    boll: BOLLRenderState
-    expma: EXPMARenderState
-    ene: ENERenderState
+type VisibleSubIndicatorStates = {
     rsi: RSIRenderState
     cci: CCIRenderState
     stoch: STOCHRenderState
@@ -70,12 +58,31 @@ export function composeRenderStates(
     kst: KSTRenderState
     fastk: FASTKRenderState
     macd: MACDRenderState
-} {
-    // 计算各指标极值
-    const maExtremes = calcMAExtremes(bundle.ma.series, visibleRange)
-    const bollExtremes = calcBOLLExtremes(bundle.boll.series, visibleRange)
-    const expmaExtremes = calcEXPMAExtremes(bundle.expma.series, visibleRange)
-    const eneExtremes = calcENEExtremes(bundle.ene.series, visibleRange)
+}
+
+type ComposedRenderStates = VisibleSubIndicatorStates & {
+    ma: MARenderState
+    boll: BOLLRenderState
+    expma: EXPMARenderState
+    ene: ENERenderState
+}
+
+function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: VisibleRange) {
+    const latestIndex = visibleRange.end - 1
+    return latestIndex >= 0 && latestIndex < bundle.macd.series.length
+        ? bundle.macd.series[latestIndex]
+        : null
+}
+
+/**
+ * 仅计算副图指标的 visible-only states
+ * 用于滚动时的轻量更新，避免重复计算主图指标
+ */
+export function composeVisibleSubIndicatorStates(
+    bundle: IndicatorSeriesBundle,
+    visibleRange: VisibleRange,
+    timestamp: number
+): VisibleSubIndicatorStates {
     const rsiExtremes = calcRSIExtremes(bundle.rsi.series, visibleRange)
     const cciExtremes = calcCCIExtremes(bundle.cci.series, visibleRange)
     const stochExtremes = calcSTOCHExtremes(bundle.stoch.series, visibleRange)
@@ -84,62 +91,25 @@ export function composeRenderStates(
     const kstExtremes = calcKSTExtremes(bundle.kst.series, visibleRange)
     const fastkExtremes = calcFASTKExtremes(bundle.fastk.series, visibleRange)
     const macdExtremes = calcMACDExtremes(bundle.macd.series, visibleRange)
+    const latestPoint = getLatestMACDPoint(bundle, visibleRange)
 
-    // MACD latestValues
-    const latestIndex = visibleRange.end - 1
-    const latestPoint = latestIndex >= 0 && latestIndex < bundle.macd.series.length
-        ? bundle.macd.series[latestIndex]
-        : null
-
-    // MACD valueMin/valueMax with padding
     const macdPadding = Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1
     const macdValueMin = Number.isFinite(macdExtremes.min) ? macdExtremes.min - macdPadding : macdExtremes.min
     const macdValueMax = Number.isFinite(macdExtremes.max) ? macdExtremes.max + macdPadding : macdExtremes.max
 
-    // CCI valueMin/valueMax
     const cciValueMin = Math.min(cciExtremes.min, -150)
     const cciValueMax = Math.max(cciExtremes.max, 150)
 
-    // MOM valueMin/valueMax with padding
     const momPadding = Math.max(Math.abs(momExtremes.max), Math.abs(momExtremes.min)) * 0.1
     const momValueMin = momExtremes.min - momPadding
     const momValueMax = momExtremes.max + momPadding
 
-    // KST valueMin/valueMax with padding
     const kstRange = kstExtremes.max - kstExtremes.min
     const kstPadding = kstRange * 0.1
     const kstValueMin = kstExtremes.min - kstPadding
     const kstValueMax = kstExtremes.max + kstPadding
 
     return {
-        ma: {
-            timestamp,
-            series: bundle.ma.series,
-            enabledPeriods: bundle.ma.enabledPeriods,
-            visibleMin: maExtremes.min,
-            visibleMax: maExtremes.max,
-        },
-        boll: {
-            timestamp,
-            series: bundle.boll.series,
-            params: bundle.boll.params,
-            visibleMin: bollExtremes.min,
-            visibleMax: bollExtremes.max,
-        },
-        expma: {
-            timestamp,
-            series: bundle.expma.series,
-            params: bundle.expma.params,
-            visibleMin: expmaExtremes.min,
-            visibleMax: expmaExtremes.max,
-        },
-        ene: {
-            timestamp,
-            series: bundle.ene.series,
-            params: bundle.ene.params,
-            visibleMin: eneExtremes.min,
-            visibleMax: eneExtremes.max,
-        },
         rsi: {
             timestamp,
             series: bundle.rsi.series,
@@ -221,15 +191,68 @@ export function composeRenderStates(
     }
 }
 
+/**
+ * 从 series bundle 组装所有 render states
+ * 同时计算 visibleMin/visibleMax 等派生字段
+ */
+export function composeRenderStates(
+    bundle: IndicatorSeriesBundle,
+    visibleRange: VisibleRange,
+    timestamp: number
+): ComposedRenderStates {
+    const maExtremes = calcMAExtremes(bundle.ma.series, visibleRange)
+    const bollExtremes = calcBOLLExtremes(bundle.boll.series, visibleRange)
+    const expmaExtremes = calcEXPMAExtremes(bundle.expma.series, visibleRange)
+    const eneExtremes = calcENEExtremes(bundle.ene.series, visibleRange)
+    const subStates = composeVisibleSubIndicatorStates(bundle, visibleRange, timestamp)
+
+    return {
+        ma: {
+            timestamp,
+            series: bundle.ma.series,
+            enabledPeriods: bundle.ma.enabledPeriods,
+            visibleMin: maExtremes.min,
+            visibleMax: maExtremes.max,
+        },
+        boll: {
+            timestamp,
+            series: bundle.boll.series,
+            params: bundle.boll.params,
+            visibleMin: bollExtremes.min,
+            visibleMax: bollExtremes.max,
+        },
+        expma: {
+            timestamp,
+            series: bundle.expma.series,
+            params: bundle.expma.params,
+            visibleMin: expmaExtremes.min,
+            visibleMax: expmaExtremes.max,
+        },
+        ene: {
+            timestamp,
+            series: bundle.ene.series,
+            params: bundle.ene.params,
+            visibleMin: eneExtremes.min,
+            visibleMax: eneExtremes.max,
+        },
+        ...subStates,
+    }
+}
+
 // ============================================================================
 // 极值计算辅助函数
 // ============================================================================
 
 function calcMAExtremes(series: Record<number, (number | undefined)[]>, range: VisibleRange): { min: number; max: number } {
+    const seriesList = Object.values(series)
+    if (seriesList.length === 0 || range.start >= seriesList[0]!.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (const values of Object.values(series)) {
-        for (let i = range.start; i < range.end && i < values.length; i++) {
+    for (const values of seriesList) {
+        const end = Math.min(range.end, values.length)
+        for (let i = range.start; i < end; i++) {
             const v = values[i]
             if (v !== undefined) {
                 min = Math.min(min, v)
@@ -242,9 +265,13 @@ function calcMAExtremes(series: Record<number, (number | undefined)[]>, range: V
 
 interface BOLLPoint { upper: number; middle: number; lower: number }
 function calcBOLLExtremes(series: BOLLPoint[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
             min = Math.min(min, p.upper, p.middle, p.lower)
@@ -256,9 +283,13 @@ function calcBOLLExtremes(series: BOLLPoint[], range: VisibleRange): { min: numb
 
 interface EXPMAPoint { fast: number; slow: number }
 function calcEXPMAExtremes(series: EXPMAPoint[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
             min = Math.min(min, p.fast, p.slow)
@@ -270,9 +301,13 @@ function calcEXPMAExtremes(series: EXPMAPoint[], range: VisibleRange): { min: nu
 
 interface ENEPoint { upper: number; middle: number; lower: number }
 function calcENEExtremes(series: ENEPoint[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
             min = Math.min(min, p.upper, p.middle, p.lower)
@@ -283,10 +318,15 @@ function calcENEExtremes(series: ENEPoint[], range: VisibleRange): { min: number
 }
 
 function calcRSIExtremes(series: Record<number, (number | undefined)[]>, range: VisibleRange): { min: number; max: number } {
+    const seriesList = Object.values(series)
+    if (seriesList.length === 0 || range.start >= seriesList[0]!.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (const values of Object.values(series)) {
-        for (let i = range.start; i < range.end && i < values.length; i++) {
+    for (const values of seriesList) {
+        const end = Math.min(range.end, values.length)
+        for (let i = range.start; i < end; i++) {
             const v = values[i]
             if (v !== undefined) {
                 min = Math.min(min, v)
@@ -298,9 +338,13 @@ function calcRSIExtremes(series: Record<number, (number | undefined)[]>, range: 
 }
 
 function calcCCIExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const v = series[i]
         if (v !== undefined) {
             min = Math.min(min, v)
@@ -312,9 +356,13 @@ function calcCCIExtremes(series: (number | undefined)[], range: VisibleRange): {
 
 interface STOCHPoint { k: number; d: number }
 function calcSTOCHExtremes(series: STOCHPoint[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
             min = Math.min(min, p.k, p.d)
@@ -325,9 +373,13 @@ function calcSTOCHExtremes(series: STOCHPoint[], range: VisibleRange): { min: nu
 }
 
 function calcMOMExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const v = series[i]
         if (v !== undefined) {
             min = Math.min(min, v)
@@ -338,9 +390,13 @@ function calcMOMExtremes(series: (number | undefined)[], range: VisibleRange): {
 }
 
 function calcWMSRExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const v = series[i]
         if (v !== undefined) {
             min = Math.min(min, v)
@@ -352,9 +408,14 @@ function calcWMSRExtremes(series: (number | undefined)[], range: VisibleRange): 
 
 interface KSTPoint { kst: number; signal: number }
 function calcKSTExtremes(series: KSTPoint[], range: VisibleRange): { min: number; max: number } {
+    // 快速检查：空数据直接返回
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
             min = Math.min(min, p.kst, p.signal)
@@ -365,9 +426,13 @@ function calcKSTExtremes(series: KSTPoint[], range: VisibleRange): { min: number
 }
 
 function calcFASTKExtremes(series: (number | undefined)[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const v = series[i]
         if (v !== undefined) {
             min = Math.min(min, v)
@@ -379,9 +444,13 @@ function calcFASTKExtremes(series: (number | undefined)[], range: VisibleRange):
 
 interface MACDPoint { dif: number; dea: number; macd: number }
 function calcMACDExtremes(series: MACDPoint[], range: VisibleRange): { min: number; max: number } {
+    if (series.length === 0 || range.start >= series.length) {
+        return { min: Infinity, max: -Infinity }
+    }
     let min = Infinity
     let max = -Infinity
-    for (let i = range.start; i < range.end && i < series.length; i++) {
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
         const p = series[i]
         if (p) {
             min = Math.min(min, p.dif, p.dea, p.macd)

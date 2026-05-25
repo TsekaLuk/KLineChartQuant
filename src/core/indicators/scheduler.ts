@@ -18,7 +18,7 @@ import type { KLineData } from '@/types/price'
 import { IndicatorRuntime } from './indicatorRuntime'
 import type { IndicatorWorkerResponse } from './workerProtocol'
 import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
-import { composeRenderStates, computeMainIndicatorPriceRange } from './stateComposer'
+import { composeRenderStates, composeVisibleSubIndicatorStates, computeMainIndicatorPriceRange } from './stateComposer'
 import type {
     BOLLSchedulerConfig,
     EXPMASchedulerConfig,
@@ -409,14 +409,11 @@ export class IndicatorScheduler {
     }
 
     private updateVisibleStatesOnly(): void {
-        // 只有 visibleRange 变更时，基于缓存的 series 重新计算极值
         if (!this.pluginHost || !this.latestResult) return
 
         const timestamp = Date.now()
-        const states = composeRenderStates(this.latestResult, this.visibleRange, timestamp)
-
-        // 主图指标价格范围由 getMainIndicatorPriceRange() 按需计算，
-        // 可视范围滚动时无需同步刷新其 shared state。
+        // 仅计算副图指标极值，跳过主图指标（ma/boll/expma/ene）
+        const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp)
 
         // RSI
         const rsiKey = createRSIStateKey(this.configSnapshot.rsiPaneId)

@@ -219,20 +219,16 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
 
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
-                cachedBandPath = showBand ? new Path2D() : null
-                cachedUpperPath = showUpper ? new Path2D() : null
-                cachedMiddlePath = showMiddle ? new Path2D() : null
-                cachedLowerPath = showLower ? new Path2D() : null
+                // 延迟构建 Path2D，只在 WebGL 失败后按需构建
+                cachedBandPath = null
+                cachedUpperPath = null
+                cachedMiddlePath = null
+                cachedLowerPath = null
                 cachedUpperPoints = []
                 cachedMiddlePoints = []
                 cachedLowerPoints = []
                 cachedBandUpperPoints = []
                 cachedBandLowerPoints = []
-
-                let hasBandStarted = false
-                let hasUpperStarted = false
-                let hasMiddleStarted = false
-                let hasLowerStarted = false
 
                 for (let i = drawStart; i < drawEnd; i++) {
                     const boll = bollData[i]
@@ -249,60 +245,13 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     const middlePoint = { x: centerX, y: middleY }
                     const lowerPoint = { x: centerX, y: lowerY }
 
-                    if (cachedBandPath) {
+                    if (showBand) {
                         cachedBandUpperPoints.push(upperPoint)
                         cachedBandLowerPoints.push(lowerPoint)
-                        if (!hasBandStarted) {
-                            cachedBandPath.moveTo(centerX, upperY)
-                            hasBandStarted = true
-                        } else {
-                            cachedBandPath.lineTo(centerX, upperY)
-                        }
                     }
-
-                    if (cachedUpperPath) {
-                        cachedUpperPoints.push(upperPoint)
-                        if (!hasUpperStarted) {
-                            cachedUpperPath.moveTo(centerX, upperY)
-                            hasUpperStarted = true
-                        } else {
-                            cachedUpperPath.lineTo(centerX, upperY)
-                        }
-                    }
-
-                    if (cachedMiddlePath) {
-                        cachedMiddlePoints.push(middlePoint)
-                        if (!hasMiddleStarted) {
-                            cachedMiddlePath.moveTo(centerX, middleY)
-                            hasMiddleStarted = true
-                        } else {
-                            cachedMiddlePath.lineTo(centerX, middleY)
-                        }
-                    }
-
-                    if (cachedLowerPath) {
-                        cachedLowerPoints.push(lowerPoint)
-                        if (!hasLowerStarted) {
-                            cachedLowerPath.moveTo(centerX, lowerY)
-                            hasLowerStarted = true
-                        } else {
-                            cachedLowerPath.lineTo(centerX, lowerY)
-                        }
-                    }
-                }
-
-                if (cachedBandPath && hasBandStarted) {
-                    for (let i = drawEnd - 1; i >= drawStart; i--) {
-                        const boll = bollData[i]
-                        if (!boll) continue
-
-                        const centerX = kLineCenters[i - range.start]
-                        if (centerX === undefined) continue
-
-                        const lowerY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(boll.lower), dpr)
-                        cachedBandPath.lineTo(centerX, lowerY)
-                    }
-                    cachedBandPath.closePath()
+                    if (showUpper) cachedUpperPoints.push(upperPoint)
+                    if (showMiddle) cachedMiddlePoints.push(middlePoint)
+                    if (showLower) cachedLowerPoints.push(lowerPoint)
                 }
             }
 
@@ -318,6 +267,61 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                 bandLowerPoints: cachedBandLowerPoints,
             })) {
                 return
+            }
+
+            // WebGL 失败，按需构建 Path2D
+            if (showBand && !cachedBandPath && cachedBandUpperPoints.length >= 2) {
+                cachedBandPath = new Path2D()
+                let started = false
+                for (const p of cachedBandUpperPoints) {
+                    if (!started) {
+                        cachedBandPath.moveTo(p.x, p.y)
+                        started = true
+                    } else {
+                        cachedBandPath.lineTo(p.x, p.y)
+                    }
+                }
+                for (let i = cachedBandLowerPoints.length - 1; i >= 0; i--) {
+                    const p = cachedBandLowerPoints[i]!
+                    cachedBandPath.lineTo(p.x, p.y)
+                }
+                cachedBandPath.closePath()
+            }
+            if (showUpper && !cachedUpperPath && cachedUpperPoints.length >= 2) {
+                cachedUpperPath = new Path2D()
+                let started = false
+                for (const p of cachedUpperPoints) {
+                    if (!started) {
+                        cachedUpperPath.moveTo(p.x, p.y)
+                        started = true
+                    } else {
+                        cachedUpperPath.lineTo(p.x, p.y)
+                    }
+                }
+            }
+            if (showMiddle && !cachedMiddlePath && cachedMiddlePoints.length >= 2) {
+                cachedMiddlePath = new Path2D()
+                let started = false
+                for (const p of cachedMiddlePoints) {
+                    if (!started) {
+                        cachedMiddlePath.moveTo(p.x, p.y)
+                        started = true
+                    } else {
+                        cachedMiddlePath.lineTo(p.x, p.y)
+                    }
+                }
+            }
+            if (showLower && !cachedLowerPath && cachedLowerPoints.length >= 2) {
+                cachedLowerPath = new Path2D()
+                let started = false
+                for (const p of cachedLowerPoints) {
+                    if (!started) {
+                        cachedLowerPath.moveTo(p.x, p.y)
+                        started = true
+                    } else {
+                        cachedLowerPath.lineTo(p.x, p.y)
+                    }
+                }
             }
 
             ctx.save()

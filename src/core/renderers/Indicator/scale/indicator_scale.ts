@@ -12,6 +12,24 @@ interface IndicatorScaleRenderState extends BaseIndicatorState {
     valueMax: number
 }
 
+// Canvas 状态缓存，避免读取 ctx 属性（读取会触发颜色序列化，很慢）
+interface CanvasState {
+    font?: string
+    fillStyle?: string
+    textAlign?: string
+    textBaseline?: string
+}
+const ctxState = new WeakMap<CanvasRenderingContext2D, CanvasState>()
+
+function getCanvasState(ctx: CanvasRenderingContext2D): CanvasState {
+    let s = ctxState.get(ctx)
+    if (!s) {
+        s = {}
+        ctxState.set(ctx, s)
+    }
+    return s
+}
+
 export interface IndicatorScaleRendererOptions {
     axisWidth: number
     paneId: string
@@ -41,6 +59,9 @@ export interface DrawScaleTicksOptions {
     formatLabel?: (value: number) => string
 }
 
+const BASELINE_MIDDLE = 'middle' as const
+const ALIGN_CENTER = 'center' as const
+
 export function drawScaleTicks(options: DrawScaleTicksOptions): void {
     const {
         ctx,
@@ -58,15 +79,31 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
         formatLabel,
     } = options
 
-    ctx.save()
     ctx.clearRect(0, 0, axisWidth, height)
 
-    setCanvasFont(ctx, getFont(12))
-    ctx.textBaseline = 'middle'
-    ctx.textAlign = 'center'
-    ctx.fillStyle = TEXT_COLORS.SECONDARY
+    // 使用外部状态缓存，避免读取 ctx 属性（读取 fillStyle 会触发颜色序列化，很慢）
+    const state = getCanvasState(ctx)
+    const font = getFont(12)
+
+    if (state.font !== font) {
+        setCanvasFont(ctx, font)
+        state.font = font
+    }
+    if (state.textBaseline !== BASELINE_MIDDLE) {
+        ctx.textBaseline = BASELINE_MIDDLE
+        state.textBaseline = BASELINE_MIDDLE
+    }
+    if (state.textAlign !== ALIGN_CENTER) {
+        ctx.textAlign = ALIGN_CENTER
+        state.textAlign = ALIGN_CENTER
+    }
+    if (state.fillStyle !== TEXT_COLORS.SECONDARY) {
+        ctx.fillStyle = TEXT_COLORS.SECONDARY
+        state.fillStyle = TEXT_COLORS.SECONDARY
+    }
 
     const centerX = axisWidth / 2
+    const centerXPx = roundToPhysicalPixel(centerX, dpr)
 
     const positions = calculateValueTickPositions({
         height,
@@ -79,15 +116,13 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
         scaleType,
     })
 
-    for (const { y, value } of positions) {
-        ctx.fillText(
-            formatLabel ? formatLabel(value) : value.toFixed(decimals),
-            roundToPhysicalPixel(centerX, dpr),
-            alignToPhysicalPixelCenter(y, dpr)
-        )
-    }
+    // 提前提取 format 函数，避免循环内重复判断
+    const format = formatLabel ?? ((v: number) => v.toFixed(decimals))
 
-    ctx.restore()
+    for (let i = 0; i < positions.length; i++) {
+        const { y, value } = positions[i]!
+        ctx.fillText(format(value), centerXPx, alignToPhysicalPixelCenter(y, dpr))
+    }
 }
 
 export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRendererOptions): RendererPluginWithHost {

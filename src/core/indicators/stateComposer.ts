@@ -18,27 +18,35 @@ import type {
 import type {
     RSIRenderState,
 } from './rsiState'
+import { EMPTY_RSI_STATE } from './rsiState'
 import type {
     CCIRenderState,
 } from './cciState'
+import { EMPTY_CCI_STATE } from './cciState'
 import type {
     STOCHRenderState,
 } from './stochState'
+import { EMPTY_STOCH_STATE } from './stochState'
 import type {
     MOMRenderState,
 } from './momState'
+import { EMPTY_MOM_STATE } from './momState'
 import type {
     WMSRRenderState,
 } from './wmsrState'
+import { EMPTY_WMSR_STATE } from './wmsrState'
 import type {
     KSTRenderState,
 } from './kstState'
+import { EMPTY_KST_STATE } from './kstState'
 import type {
     FASTKRenderState,
 } from './fastkState'
+import { EMPTY_FASTK_STATE } from './fastkState'
 import type {
     MACDRenderState,
 } from './macdState'
+import { EMPTY_MACD_STATE } from './macdState'
 import type { IndicatorSeriesBundle } from './workerProtocol'
 
 /**
@@ -60,6 +68,17 @@ type VisibleSubIndicatorStates = {
     macd: MACDRenderState
 }
 
+type VisibleSubIndicatorMask = {
+    rsi?: boolean
+    cci?: boolean
+    stoch?: boolean
+    mom?: boolean
+    wmsr?: boolean
+    kst?: boolean
+    fastk?: boolean
+    macd?: boolean
+}
+
 type ComposedRenderStates = VisibleSubIndicatorStates & {
     ma: MARenderState
     boll: BOLLRenderState
@@ -74,6 +93,14 @@ function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: Visible
         : null
 }
 
+function mergeEmptyState<T extends { timestamp: number }>(state: T, timestamp: number, overrides: Partial<T>): T {
+    return {
+        ...state,
+        ...overrides,
+        timestamp,
+    }
+}
+
 /**
  * 仅计算副图指标的 visible-only states
  * 用于滚动时的轻量更新，避免重复计算主图指标
@@ -81,113 +108,148 @@ function getLatestMACDPoint(bundle: IndicatorSeriesBundle, visibleRange: Visible
 export function composeVisibleSubIndicatorStates(
     bundle: IndicatorSeriesBundle,
     visibleRange: VisibleRange,
-    timestamp: number
+    timestamp: number,
+    activeMask: VisibleSubIndicatorMask = {}
 ): VisibleSubIndicatorStates {
-    const rsiExtremes = calcRSIExtremes(bundle.rsi.series, visibleRange)
-    const cciExtremes = calcCCIExtremes(bundle.cci.series, visibleRange)
-    const stochExtremes = calcSTOCHExtremes(bundle.stoch.series, visibleRange)
-    const momExtremes = calcMOMExtremes(bundle.mom.series, visibleRange)
-    const wmsrExtremes = calcWMSRExtremes(bundle.wmsr.series, visibleRange)
-    const kstExtremes = calcKSTExtremes(bundle.kst.series, visibleRange)
-    const fastkExtremes = calcFASTKExtremes(bundle.fastk.series, visibleRange)
-    const macdExtremes = calcMACDExtremes(bundle.macd.series, visibleRange)
-    const latestPoint = getLatestMACDPoint(bundle, visibleRange)
+    const rsiActive = activeMask.rsi ?? true
+    const cciActive = activeMask.cci ?? true
+    const stochActive = activeMask.stoch ?? true
+    const momActive = activeMask.mom ?? true
+    const wmsrActive = activeMask.wmsr ?? true
+    const kstActive = activeMask.kst ?? true
+    const fastkActive = activeMask.fastk ?? true
+    const macdActive = activeMask.macd ?? true
 
-    const macdPadding = Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1
-    const macdValueMin = Number.isFinite(macdExtremes.min) ? macdExtremes.min - macdPadding : macdExtremes.min
-    const macdValueMax = Number.isFinite(macdExtremes.max) ? macdExtremes.max + macdPadding : macdExtremes.max
+    const rsiExtremes = rsiActive ? calcRSIExtremes(bundle.rsi.series, visibleRange) : null
+    const cciExtremes = cciActive ? calcCCIExtremes(bundle.cci.series, visibleRange) : null
+    const stochExtremes = stochActive ? calcSTOCHExtremes(bundle.stoch.series, visibleRange) : null
+    const momExtremes = momActive ? calcMOMExtremes(bundle.mom.series, visibleRange) : null
+    const wmsrExtremes = wmsrActive ? calcWMSRExtremes(bundle.wmsr.series, visibleRange) : null
+    const kstExtremes = kstActive ? calcKSTExtremes(bundle.kst.series, visibleRange) : null
+    const fastkExtremes = fastkActive ? calcFASTKExtremes(bundle.fastk.series, visibleRange) : null
+    const macdExtremes = macdActive ? calcMACDExtremes(bundle.macd.series, visibleRange) : null
+    const latestPoint = macdActive ? getLatestMACDPoint(bundle, visibleRange) : null
 
-    const cciValueMin = Math.min(cciExtremes.min, -150)
-    const cciValueMax = Math.max(cciExtremes.max, 150)
+    const macdPadding = macdExtremes ? Math.max(Math.abs(macdExtremes.max), Math.abs(macdExtremes.min)) * 0.1 : 0
+    const macdValueMin = macdExtremes && Number.isFinite(macdExtremes.min) ? macdExtremes.min - macdPadding : EMPTY_MACD_STATE.valueMin
+    const macdValueMax = macdExtremes && Number.isFinite(macdExtremes.max) ? macdExtremes.max + macdPadding : EMPTY_MACD_STATE.valueMax
 
-    const momPadding = Math.max(Math.abs(momExtremes.max), Math.abs(momExtremes.min)) * 0.1
-    const momValueMin = momExtremes.min - momPadding
-    const momValueMax = momExtremes.max + momPadding
+    const cciValueMin = cciExtremes ? Math.min(cciExtremes.min, -150) : EMPTY_CCI_STATE.valueMin
+    const cciValueMax = cciExtremes ? Math.max(cciExtremes.max, 150) : EMPTY_CCI_STATE.valueMax
 
-    const kstRange = kstExtremes.max - kstExtremes.min
+    const momPadding = momExtremes ? Math.max(Math.abs(momExtremes.max), Math.abs(momExtremes.min)) * 0.1 : 0
+    const momValueMin = momExtremes ? momExtremes.min - momPadding : EMPTY_MOM_STATE.valueMin
+    const momValueMax = momExtremes ? momExtremes.max + momPadding : EMPTY_MOM_STATE.valueMax
+
+    const kstRange = kstExtremes ? kstExtremes.max - kstExtremes.min : 0
     const kstPadding = kstRange * 0.1
-    const kstValueMin = kstExtremes.min - kstPadding
-    const kstValueMax = kstExtremes.max + kstPadding
+    const kstValueMin = kstExtremes ? kstExtremes.min - kstPadding : EMPTY_KST_STATE.valueMin
+    const kstValueMax = kstExtremes ? kstExtremes.max + kstPadding : EMPTY_KST_STATE.valueMax
 
     return {
-        rsi: {
+        rsi: rsiActive ? {
             timestamp,
             series: bundle.rsi.series,
             enabledPeriods: bundle.rsi.enabledPeriods,
             params: bundle.rsi.params,
             valueMin: 0,
             valueMax: 100,
-            visibleMin: rsiExtremes.min,
-            visibleMax: rsiExtremes.max,
-        },
-        cci: {
+            visibleMin: rsiExtremes!.min,
+            visibleMax: rsiExtremes!.max,
+        } : mergeEmptyState(EMPTY_RSI_STATE, timestamp, {
+            series: bundle.rsi.series,
+            enabledPeriods: bundle.rsi.enabledPeriods,
+            params: bundle.rsi.params,
+        }),
+        cci: cciActive ? {
             timestamp,
             series: bundle.cci.series,
             params: bundle.cci.params,
             valueMin: cciValueMin,
             valueMax: cciValueMax,
-            visibleMin: cciExtremes.min,
-            visibleMax: cciExtremes.max,
-        },
-        stoch: {
+            visibleMin: cciExtremes!.min,
+            visibleMax: cciExtremes!.max,
+        } : mergeEmptyState(EMPTY_CCI_STATE, timestamp, {
+            series: bundle.cci.series,
+            params: bundle.cci.params,
+        }),
+        stoch: stochActive ? {
             timestamp,
             series: bundle.stoch.series,
             params: bundle.stoch.params,
             valueMin: 0,
             valueMax: 100,
-            visibleMin: stochExtremes.min,
-            visibleMax: stochExtremes.max,
-        },
-        mom: {
+            visibleMin: stochExtremes!.min,
+            visibleMax: stochExtremes!.max,
+        } : mergeEmptyState(EMPTY_STOCH_STATE, timestamp, {
+            series: bundle.stoch.series,
+            params: bundle.stoch.params,
+        }),
+        mom: momActive ? {
             timestamp,
             series: bundle.mom.series,
             params: bundle.mom.params,
             valueMin: momValueMin,
             valueMax: momValueMax,
-            visibleMin: momExtremes.min,
-            visibleMax: momExtremes.max,
-        },
-        wmsr: {
+            visibleMin: momExtremes!.min,
+            visibleMax: momExtremes!.max,
+        } : mergeEmptyState(EMPTY_MOM_STATE, timestamp, {
+            series: bundle.mom.series,
+            params: bundle.mom.params,
+        }),
+        wmsr: wmsrActive ? {
             timestamp,
             series: bundle.wmsr.series,
             params: bundle.wmsr.params,
             valueMin: -100,
             valueMax: 0,
-            visibleMin: wmsrExtremes.min,
-            visibleMax: wmsrExtremes.max,
-        },
-        kst: {
+            visibleMin: wmsrExtremes!.min,
+            visibleMax: wmsrExtremes!.max,
+        } : mergeEmptyState(EMPTY_WMSR_STATE, timestamp, {
+            series: bundle.wmsr.series,
+            params: bundle.wmsr.params,
+        }),
+        kst: kstActive ? {
             timestamp,
             series: bundle.kst.series,
             params: bundle.kst.params,
             valueMin: kstValueMin,
             valueMax: kstValueMax,
-            visibleMin: kstExtremes.min,
-            visibleMax: kstExtremes.max,
-        },
-        fastk: {
+            visibleMin: kstExtremes!.min,
+            visibleMax: kstExtremes!.max,
+        } : mergeEmptyState(EMPTY_KST_STATE, timestamp, {
+            series: bundle.kst.series,
+            params: bundle.kst.params,
+        }),
+        fastk: fastkActive ? {
             timestamp,
             series: bundle.fastk.series,
             params: bundle.fastk.params,
             valueMin: 0,
             valueMax: 100,
-            visibleMin: fastkExtremes.min,
-            visibleMax: fastkExtremes.max,
-        },
-        macd: {
+            visibleMin: fastkExtremes!.min,
+            visibleMax: fastkExtremes!.max,
+        } : mergeEmptyState(EMPTY_FASTK_STATE, timestamp, {
+            series: bundle.fastk.series,
+            params: bundle.fastk.params,
+        }),
+        macd: macdActive ? {
             timestamp,
             series: bundle.macd.series,
             params: bundle.macd.params,
             valueMin: macdValueMin,
             valueMax: macdValueMax,
-            visibleMin: macdExtremes.min,
-            visibleMax: macdExtremes.max,
+            visibleMin: macdExtremes!.min,
+            visibleMax: macdExtremes!.max,
             latestValues: latestPoint ? {
                 dif: latestPoint.dif,
                 dea: latestPoint.dea,
                 macd: latestPoint.macd,
             } : undefined,
-        },
+        } : mergeEmptyState(EMPTY_MACD_STATE, timestamp, {
+            series: bundle.macd.series,
+            params: bundle.macd.params,
+        }),
     }
 }
 

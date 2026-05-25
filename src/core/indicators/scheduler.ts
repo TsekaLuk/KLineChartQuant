@@ -69,6 +69,17 @@ interface VisibleRange {
     end: number
 }
 
+type VisibleSubIndicatorMask = {
+    rsi: boolean
+    cci: boolean
+    stoch: boolean
+    mom: boolean
+    wmsr: boolean
+    kst: boolean
+    fastk: boolean
+    macd: boolean
+}
+
 // 重新导出配置类型（保持向后兼容）
 export type {
     BOLLSchedulerConfig,
@@ -412,8 +423,9 @@ export class IndicatorScheduler {
         if (!this.pluginHost || !this.latestResult) return
 
         const timestamp = Date.now()
+        const activeMask = this.getVisibleSubIndicatorMask()
         // 仅计算副图指标极值，跳过主图指标（ma/boll/expma/ene）
-        const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp)
+        const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp, activeMask)
 
         // RSI
         const rsiKey = createRSIStateKey(this.configSnapshot.rsiPaneId)
@@ -447,6 +459,21 @@ export class IndicatorScheduler {
         const macdKey = createMACDStateKey(this.configSnapshot.macdPaneId)
         this.pluginHost.setSharedState<MACDRenderState>(macdKey, states.macd, 'indicator_scheduler')
     }
+
+    private getVisibleSubIndicatorMask(): VisibleSubIndicatorMask {
+        const { rsi, cci, stoch, mom, wmsr, kst, fastk, macd } = this.configSnapshot
+        return {
+            rsi: rsi.showRSI1 || rsi.showRSI2 || rsi.showRSI3,
+            cci: cci.showCCI,
+            stoch: stoch.showK || stoch.showD,
+            mom: mom.showMOM,
+            wmsr: wmsr.showWMSR,
+            kst: kst.showKST || kst.showSignal,
+            fastk: fastk.showFASTK,
+            macd: macd.showDIF || macd.showDEA || macd.showBAR,
+        }
+    }
+
 
     // ============================================================================
     // Public API

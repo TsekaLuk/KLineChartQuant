@@ -707,7 +707,7 @@ export class Chart {
                 range: { ...range },
                 kLinePositions: [...kLinePositions],
                 kLineCenters: [...kLineCenters],
-                kBarRects: kBarRects.map((rect) => ({ ...rect })),
+                kBarRects,
                 kWidthPx,
             }
         }

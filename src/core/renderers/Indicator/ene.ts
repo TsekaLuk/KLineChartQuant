@@ -5,8 +5,97 @@ import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { ENE_COLORS } from '@/core/theme/colors'
 import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/eneState'
 
-/**
- * 创建 ENE（轨道线）渲染器插件（无状态版本）
+type LinePoint = { x: number; y: number }
+
+function getRgbaAlpha(color: string): number {
+    const match = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i)
+    if (!match) return 1
+    const alpha = Number(match[1])
+    return Number.isFinite(alpha) ? alpha : 1
+}
+
+function toOpaqueRgba(color: string): string {
+    return color.replace(/,\s*[\d.]+\s*\)$/i, ', 1)')
+}
+
+function compositeLineSurface(
+    context: RenderContext,
+    surface: NonNullable<RenderContext['lineWebGLSurface']>,
+    alpha = 1
+): void {
+    const canvas = surface.getCanvas()
+    if (canvas.width <= 0 || canvas.height <= 0) return
+
+    const prevImageSmoothingEnabled = context.ctx.imageSmoothingEnabled
+    const prevGlobalAlpha = context.ctx.globalAlpha
+    context.ctx.imageSmoothingEnabled = false
+    context.ctx.globalAlpha = prevGlobalAlpha * alpha
+    context.ctx.drawImage(
+        canvas,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+        0,
+        0,
+        canvas.width / context.dpr,
+        canvas.height / context.dpr
+    )
+    context.ctx.globalAlpha = prevGlobalAlpha
+    context.ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
+}
+
+function drawENEWithWebGL(
+    context: RenderContext,
+    data: {
+        upperPoints: LinePoint[]
+        middlePoints: LinePoint[]
+        lowerPoints: LinePoint[]
+    }
+): boolean {
+    if (context.settings?.enableWebGLRendering === false) return false
+    const surface = context.lineWebGLSurface
+    if (!surface || !surface.isAvailable()) return false
+
+    surface.clear()
+
+    let allOk = true
+    if (data.upperPoints.length >= 2 && data.lowerPoints.length >= 2) {
+        surface.clear()
+        allOk = surface.drawFilledBand(
+            { upperPoints: data.upperPoints, lowerPoints: data.lowerPoints },
+            toOpaqueRgba(ENE_COLORS.BAND_FILL),
+            context.scrollLeft
+        )
+        if (allOk) {
+            compositeLineSurface(context, surface, getRgbaAlpha(ENE_COLORS.BAND_FILL))
+        }
+    }
+    surface.clear()
+
+    if (allOk && data.upperPoints.length >= 2) {
+        allOk = surface.drawLineStrip({ points: data.upperPoints, width: 1 }, ENE_COLORS.UPPER, context.scrollLeft)
+    }
+    if (allOk && data.middlePoints.length >= 2) {
+        allOk = surface.drawLineStrip({ points: data.middlePoints, width: 1 }, ENE_COLORS.MIDDLE, context.scrollLeft)
+    }
+    if (allOk && data.lowerPoints.length >= 2) {
+        allOk = surface.drawLineStrip({ points: data.lowerPoints, width: 1 }, ENE_COLORS.LOWER, context.scrollLeft)
+    }
+    if (!allOk) {
+        surface.clear()
+        return false
+    }
+
+    const canvas = surface.getCanvas()
+    if (canvas.width > 0 && canvas.height > 0) {
+        compositeLineSurface(context, surface)
+    }
+    surface.clear()
+    return true
+}
+
+/** 创建 ENE（轨道线）渲染器插件（无状态版本）
  *
  * 设计原则：
  * 1. 不持有任何计算缓存或配置状态
@@ -59,93 +148,75 @@ export function createENERendererPlugin(): RendererPluginWithHost {
 
             if (klineData.length < period) return
 
-            ctx.save()
-            ctx.translate(-scrollLeft, 0)
-
             const drawStart = Math.max(range.start, period - 1)
             const drawEnd = Math.min(range.end, klineData.length)
+            const upperPoints: LinePoint[] = []
+            const middlePoints: LinePoint[] = []
+            const lowerPoints: LinePoint[] = []
 
-            // 使用主题颜色（修复：原代码硬编码颜色）
-            const upperColor = ENE_COLORS.UPPER
-            const middleColor = ENE_COLORS.MIDDLE
-            const lowerColor = ENE_COLORS.LOWER
-            const bandFill = ENE_COLORS.BAND_FILL
-
-            // 绘制带状区域
-            ctx.fillStyle = bandFill
-            ctx.beginPath()
-            let isFirst = true
-
-            // 上轨
             for (let i = drawStart; i < drawEnd; i++) {
                 const ene = eneData[i]
                 if (!ene) continue
 
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                const logicY = pane.yAxis.priceToY(ene.upper)
-                const x = centerX
-                const y = alignToPhysicalPixelCenter(logicY, dpr)
 
-                if (isFirst) {
-                    ctx.moveTo(x, y)
-                    isFirst = false
-                } else {
-                    ctx.lineTo(x, y)
+                upperPoints.push({
+                    x: centerX,
+                    y: alignToPhysicalPixelCenter(pane.yAxis.priceToY(ene.upper), dpr),
+                })
+                middlePoints.push({
+                    x: centerX,
+                    y: alignToPhysicalPixelCenter(pane.yAxis.priceToY(ene.middle), dpr),
+                })
+                lowerPoints.push({
+                    x: centerX,
+                    y: alignToPhysicalPixelCenter(pane.yAxis.priceToY(ene.lower), dpr),
+                })
+            }
+
+            if (drawENEWithWebGL(context, { upperPoints, middlePoints, lowerPoints })) {
+                return
+            }
+
+            ctx.save()
+            ctx.translate(-scrollLeft, 0)
+
+            ctx.fillStyle = ENE_COLORS.BAND_FILL
+            ctx.beginPath()
+            if (upperPoints.length > 0) {
+                ctx.moveTo(upperPoints[0]!.x, upperPoints[0]!.y)
+                for (let i = 1; i < upperPoints.length; i++) {
+                    const point = upperPoints[i]!
+                    ctx.lineTo(point.x, point.y)
+                }
+                for (let i = lowerPoints.length - 1; i >= 0; i--) {
+                    const point = lowerPoints[i]!
+                    ctx.lineTo(point.x, point.y)
                 }
             }
-
-            // 下轨（反向）
-            for (let i = drawEnd - 1; i >= drawStart; i--) {
-                const ene = eneData[i]
-                if (!ene) continue
-
-                const centerX = kLineCenters[i - range.start]
-                if (centerX === undefined) continue
-                const logicY = pane.yAxis.priceToY(ene.lower)
-                const x = centerX
-                const y = alignToPhysicalPixelCenter(logicY, dpr)
-
-                ctx.lineTo(x, y)
-            }
-
             ctx.closePath()
             ctx.fill()
 
-            // 绘制线条
             ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
 
-            const drawLine = (type: 'upper' | 'middle' | 'lower', color: string) => {
+            const drawLine = (points: LinePoint[], color: string) => {
+                if (points.length === 0) return
                 ctx.strokeStyle = color
                 ctx.beginPath()
-                let isFirst = true
-
-                for (let i = drawStart; i < drawEnd; i++) {
-                    const ene = eneData[i]
-                    if (!ene) continue
-
-                    const centerX = kLineCenters[i - range.start]
-                    if (centerX === undefined) continue
-                    const logicY = pane.yAxis.priceToY(ene[type])
-                    const x = centerX
-                    const y = alignToPhysicalPixelCenter(logicY, dpr)
-
-                    if (isFirst) {
-                        ctx.moveTo(x, y)
-                        isFirst = false
-                    } else {
-                        ctx.lineTo(x, y)
-                    }
+                ctx.moveTo(points[0]!.x, points[0]!.y)
+                for (let i = 1; i < points.length; i++) {
+                    const point = points[i]!
+                    ctx.lineTo(point.x, point.y)
                 }
-
                 ctx.stroke()
             }
 
-            drawLine('upper', upperColor)
-            drawLine('middle', middleColor)
-            drawLine('lower', lowerColor)
+            drawLine(upperPoints, ENE_COLORS.UPPER)
+            drawLine(middlePoints, ENE_COLORS.MIDDLE)
+            drawLine(lowerPoints, ENE_COLORS.LOWER)
 
             ctx.restore()
         },

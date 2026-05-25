@@ -10,6 +10,11 @@ type LineStrip = {
     width: number
 }
 
+type FilledBand = {
+    upperPoints: Array<{ x: number; y: number }>
+    lowerPoints: Array<{ x: number; y: number }>
+}
+
 type FloatColor = readonly [number, number, number, number]
 
 type RectWebGLHandles = {
@@ -297,6 +302,7 @@ export class LineWebGLSurface {
     private dpr = 1
     private available = false
     private vertexCapacity = 0
+    private fillScratch = new Float32Array(0)
 
     // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
     private geoCache = new WeakMap<Array<{ x: number; y: number }>, Map<number, { vertices: Float32Array; vertexCount: number }>>()
@@ -388,6 +394,63 @@ export class LineWebGLSurface {
         gl.uniform1f(handles.scrollXLocation, scrollLeft)
         gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
         gl.drawArrays(gl.TRIANGLES, 0, geometry.vertexCount)
+        gl.bindVertexArray(null)
+        return true
+    }
+
+    drawFilledBand(band: FilledBand, color: string, scrollLeft: number): boolean {
+        const handles = this.handles
+        const pointCount = Math.min(band.upperPoints.length, band.lowerPoints.length)
+        if (!handles || pointCount < 2 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
+            return false
+        }
+
+        const colorValue = parseColor(color)
+        if (!colorValue) return false
+
+        const vertexCount = (pointCount - 1) * 6
+        const floatCount = vertexCount * 2
+        if (this.fillScratch.length < floatCount) {
+            this.fillScratch = new Float32Array(nextBufferFloatCapacity(floatCount))
+        }
+
+        let writeIndex = 0
+        for (let i = 0; i < pointCount - 1; i++) {
+            const upperA = band.upperPoints[i]!
+            const upperB = band.upperPoints[i + 1]!
+            const lowerA = band.lowerPoints[i]!
+            const lowerB = band.lowerPoints[i + 1]!
+
+            this.fillScratch[writeIndex++] = upperA.x
+            this.fillScratch[writeIndex++] = upperA.y
+            this.fillScratch[writeIndex++] = lowerA.x
+            this.fillScratch[writeIndex++] = lowerA.y
+            this.fillScratch[writeIndex++] = upperB.x
+            this.fillScratch[writeIndex++] = upperB.y
+            this.fillScratch[writeIndex++] = upperB.x
+            this.fillScratch[writeIndex++] = upperB.y
+            this.fillScratch[writeIndex++] = lowerA.x
+            this.fillScratch[writeIndex++] = lowerA.y
+            this.fillScratch[writeIndex++] = lowerB.x
+            this.fillScratch[writeIndex++] = lowerB.y
+        }
+
+        const { gl } = handles
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
+        gl.useProgram(handles.program)
+        gl.bindVertexArray(handles.vao)
+        gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
+
+        if (this.vertexCapacity < floatCount) {
+            this.vertexCapacity = nextBufferFloatCapacity(floatCount)
+            gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
+        }
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.fillScratch.subarray(0, floatCount))
+
+        gl.uniform2f(handles.resolutionLocation, this.logicalWidth, this.logicalHeight)
+        gl.uniform1f(handles.scrollXLocation, scrollLeft)
+        gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
+        gl.drawArrays(gl.TRIANGLES, 0, vertexCount)
         gl.bindVertexArray(null)
         return true
     }

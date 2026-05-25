@@ -5,6 +5,8 @@ import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { BOLL_COLORS } from '@/core/theme/colors'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollState'
 
+type LinePoint = { x: number; y: number }
+
 function buildBOLLCacheKey(
     range: { start: number; end: number },
     kLineCenters: number[],
@@ -35,6 +37,104 @@ function buildBOLLCacheKey(
     ].join('|')
 }
 
+
+function getRgbaAlpha(color: string): number {
+    const match = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i)
+    if (!match) return 1
+    const alpha = Number(match[1])
+    return Number.isFinite(alpha) ? alpha : 1
+}
+
+function toOpaqueRgba(color: string): string {
+    return color.replace(/,\s*[\d.]+\s*\)$/i, ', 1)')
+}
+
+function compositeLineSurface(
+    context: RenderContext,
+    surface: NonNullable<RenderContext['lineWebGLSurface']>,
+    alpha = 1
+): void {
+    const canvas = surface.getCanvas()
+    if (canvas.width <= 0 || canvas.height <= 0) return
+
+    const prevImageSmoothingEnabled = context.ctx.imageSmoothingEnabled
+    const prevGlobalAlpha = context.ctx.globalAlpha
+    context.ctx.imageSmoothingEnabled = false
+    context.ctx.globalAlpha = prevGlobalAlpha * alpha
+    context.ctx.drawImage(
+        canvas,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+        0,
+        0,
+        canvas.width / context.dpr,
+        canvas.height / context.dpr
+    )
+    context.ctx.globalAlpha = prevGlobalAlpha
+    context.ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
+}
+
+function drawBOLLWithWebGL(
+    context: RenderContext,
+    data: {
+        showUpper: boolean
+        showMiddle: boolean
+        showLower: boolean
+        showBand: boolean
+        upperPoints: LinePoint[]
+        middlePoints: LinePoint[]
+        lowerPoints: LinePoint[]
+        bandUpperPoints: LinePoint[]
+        bandLowerPoints: LinePoint[]
+    }
+): boolean {
+    if (context.settings?.enableWebGLRendering === false) return false
+    const surface = context.lineWebGLSurface
+    if (!surface || !surface.isAvailable()) return false
+
+    surface.clear()
+
+    let allOk = true
+    if (data.showBand && data.bandUpperPoints.length >= 2 && data.bandLowerPoints.length >= 2) {
+        surface.clear()
+        allOk = surface.drawFilledBand(
+            { upperPoints: data.bandUpperPoints, lowerPoints: data.bandLowerPoints },
+            toOpaqueRgba(BOLL_COLORS.BAND_FILL),
+            context.scrollLeft
+        )
+        if (allOk) {
+            compositeLineSurface(context, surface, getRgbaAlpha(BOLL_COLORS.BAND_FILL))
+        }
+    }
+    surface.clear()
+
+    if (data.showUpper && data.upperPoints.length >= 2) {
+        allOk = surface.drawLineStrip({ points: data.upperPoints, width: 1 }, BOLL_COLORS.UPPER, context.scrollLeft)
+    }
+    if (allOk && data.showMiddle && data.middlePoints.length >= 2) {
+        allOk = surface.drawLineStrip({ points: data.middlePoints, width: 1 }, BOLL_COLORS.MIDDLE, context.scrollLeft)
+    }
+    if (allOk && data.showLower && data.lowerPoints.length >= 2) {
+        allOk = surface.drawLineStrip({ points: data.lowerPoints, width: 1 }, BOLL_COLORS.LOWER, context.scrollLeft)
+    }
+    if (!allOk) {
+        surface.clear()
+        return false
+    }
+
+    const canvas = surface.getCanvas()
+    if (canvas.width <= 0 || canvas.height <= 0) {
+        surface.clear()
+        return true
+    }
+
+    compositeLineSurface(context, surface)
+    surface.clear()
+    return true
+}
+
 export function createBOLLRendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
     let cachedKey = ''
@@ -42,6 +142,11 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
     let cachedUpperPath: Path2D | null = null
     let cachedMiddlePath: Path2D | null = null
     let cachedLowerPath: Path2D | null = null
+    let cachedUpperPoints: LinePoint[] = []
+    let cachedMiddlePoints: LinePoint[] = []
+    let cachedLowerPoints: LinePoint[] = []
+    let cachedBandUpperPoints: LinePoint[] = []
+    let cachedBandLowerPoints: LinePoint[] = []
 
     function clearCache() {
         cachedKey = ''
@@ -49,6 +154,11 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         cachedUpperPath = null
         cachedMiddlePath = null
         cachedLowerPath = null
+        cachedUpperPoints = []
+        cachedMiddlePoints = []
+        cachedLowerPoints = []
+        cachedBandUpperPoints = []
+        cachedBandLowerPoints = []
     }
 
     return {
@@ -108,6 +218,11 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                 cachedUpperPath = showUpper ? new Path2D() : null
                 cachedMiddlePath = showMiddle ? new Path2D() : null
                 cachedLowerPath = showLower ? new Path2D() : null
+                cachedUpperPoints = []
+                cachedMiddlePoints = []
+                cachedLowerPoints = []
+                cachedBandUpperPoints = []
+                cachedBandLowerPoints = []
 
                 let hasBandStarted = false
                 let hasUpperStarted = false
@@ -125,7 +240,13 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     const middleY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(boll.middle), dpr)
                     const lowerY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(boll.lower), dpr)
 
+                    const upperPoint = { x: centerX, y: upperY }
+                    const middlePoint = { x: centerX, y: middleY }
+                    const lowerPoint = { x: centerX, y: lowerY }
+
                     if (cachedBandPath) {
+                        cachedBandUpperPoints.push(upperPoint)
+                        cachedBandLowerPoints.push(lowerPoint)
                         if (!hasBandStarted) {
                             cachedBandPath.moveTo(centerX, upperY)
                             hasBandStarted = true
@@ -135,6 +256,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     }
 
                     if (cachedUpperPath) {
+                        cachedUpperPoints.push(upperPoint)
                         if (!hasUpperStarted) {
                             cachedUpperPath.moveTo(centerX, upperY)
                             hasUpperStarted = true
@@ -144,6 +266,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     }
 
                     if (cachedMiddlePath) {
+                        cachedMiddlePoints.push(middlePoint)
                         if (!hasMiddleStarted) {
                             cachedMiddlePath.moveTo(centerX, middleY)
                             hasMiddleStarted = true
@@ -153,6 +276,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     }
 
                     if (cachedLowerPath) {
+                        cachedLowerPoints.push(lowerPoint)
                         if (!hasLowerStarted) {
                             cachedLowerPath.moveTo(centerX, lowerY)
                             hasLowerStarted = true
@@ -175,6 +299,20 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                     }
                     cachedBandPath.closePath()
                 }
+            }
+
+            if (drawBOLLWithWebGL(context, {
+                showUpper,
+                showMiddle,
+                showLower,
+                showBand,
+                upperPoints: cachedUpperPoints,
+                middlePoints: cachedMiddlePoints,
+                lowerPoints: cachedLowerPoints,
+                bandUpperPoints: cachedBandUpperPoints,
+                bandLowerPoints: cachedBandLowerPoints,
+            })) {
+                return
             }
 
             ctx.save()

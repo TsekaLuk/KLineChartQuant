@@ -223,7 +223,6 @@ import IconTablerSettings from '~icons/tabler/settings'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
-  isMobileDevice,
   type SettingItem,
 } from '../config/chartSettings'
 import { useFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
@@ -295,16 +294,6 @@ const teleportTarget = useFullscreenTeleportTarget()
 
 // 从 localStorage 加载设置，或使用默认值
 function loadSettings(): Record<string, boolean> {
-  const isMobile = isMobileDevice()
-
-  // 获取默认值（移动端默认关闭 WebGL）
-  const getDefaultValue = (item: (typeof DEFAULT_SETTINGS)[number]): boolean => {
-    if (item.key === 'enableWebGLRendering' && isMobile) {
-      return false
-    }
-    return item.default
-  }
-
   try {
     const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
     if (saved) {
@@ -312,7 +301,7 @@ function loadSettings(): Record<string, boolean> {
       // 确保所有默认设置项都存在
       const result: Record<string, boolean> = {}
       DEFAULT_SETTINGS.forEach((item) => {
-        result[item.key] = parsed[item.key] ?? getDefaultValue(item)
+        result[item.key] = parsed[item.key] ?? item.default
       })
       return result
     }
@@ -322,7 +311,7 @@ function loadSettings(): Record<string, boolean> {
   // 返回默认设置
   const defaults: Record<string, boolean> = {}
   DEFAULT_SETTINGS.forEach((item) => {
-    defaults[item.key] = getDefaultValue(item)
+    defaults[item.key] = item.default
   })
   return defaults
 }
@@ -383,14 +372,9 @@ function closeSettings() {
 }
 
 function resetSettings() {
-  const isMobile = isMobileDevice()
   const defaults: Record<string, boolean> = {}
   DEFAULT_SETTINGS.forEach((item) => {
-    if (item.key === 'enableWebGLRendering' && isMobile) {
-      defaults[item.key] = false
-    } else {
-      defaults[item.key] = item.default
-    }
+    defaults[item.key] = item.default
   })
   settings.value = defaults
 }

@@ -202,9 +202,8 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showWMSR && cachedWMSRPoints.length >= 2) {
-                    const ok = lineWebGLSurface.drawLineStrip(
-                        { points: cachedWMSRPoints, width: 1 },
-                        WMSR_COLORS.WMSR,
+                    const ok = lineWebGLSurface.drawLineStrips(
+                        [{ points: cachedWMSRPoints, width: 1, color: WMSR_COLORS.WMSR }],
                         scrollLeft
                     )
                     if (ok) {

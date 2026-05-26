@@ -9,13 +9,6 @@ import { VolumePriceRelation } from '@/types/volumePrice'
 import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '@/utils/volumePrice'
 import type { MarkerManager } from '@/core/marker/registry'
 
-type Rect = {
-    x: number
-    y: number
-    width: number
-    height: number
-}
-
 type CandleRenderData = {
     i: number
     aligned: ReturnType<typeof createAlignedKLineFromPx>
@@ -32,10 +25,14 @@ type CandleRenderData = {
 type PreparedCandles = {
     upKLines: CandleRenderData[]
     downKLines: CandleRenderData[]
-    upBodyRects: Rect[]
-    downBodyRects: Rect[]
-    upWickRects: Rect[]
-    downWickRects: Rect[]
+    upBodyBuf: Float32Array
+    upBodyCount: number
+    downBodyBuf: Float32Array
+    downBodyCount: number
+    upWickBuf: Float32Array
+    upWickCount: number
+    downWickBuf: Float32Array
+    downWickCount: number
     wickWidth: number
     relations: VolumePriceRelation[] | null
     showVolumePriceMarkers: boolean
@@ -100,10 +97,15 @@ function prepareCandles(args: {
 
     const upKLines: CandleRenderData[] = []
     const downKLines: CandleRenderData[] = []
-    const upBodyRects: Rect[] = []
-    const downBodyRects: Rect[] = []
-    const upWickRects: Rect[] = []
-    const downWickRects: Rect[] = []
+    const maxRects = Math.max(1, range.end - range.start)
+    const upBodyBuf = new Float32Array(maxRects * 4)
+    const downBodyBuf = new Float32Array(maxRects * 4)
+    const upWickBuf = new Float32Array(maxRects * 2 * 4)
+    const downWickBuf = new Float32Array(maxRects * 2 * 4)
+    let upBodyCount = 0
+    let downBodyCount = 0
+    let upWickCount = 0
+    let downWickCount = 0
 
     // 预取 displayRange，避免循环内每根 K 线 4 次 getDisplayRange()
     const { maxPrice, minPrice } = pane.yAxis.getDisplayRange()
@@ -167,24 +169,52 @@ function prepareCandles(args: {
 
         const bodyRect = aligned.bodyRect
         const targetKLines = trend === 'up' ? upKLines : downKLines
-        const targetBodies = trend === 'up' ? upBodyRects : downBodyRects
-        const targetWicks = trend === 'up' ? upWickRects : downWickRects
+        const isUp = trend === 'up'
 
         targetKLines.push(renderData)
-        targetBodies.push(bodyRect)
 
-        const bodyTop = aligned.bodyRect.y
-        const bodyBottom = aligned.bodyRect.y + aligned.bodyRect.height
+        if (isUp) {
+            const off = upBodyCount++ * 4
+            upBodyBuf[off] = bodyRect.x
+            upBodyBuf[off + 1] = bodyRect.y
+            upBodyBuf[off + 2] = bodyRect.width
+            upBodyBuf[off + 3] = bodyRect.height
+        } else {
+            const off = downBodyCount++ * 4
+            downBodyBuf[off] = bodyRect.x
+            downBodyBuf[off + 1] = bodyRect.y
+            downBodyBuf[off + 2] = bodyRect.width
+            downBodyBuf[off + 3] = bodyRect.height
+        }
+
+        const bodyTop = bodyRect.y
+        const bodyBottom = bodyRect.y + bodyRect.height
         const bodyHigh = Math.max(e.open, e.close)
         const bodyLow = Math.min(e.open, e.close)
 
         if (e.high > bodyHigh) {
             const wick = createVerticalLineRect(aligned.wickRect.x, alignedHighY, bodyTop, dpr)
-            if (wick) targetWicks.push(wick)
+            if (wick) {
+                const buf = isUp ? upWickBuf : downWickBuf
+                const idx = isUp ? upWickCount++ : downWickCount++
+                const off = idx * 4
+                buf[off] = wick.x
+                buf[off + 1] = wick.y
+                buf[off + 2] = wick.width
+                buf[off + 3] = wick.height
+            }
         }
         if (e.low < bodyLow) {
             const wick = createVerticalLineRect(aligned.wickRect.x, bodyBottom, alignedLowY, dpr)
-            if (wick) targetWicks.push(wick)
+            if (wick) {
+                const buf = isUp ? upWickBuf : downWickBuf
+                const idx = isUp ? upWickCount++ : downWickCount++
+                const off = idx * 4
+                buf[off] = wick.x
+                buf[off + 1] = wick.y
+                buf[off + 2] = wick.width
+                buf[off + 3] = wick.height
+            }
         }
     }
 
@@ -193,10 +223,14 @@ function prepareCandles(args: {
     return {
         upKLines,
         downKLines,
-        upBodyRects,
-        downBodyRects,
-        upWickRects,
-        downWickRects,
+        upBodyBuf,
+        upBodyCount,
+        downBodyBuf,
+        downBodyCount,
+        upWickBuf,
+        upWickCount,
+        downWickBuf,
+        downWickCount,
         wickWidth,
         relations,
         showVolumePriceMarkers,
@@ -208,23 +242,27 @@ function drawCandlesWithCanvas2D(ctx: CanvasRenderingContext2D, scrollLeft: numb
     ctx.translate(-scrollLeft, 0)
 
     ctx.fillStyle = PRICE_COLORS.UP
-    for (const rect of prepared.upBodyRects) {
-        ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+    for (let i = 0; i < prepared.upBodyCount; i++) {
+        const off = i * 4
+        ctx.fillRect(prepared.upBodyBuf[off], prepared.upBodyBuf[off + 1], prepared.upBodyBuf[off + 2], prepared.upBodyBuf[off + 3])
     }
 
     ctx.fillStyle = PRICE_COLORS.DOWN
-    for (const rect of prepared.downBodyRects) {
-        ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+    for (let i = 0; i < prepared.downBodyCount; i++) {
+        const off = i * 4
+        ctx.fillRect(prepared.downBodyBuf[off], prepared.downBodyBuf[off + 1], prepared.downBodyBuf[off + 2], prepared.downBodyBuf[off + 3])
     }
 
     ctx.fillStyle = PRICE_COLORS.UP
-    for (const rect of prepared.upWickRects) {
-        ctx.fillRect(rect.x, rect.y, prepared.wickWidth, rect.height)
+    for (let i = 0; i < prepared.upWickCount; i++) {
+        const off = i * 4
+        ctx.fillRect(prepared.upWickBuf[off], prepared.upWickBuf[off + 1], prepared.wickWidth, prepared.upWickBuf[off + 3])
     }
 
     ctx.fillStyle = PRICE_COLORS.DOWN
-    for (const rect of prepared.downWickRects) {
-        ctx.fillRect(rect.x, rect.y, prepared.wickWidth, rect.height)
+    for (let i = 0; i < prepared.downWickCount; i++) {
+        const off = i * 4
+        ctx.fillRect(prepared.downWickBuf[off], prepared.downWickBuf[off + 1], prepared.wickWidth, prepared.downWickBuf[off + 3])
     }
 
     ctx.restore()
@@ -237,10 +275,10 @@ function drawCandlesWithWebGL(context: RenderContext, prepared: PreparedCandles)
 
     surface.clear()
 
-    const bodyUpOk = prepared.upBodyRects.length === 0 || surface.drawRects(prepared.upBodyRects, PRICE_COLORS.UP, context.scrollLeft)
-    const bodyDownOk = prepared.downBodyRects.length === 0 || surface.drawRects(prepared.downBodyRects, PRICE_COLORS.DOWN, context.scrollLeft)
-    const wickUpOk = prepared.upWickRects.length === 0 || surface.drawRects(prepared.upWickRects, PRICE_COLORS.UP, context.scrollLeft)
-    const wickDownOk = prepared.downWickRects.length === 0 || surface.drawRects(prepared.downWickRects, PRICE_COLORS.DOWN, context.scrollLeft)
+    const bodyUpOk = prepared.upBodyCount === 0 || surface.drawRectBuffer(prepared.upBodyBuf.subarray(0, prepared.upBodyCount * 4), prepared.upBodyCount, PRICE_COLORS.UP, context.scrollLeft)
+    const bodyDownOk = prepared.downBodyCount === 0 || surface.drawRectBuffer(prepared.downBodyBuf.subarray(0, prepared.downBodyCount * 4), prepared.downBodyCount, PRICE_COLORS.DOWN, context.scrollLeft)
+    const wickUpOk = prepared.upWickCount === 0 || surface.drawRectBuffer(prepared.upWickBuf.subarray(0, prepared.upWickCount * 4), prepared.upWickCount, PRICE_COLORS.UP, context.scrollLeft)
+    const wickDownOk = prepared.downWickCount === 0 || surface.drawRectBuffer(prepared.downWickBuf.subarray(0, prepared.downWickCount * 4), prepared.downWickCount, PRICE_COLORS.DOWN, context.scrollLeft)
 
     return bodyUpOk && bodyDownOk && wickUpOk && wickDownOk
 }

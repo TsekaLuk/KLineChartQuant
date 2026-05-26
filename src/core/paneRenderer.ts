@@ -1,19 +1,4 @@
 import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
-import { SETTINGS_STORAGE_KEY } from '@/config/chartSettings'
-
-/** 从 localStorage 读取是否使用着色器抗锯齿 */
-function getUseShaderAA(): boolean {
-    try {
-        const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
-        if (saved) {
-            const parsed = JSON.parse(saved)
-            return parsed.webglLineAA !== 'msaa' // 默认使用 shader AA
-        }
-    } catch {
-        // 解析失败，使用默认值
-    }
-    return true // 默认使用 shader AA
-}
 
 export type PaneRendererDom = {
     mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
@@ -57,10 +42,9 @@ export class PaneRenderer {
             ...opt,
             priceLabelWidth: opt.priceLabelWidth || 60,
         }
-        const useShaderAA = getUseShaderAA()
         this.webgl = {
             candleSurface: new CandleWebGLSurface(),
-            lineSurface: new LineWebGLSurface(undefined, useShaderAA),
+            lineSurface: new LineWebGLSurface(),
         }
     }
 

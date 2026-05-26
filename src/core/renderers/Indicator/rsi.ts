@@ -223,29 +223,18 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
             const enableWebGL = context.settings?.enableWebGLRendering !== false
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-                let allOk = true
-
+                const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (params.showRSI1 && cachedRSI1Points.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedRSI1Points, width: 1 },
-                        RSI_COLORS.RSI1,
-                        scrollLeft
-                    )
+                    lines.push({ points: cachedRSI1Points, width: 1, color: RSI_COLORS.RSI1 })
                 }
-                if (allOk && params.showRSI2 && cachedRSI2Points.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedRSI2Points, width: 1 },
-                        RSI_COLORS.RSI2,
-                        scrollLeft
-                    )
+                if (params.showRSI2 && cachedRSI2Points.length >= 2) {
+                    lines.push({ points: cachedRSI2Points, width: 1, color: RSI_COLORS.RSI2 })
                 }
-                if (allOk && params.showRSI3 && cachedRSI3Points.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedRSI3Points, width: 1 },
-                        RSI_COLORS.RSI3,
-                        scrollLeft
-                    )
+                if (params.showRSI3 && cachedRSI3Points.length >= 2) {
+                    lines.push({ points: cachedRSI3Points, width: 1, color: RSI_COLORS.RSI3 })
                 }
+
+                const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
 
                 if (allOk) {
                     usedWebGL = true

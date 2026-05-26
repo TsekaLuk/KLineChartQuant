@@ -9,36 +9,11 @@ type LinePoint = { x: number; y: number }
 
 const BOLL_LINE_WIDTH = 1
 
-function buildBOLLCacheKey(
-    range: { start: number; end: number },
-    kLineCenters: number[],
-    pane: RenderContext['pane'],
-    showUpper: boolean,
-    showMiddle: boolean,
-    showLower: boolean,
-    showBand: boolean,
-    period: number
-): string {
-    const dr = pane.yAxis.getDisplayRange()
-    return [
-        range.start,
-        range.end,
-        kLineCenters.length,
-        kLineCenters[0]?.toFixed(2) ?? 'n',
-        kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
-        dr.maxPrice.toFixed(6),
-        dr.minPrice.toFixed(6),
-        pane.yAxis.getPriceOffset().toFixed(6),
-        pane.yAxis.getScaleType(),
-        Number(showUpper),
-        Number(showMiddle),
-        Number(showLower),
-        Number(showBand),
-        period,
-        pane.height.toFixed(2),
-    ].join('|')
+interface PriceData {
+    upper: number
+    middle: number
+    lower: number
 }
-
 
 function getRgbaAlpha(color: string): number {
     const match = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i)
@@ -142,36 +117,26 @@ function drawBOLLWithWebGL(
     return true
 }
 
+function buildPriceCacheKey(
+    range: { start: number; end: number },
+    dataLength: number,
+    lastTimestamp: number,
+    period: number
+): string {
+    return `${range.start}|${range.end}|${dataLength}|${lastTimestamp}|${period}`
+}
+
 export function createBOLLRendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
-    let cachedKey = ''
-    let cachedBandPath: Path2D | null = null
-    let cachedUpperPath: Path2D | null = null
-    let cachedMiddlePath: Path2D | null = null
-    let cachedLowerPath: Path2D | null = null
-    let cachedUpperPoints: LinePoint[] = []
-    let cachedMiddlePoints: LinePoint[] = []
-    let cachedLowerPoints: LinePoint[] = []
-    let cachedBandUpperPoints: LinePoint[] = []
-    let cachedBandLowerPoints: LinePoint[] = []
 
     function clearCache() {
-        cachedKey = ''
-        cachedBandPath = null
-        cachedUpperPath = null
-        cachedMiddlePath = null
-        cachedLowerPath = null
-        cachedUpperPoints = []
-        cachedMiddlePoints = []
-        cachedLowerPoints = []
-        cachedBandUpperPoints = []
-        cachedBandLowerPoints = []
+        // 不再需要缓存
     }
 
     return {
         name: 'boll',
-        version: '2.0.0',
-        description: '布林带渲染器（带绘制缓存）',
+        version: '2.2.0',
+        description: '布林带渲染器（无缓存优化）',
         debugName: 'BOLL布林带',
         paneId: 'main',
         priority: RENDERER_PRIORITY.INDICATOR,
@@ -189,168 +154,110 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
             const klineData = data as KLineData[]
 
             const state = pluginHost?.getSharedState<BOLLRenderState>(BOLL_STATE_KEY)
-            if (!state || state.visibleMin > state.visibleMax) {
-                clearCache()
-                return
-            }
-            if (state.series.length === 0) {
-                clearCache()
+            if (!state || state.visibleMin > state.visibleMax || state.series.length === 0) {
                 return
             }
 
             const { period, showUpper, showMiddle, showLower, showBand } = state.params
             const bollData = state.series
 
-            if (klineData.length < period) {
-                clearCache()
-                return
-            }
+            if (klineData.length < period) return
 
             const drawStart = Math.max(range.start, period - 1)
             const drawEnd = Math.min(range.end, klineData.length)
-            const cacheKey = buildBOLLCacheKey(
-                range,
-                kLineCenters,
-                pane,
-                showUpper,
-                showMiddle,
-                showLower,
-                showBand,
-                period
-            )
+            if (drawEnd <= drawStart) return
 
-            if (cachedKey !== cacheKey) {
-                cachedKey = cacheKey
-                // 延迟构建 Path2D，只在 WebGL 失败后按需构建
-                cachedBandPath = null
-                cachedUpperPath = null
-                cachedMiddlePath = null
-                cachedLowerPath = null
-                cachedUpperPoints = []
-                cachedMiddlePoints = []
-                cachedLowerPoints = []
-                cachedBandUpperPoints = []
-                cachedBandLowerPoints = []
+            // ====== 一次性完成：提取数据 + 坐标转换 + 点构建 ======
+            const rangeStart = range.start
+            const priceToY = pane.yAxis.priceToY.bind(pane.yAxis)
 
-                for (let i = drawStart; i < drawEnd; i++) {
-                    const boll = bollData[i]
-                    if (!boll) continue
+            // 预分配数组（避免动态扩容）
+            const pointCount = drawEnd - drawStart
+            const upperPoints: LinePoint[] = new Array(pointCount)
+            const middlePoints: LinePoint[] = new Array(pointCount)
+            const lowerPoints: LinePoint[] = new Array(pointCount)
+            const bandUpperPoints: LinePoint[] = showBand ? new Array(pointCount) : []
+            const bandLowerPoints: LinePoint[] = showBand ? new Array(pointCount) : []
 
-                    const centerX = kLineCenters[i - range.start]
-                    if (centerX === undefined) continue
+            let upperIdx = 0, middleIdx = 0, lowerIdx = 0, bandIdx = 0
 
-                    const upperY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(boll.upper), dpr)
-                    const middleY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(boll.middle), dpr)
-                    const lowerY = alignToPhysicalPixelCenter(pane.yAxis.priceToY(boll.lower), dpr)
+            for (let i = drawStart; i < drawEnd; i++) {
+                const boll = bollData[i]
+                if (!boll) continue
 
-                    const upperPoint = { x: centerX, y: upperY }
-                    const middlePoint = { x: centerX, y: middleY }
-                    const lowerPoint = { x: centerX, y: lowerY }
+                const centerX = kLineCenters[i - rangeStart]
+                if (centerX === undefined) continue
 
-                    if (showBand) {
-                        cachedBandUpperPoints.push(upperPoint)
-                        cachedBandLowerPoints.push(lowerPoint)
-                    }
-                    if (showUpper) cachedUpperPoints.push(upperPoint)
-                    if (showMiddle) cachedMiddlePoints.push(middlePoint)
-                    if (showLower) cachedLowerPoints.push(lowerPoint)
+                // 批量坐标转换
+                const upperY = alignToPhysicalPixelCenter(priceToY(boll.upper), dpr)
+                const middleY = alignToPhysicalPixelCenter(priceToY(boll.middle), dpr)
+                const lowerY = alignToPhysicalPixelCenter(priceToY(boll.lower), dpr)
+
+                // 直接写入预分配数组
+                upperPoints[upperIdx++] = { x: centerX, y: upperY }
+                middlePoints[middleIdx++] = { x: centerX, y: middleY }
+                lowerPoints[lowerIdx++] = { x: centerX, y: lowerY }
+
+                if (showBand) {
+                    bandUpperPoints[bandIdx] = { x: centerX, y: upperY }
+                    bandLowerPoints[bandIdx] = { x: centerX, y: lowerY }
+                    bandIdx++
                 }
             }
 
+            // 截断到实际长度
+            upperPoints.length = upperIdx
+            middlePoints.length = middleIdx
+            lowerPoints.length = lowerIdx
+            if (showBand) {
+                bandUpperPoints.length = bandIdx
+                bandLowerPoints.length = bandIdx
+            }
+
+            // ====== 渲染 ======
             if (drawBOLLWithWebGL(context, {
-                showUpper,
-                showMiddle,
-                showLower,
-                showBand,
-                upperPoints: cachedUpperPoints,
-                middlePoints: cachedMiddlePoints,
-                lowerPoints: cachedLowerPoints,
-                bandUpperPoints: cachedBandUpperPoints,
-                bandLowerPoints: cachedBandLowerPoints,
+                showUpper, showMiddle, showLower, showBand,
+                upperPoints, middlePoints, lowerPoints,
+                bandUpperPoints, bandLowerPoints,
             })) {
                 return
             }
 
-            // WebGL 失败，按需构建 Path2D
-            if (showBand && !cachedBandPath && cachedBandUpperPoints.length >= 2) {
-                cachedBandPath = new Path2D()
-                let started = false
-                for (const p of cachedBandUpperPoints) {
-                    if (!started) {
-                        cachedBandPath.moveTo(p.x, p.y)
-                        started = true
-                    } else {
-                        cachedBandPath.lineTo(p.x, p.y)
-                    }
-                }
-                for (let i = cachedBandLowerPoints.length - 1; i >= 0; i--) {
-                    const p = cachedBandLowerPoints[i]!
-                    cachedBandPath.lineTo(p.x, p.y)
-                }
-                cachedBandPath.closePath()
-            }
-            if (showUpper && !cachedUpperPath && cachedUpperPoints.length >= 2) {
-                cachedUpperPath = new Path2D()
-                let started = false
-                for (const p of cachedUpperPoints) {
-                    if (!started) {
-                        cachedUpperPath.moveTo(p.x, p.y)
-                        started = true
-                    } else {
-                        cachedUpperPath.lineTo(p.x, p.y)
-                    }
-                }
-            }
-            if (showMiddle && !cachedMiddlePath && cachedMiddlePoints.length >= 2) {
-                cachedMiddlePath = new Path2D()
-                let started = false
-                for (const p of cachedMiddlePoints) {
-                    if (!started) {
-                        cachedMiddlePath.moveTo(p.x, p.y)
-                        started = true
-                    } else {
-                        cachedMiddlePath.lineTo(p.x, p.y)
-                    }
-                }
-            }
-            if (showLower && !cachedLowerPath && cachedLowerPoints.length >= 2) {
-                cachedLowerPath = new Path2D()
-                let started = false
-                for (const p of cachedLowerPoints) {
-                    if (!started) {
-                        cachedLowerPath.moveTo(p.x, p.y)
-                        started = true
-                    } else {
-                        cachedLowerPath.lineTo(p.x, p.y)
-                    }
-                }
-            }
-
+            // ====== Canvas 2D 回退（极少执行） ======
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             ctx.lineWidth = BOLL_LINE_WIDTH
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
 
-            if (cachedBandPath) {
+            if (showBand && bandUpperPoints.length >= 2) {
+                const bandPath = new Path2D()
+                bandPath.moveTo(bandUpperPoints[0].x, bandUpperPoints[0].y)
+                for (let i = 1; i < bandUpperPoints.length; i++) {
+                    bandPath.lineTo(bandUpperPoints[i].x, bandUpperPoints[i].y)
+                }
+                for (let i = bandLowerPoints.length - 1; i >= 0; i--) {
+                    bandPath.lineTo(bandLowerPoints[i].x, bandLowerPoints[i].y)
+                }
+                bandPath.closePath()
                 ctx.fillStyle = BOLL_COLORS.BAND_FILL
-                ctx.fill(cachedBandPath)
+                ctx.fill(bandPath)
             }
 
-            if (cachedUpperPath) {
-                ctx.strokeStyle = BOLL_COLORS.UPPER
-                ctx.stroke(cachedUpperPath)
+            const drawLine = (points: LinePoint[], color: string) => {
+                if (points.length < 2) return
+                ctx.beginPath()
+                ctx.strokeStyle = color
+                ctx.moveTo(points[0].x, points[0].y)
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y)
+                }
+                ctx.stroke()
             }
 
-            if (cachedMiddlePath) {
-                ctx.strokeStyle = BOLL_COLORS.MIDDLE
-                ctx.stroke(cachedMiddlePath)
-            }
-
-            if (cachedLowerPath) {
-                ctx.strokeStyle = BOLL_COLORS.LOWER
-                ctx.stroke(cachedLowerPath)
-            }
+            if (showUpper) drawLine(upperPoints, BOLL_COLORS.UPPER)
+            if (showMiddle) drawLine(middlePoints, BOLL_COLORS.MIDDLE)
+            if (showLower) drawLine(lowerPoints, BOLL_COLORS.LOWER)
 
             ctx.restore()
         },

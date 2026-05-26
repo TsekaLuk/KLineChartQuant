@@ -94,21 +94,15 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             const enableWebGL = context.settings?.enableWebGLRendering !== false
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-                let allOk = true
+                const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (cachedFastPoints.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedFastPoints, width: 1 },
-                        EXPMA_COLORS.FAST,
-                        scrollLeft
-                    )
+                    lines.push({ points: cachedFastPoints, width: 1, color: EXPMA_COLORS.FAST })
                 }
-                if (allOk && cachedSlowPoints.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedSlowPoints, width: 1 },
-                        EXPMA_COLORS.SLOW,
-                        scrollLeft
-                    )
+                if (cachedSlowPoints.length >= 2) {
+                    lines.push({ points: cachedSlowPoints, width: 1, color: EXPMA_COLORS.SLOW })
                 }
+
+                const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
 
                 if (allOk) {
                     usedWebGL = true

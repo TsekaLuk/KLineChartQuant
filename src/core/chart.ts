@@ -628,17 +628,8 @@ export class Chart {
 
     /** 更新用户设置（触发重绘） */
     updateSettings(settings: ChartSettings): void {
-        const prevUseShaderAA = this.settings.webglLineAA !== 'msaa'
-        const nextUseShaderAA = settings.webglLineAA !== 'msaa'
-
         this.settings = { ...settings }
         this.interaction.updateSettings(settings)
-
-        if (prevUseShaderAA !== nextUseShaderAA) {
-            for (const renderer of this.paneRenderers) {
-                renderer.getWebGL().lineSurface?.reinitialize(nextUseShaderAA)
-            }
-        }
 
         // 同步对数刻度设置到所有 pane
         const scaleType = settings.logarithmicScale ? 'log' : 'linear'

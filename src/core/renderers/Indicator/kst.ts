@@ -150,22 +150,15 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
             const enableWebGL = context.settings?.enableWebGLRendering !== false
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-                let allOk = true
-
+                const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (params.showKST && cachedKSTPoints.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedKSTPoints, width: 1 },
-                        KST_COLORS.KST,
-                        scrollLeft
-                    )
+                    lines.push({ points: cachedKSTPoints, width: 1, color: KST_COLORS.KST })
                 }
-                if (allOk && params.showSignal && cachedSignalPoints.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedSignalPoints, width: 1 },
-                        KST_COLORS.SIGNAL,
-                        scrollLeft
-                    )
+                if (params.showSignal && cachedSignalPoints.length >= 2) {
+                    lines.push({ points: cachedSignalPoints, width: 1, color: KST_COLORS.SIGNAL })
                 }
+
+                const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
 
                 if (allOk) {
                     usedWebGL = true

@@ -150,9 +150,8 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showCCI && cachedCCIPoints.length >= 2) {
-                    const ok = lineWebGLSurface.drawLineStrip(
-                        { points: cachedCCIPoints, width: 1 },
-                        CCI_COLORS.CCI,
+                    const ok = lineWebGLSurface.drawLineStrips(
+                        [{ points: cachedCCIPoints, width: 1, color: CCI_COLORS.CCI }],
                         scrollLeft
                     )
                     if (ok) {

@@ -191,9 +191,8 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showFASTK && cachedFASTKPoints.length >= 2) {
-                    const ok = lineWebGLSurface.drawLineStrip(
-                        { points: cachedFASTKPoints, width: 1 },
-                        KDJ_COLORS.K,
+                    const ok = lineWebGLSurface.drawLineStrips(
+                        [{ points: cachedFASTKPoints, width: 1, color: KDJ_COLORS.K }],
                         scrollLeft
                     )
                     if (ok) {

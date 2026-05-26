@@ -185,9 +185,8 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showMOM && cachedMOMPoints.length >= 2) {
-                    const ok = lineWebGLSurface.drawLineStrip(
-                        { points: cachedMOMPoints, width: 1 },
-                        MOM_COLORS.MOM,
+                    const ok = lineWebGLSurface.drawLineStrips(
+                        [{ points: cachedMOMPoints, width: 1, color: MOM_COLORS.MOM }],
                         scrollLeft
                     )
                     if (ok) {

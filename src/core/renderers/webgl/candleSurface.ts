@@ -41,21 +41,9 @@ type BasicLineWebGLHandles = {
     colorLocation: WebGLUniformLocation
 }
 
-type AALineWebGLHandles = {
-    program: WebGLProgram
-    vao: WebGLVertexArrayObject
-    vertexBuffer: WebGLBuffer
-    resolutionLocation: WebGLUniformLocation
-    scrollXLocation: WebGLUniformLocation
-    colorLocation: WebGLUniformLocation
-    halfWidthLocation: WebGLUniformLocation
-    featherLocation: WebGLUniformLocation
-}
-
 type LineWebGLHandles = {
     gl: WebGL2RenderingContext
     basic: BasicLineWebGLHandles
-    aa: AALineWebGLHandles | null
 }
 
 const RECT_VERTEX_SHADER_SOURCE = `#version 300 es
@@ -101,35 +89,6 @@ void main() {
     gl_Position = vec4(clip, 0.0, 1.0);
 }`
 
-const AA_LINE_VERTEX_SHADER_SOURCE = `#version 300 es
-precision mediump float;
-
-in vec2 a_position;
-in vec2 a_segmentStart;
-in vec2 a_segmentEnd;
-
-uniform vec2 u_resolution;
-uniform float u_scrollX;
-
-out vec2 v_position;
-out vec2 v_segmentStart;
-out vec2 v_segmentEnd;
-
-void main() {
-    vec2 position = vec2(a_position.x - u_scrollX, a_position.y);
-    v_position = position;
-    v_segmentStart = vec2(a_segmentStart.x - u_scrollX, a_segmentStart.y);
-    v_segmentEnd = vec2(a_segmentEnd.x - u_scrollX, a_segmentEnd.y);
-
-    vec2 zeroToOne = position / u_resolution;
-    vec2 clip = vec2(
-        zeroToOne.x * 2.0 - 1.0,
-        1.0 - zeroToOne.y * 2.0
-    );
-
-    gl_Position = vec4(clip, 0.0, 1.0);
-}`
-
 const FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision mediump float;
 
@@ -138,33 +97,6 @@ out vec4 outColor;
 
 void main() {
     outColor = u_color;
-}`
-
-const AA_LINE_FRAGMENT_SHADER_SOURCE = `#version 300 es
-precision mediump float;
-
-uniform vec4 u_color;
-uniform float u_halfWidth;
-uniform float u_feather;
-
-in vec2 v_position;
-in vec2 v_segmentStart;
-in vec2 v_segmentEnd;
-
-out vec4 outColor;
-
-void main() {
-    vec2 segment = v_segmentEnd - v_segmentStart;
-    float segmentLengthSquared = dot(segment, segment);
-    float projection = 0.0;
-    if (segmentLengthSquared > 0.0) {
-        projection = clamp(dot(v_position - v_segmentStart, segment) / segmentLengthSquared, 0.0, 1.0);
-    }
-
-    vec2 closest = v_segmentStart + segment * projection;
-    float distanceToSegment = length(v_position - closest);
-    float alpha = 1.0 - smoothstep(max(0.0, u_halfWidth - u_feather), u_halfWidth + u_feather, distanceToSegment);
-    outColor = vec4(u_color.rgb, u_color.a * alpha);
 }`
 
 const UNIT_QUAD = new Float32Array([
@@ -223,14 +155,46 @@ export class CandleWebGLSurface {
         gl.clear(gl.COLOR_BUFFER_BIT)
     }
 
-    drawRects(rects: Rect[], color: string, scrollLeft: number): boolean {
+    /** 直接传入已打包的 Float32Array：每 4 个元素为一组 (x, y, width, height) */
+    drawRectBuffer(rectData: Float32Array, rectCount: number, color: string, scrollLeft: number): boolean {
         const handles = this.handles
-        if (!handles || !rects.length || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
+        if (!handles || rectCount === 0 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
             return false
         }
 
         const colorValue = parseColor(color)
         if (!colorValue) return false
+
+        const floatCount = rectCount * 4
+        const { gl } = handles
+        gl.useProgram(handles.program)
+        gl.bindVertexArray(handles.vao)
+        gl.bindBuffer(gl.ARRAY_BUFFER, handles.rectBuffer)
+
+        if (this.rectCapacity < floatCount) {
+            this.rectCapacity = nextBufferFloatCapacity(floatCount)
+            gl.bufferData(gl.ARRAY_BUFFER, this.rectCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
+        }
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, rectData)
+
+        if (colorValue[3] === 1) {
+            gl.disable(gl.BLEND)
+        } else {
+            gl.enable(gl.BLEND)
+        }
+        gl.uniform2f(handles.resolutionLocation, this.logicalWidth, this.logicalHeight)
+        gl.uniform1f(handles.scrollXLocation, scrollLeft)
+        gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, rectCount)
+        gl.bindVertexArray(null)
+        return true
+    }
+
+    drawRects(rects: Rect[], color: string, scrollLeft: number): boolean {
+        const handles = this.handles
+        if (!handles || !rects.length || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
+            return false
+        }
 
         const floatCount = rects.length * 4
         if (this.rectScratch.length < floatCount) {
@@ -246,24 +210,7 @@ export class CandleWebGLSurface {
             this.rectScratch[offset + 3] = rect.height
         }
 
-        const { gl } = handles
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
-        gl.useProgram(handles.program)
-        gl.bindVertexArray(handles.vao)
-        gl.bindBuffer(gl.ARRAY_BUFFER, handles.rectBuffer)
-
-        if (this.rectCapacity < floatCount) {
-            this.rectCapacity = nextBufferFloatCapacity(floatCount)
-            gl.bufferData(gl.ARRAY_BUFFER, this.rectCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
-        }
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.rectScratch.subarray(0, floatCount))
-
-        gl.uniform2f(handles.resolutionLocation, this.logicalWidth, this.logicalHeight)
-        gl.uniform1f(handles.scrollXLocation, scrollLeft)
-        gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, rects.length)
-        gl.bindVertexArray(null)
-        return true
+        return this.drawRectBuffer(this.rectScratch.subarray(0, floatCount), rects.length, color, scrollLeft)
     }
 
     destroy(): void {
@@ -295,6 +242,8 @@ export class CandleWebGLSurface {
         }
 
         if (!gl) return null
+
+        console.log('[CandleWebGLSurface] 抗锯齿已禁用 (antialias: false, 无AA着色器)')
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, RECT_VERTEX_SHADER_SOURCE)
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE)
@@ -378,30 +327,14 @@ export class LineWebGLSurface {
     private dpr = 1
     private available = false
     private vertexCapacity = 0
-    private aaVertexCapacity = 0
     private fillScratch = new Float32Array(0)
-    private useShaderAA: boolean
+    private lineScratch = new Float32Array(0)
 
     // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
     private geoCache = new WeakMap<Array<{ x: number; y: number }>, Map<number, { vertices: Float32Array; vertexCount: number }>>()
 
-    constructor(canvas?: HTMLCanvasElement, useShaderAA = true) {
+    constructor(canvas?: HTMLCanvasElement) {
         this.canvas = canvas ?? document.createElement('canvas')
-        this.useShaderAA = useShaderAA
-        this.handles = this.initLineHandles()
-        this.available = this.handles !== null
-    }
-
-    /** 重新初始化以应用新的抗锯齿设置 */
-    reinitialize(useShaderAA: boolean): void {
-        if (this.useShaderAA === useShaderAA) return
-        this.destroy()
-        this.canvas = document.createElement('canvas')
-        if (this.logicalWidth > 0 && this.logicalHeight > 0) {
-            this.canvas.width = Math.max(1, Math.round(this.logicalWidth * this.dpr))
-            this.canvas.height = Math.max(1, Math.round(this.logicalHeight * this.dpr))
-        }
-        this.useShaderAA = useShaderAA
         this.handles = this.initLineHandles()
         this.available = this.handles !== null
     }
@@ -439,28 +372,21 @@ export class LineWebGLSurface {
         gl.clear(gl.COLOR_BUFFER_BIT)
     }
 
-    drawLineStrip(line: LineStrip, color: string, scrollLeft: number): boolean {
-        return this.drawLineStrips([{ ...line, color }], scrollLeft)
-    }
-
     drawLineStrips(lines: ColoredLineStrip[], scrollLeft: number): boolean {
         const handles = this.handles
         if (!handles || lines.length === 0 || this.logicalWidth <= 0 || this.logicalHeight <= 0) {
             return false
         }
 
-        const entries: Array<{
+        // Pass 1: count total vertex floats + build draw command list
+        type DrawCmd = {
             colorValue: FloatColor
-            pointCount: number
-            vertices: Float32Array
             mode: number
-        }> = []
-        const aaEntries: Array<{
-            colorValue: FloatColor
+            firstVertex: number
             pointCount: number
-            vertices: Float32Array
-            halfWidth: number
-        }> = []
+        }
+        const drawCmds: DrawCmd[] = []
+        let totalFloats = 0
 
         for (const line of lines) {
             if (line.points.length < 2) return false
@@ -468,96 +394,74 @@ export class LineWebGLSurface {
             const colorValue = parseColor(line.color)
             if (!colorValue) return false
 
-            if (line.width === 1 && !handles.aa) {
-                const vertices = this.getThinLineVertices(line.points)
-                entries.push({ colorValue, pointCount: line.points.length, vertices, mode: handles.gl.LINE_STRIP })
-                continue
-            }
-
-            if (handles.aa) {
-                const geometry = buildAALineSegmentGeometry(line.points, line.width / 2)
+            if (line.width === 1) {
+                const { vertexCount, vertices } = this.getThinLineVertices(line.points)
+                drawCmds.push({ colorValue, mode: handles.gl.LINE_STRIP, firstVertex: totalFloats / 2, pointCount: vertexCount })
+                totalFloats += vertices.length
+            } else {
+                const geometry = this.getLineGeometry(line)
                 if (!geometry) return false
-
-                aaEntries.push({
-                    colorValue,
-                    pointCount: geometry.vertexCount,
-                    vertices: geometry.vertices,
-                    halfWidth: line.width / 2,
-                })
-                continue
+                drawCmds.push({ colorValue, mode: handles.gl.TRIANGLES, firstVertex: totalFloats / 2, pointCount: geometry.vertexCount })
+                totalFloats += geometry.vertices.length
             }
+        }
 
-            const geometry = this.getLineGeometry(line)
-            if (!geometry) return false
-
-            entries.push({
-                colorValue,
-                pointCount: geometry.vertexCount,
-                vertices: geometry.vertices,
-                mode: handles.gl.TRIANGLES,
-            })
+        // Pass 2: fill scratch buffer (geometry already cached, recompute is free)
+        if (this.lineScratch.length < totalFloats) {
+            this.lineScratch = new Float32Array(nextBufferFloatCapacity(totalFloats))
+        }
+        let floatOffset = 0
+        for (const line of lines) {
+            const vertices = line.width === 1
+                ? this.getThinLineVertices(line.points).vertices
+                : this.getLineGeometry(line)!.vertices
+            this.lineScratch.set(vertices, floatOffset)
+            floatOffset += vertices.length
         }
 
         const { gl } = handles
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
+        gl.useProgram(handles.basic.program)
+        gl.bindVertexArray(handles.basic.vao)
+        gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
 
-        if (entries.length > 0) {
-            gl.useProgram(handles.basic.program)
-            gl.bindVertexArray(handles.basic.vao)
-            gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
-
-            gl.uniform2f(handles.basic.resolutionLocation, this.logicalWidth, this.logicalHeight)
-            gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
-
-            for (const entry of entries) {
-                const { colorValue, pointCount, vertices, mode } = entry
-                const floatCount = vertices.length
-                if (this.vertexCapacity < floatCount) {
-                    this.vertexCapacity = nextBufferFloatCapacity(floatCount)
-                    gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
-                }
-                gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices)
-                gl.uniform4f(handles.basic.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-                gl.drawArrays(mode, 0, pointCount)
-            }
+        if (this.vertexCapacity < totalFloats) {
+            this.vertexCapacity = nextBufferFloatCapacity(totalFloats)
+            gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
         }
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.lineScratch.subarray(0, totalFloats))
 
-        if (handles.aa && aaEntries.length > 0) {
-            const feather = 1 / Math.max(this.dpr, 1)
-            gl.useProgram(handles.aa.program)
-            gl.bindVertexArray(handles.aa.vao)
-            gl.bindBuffer(gl.ARRAY_BUFFER, handles.aa.vertexBuffer)
+        gl.uniform2f(handles.basic.resolutionLocation, this.logicalWidth, this.logicalHeight)
+        gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
 
-            gl.uniform2f(handles.aa.resolutionLocation, this.logicalWidth, this.logicalHeight)
-            gl.uniform1f(handles.aa.scrollXLocation, scrollLeft)
-            gl.uniform1f(handles.aa.featherLocation, feather)
-
-            for (const entry of aaEntries) {
-                const { colorValue, pointCount, vertices, halfWidth } = entry
-                const floatCount = vertices.length
-                if (this.aaVertexCapacity < floatCount) {
-                    this.aaVertexCapacity = nextBufferFloatCapacity(floatCount)
-                    gl.bufferData(gl.ARRAY_BUFFER, this.aaVertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
-                }
-                gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices)
-                gl.uniform4f(handles.aa.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-                gl.uniform1f(handles.aa.halfWidthLocation, halfWidth)
-                gl.drawArrays(gl.TRIANGLES, 0, pointCount)
-            }
+        for (const cmd of drawCmds) {
+            gl.uniform4f(handles.basic.colorLocation, cmd.colorValue[0], cmd.colorValue[1], cmd.colorValue[2], cmd.colorValue[3])
+            gl.drawArrays(cmd.mode, cmd.firstVertex, cmd.pointCount)
         }
 
         gl.bindVertexArray(null)
         return true
     }
 
-    private getThinLineVertices(points: Array<{ x: number; y: number }>): Float32Array {
-        const vertices = new Float32Array(points.length * 2)
+    private getThinLineVertices(points: Array<{ x: number; y: number }>): { vertices: Float32Array; vertexCount: number } {
+        let widthMap = this.geoCache.get(points)
+        if (widthMap) {
+            const cached = widthMap.get(0)
+            if (cached) return cached
+        } else {
+            widthMap = new Map()
+            this.geoCache.set(points, widthMap)
+        }
+
+        const vertexCount = points.length
+        const vertices = new Float32Array(vertexCount * 2)
         let writeIndex = 0
         for (const point of points) {
             vertices[writeIndex++] = point.x
             vertices[writeIndex++] = point.y
         }
-        return vertices
+        const result = { vertices, vertexCount }
+        widthMap.set(0, result)
+        return result
     }
 
     private getLineGeometry(line: LineStrip): { vertices: Float32Array; vertexCount: number } | null {
@@ -586,35 +490,23 @@ export class LineWebGLSurface {
         const colorValue = parseColor(color)
         if (!colorValue) return false
 
-        const vertexCount = (pointCount - 1) * 6
+        const vertexCount = pointCount * 2
         const floatCount = vertexCount * 2
         if (this.fillScratch.length < floatCount) {
             this.fillScratch = new Float32Array(nextBufferFloatCapacity(floatCount))
         }
 
         let writeIndex = 0
-        for (let i = 0; i < pointCount - 1; i++) {
-            const upperA = band.upperPoints[i]!
-            const upperB = band.upperPoints[i + 1]!
-            const lowerA = band.lowerPoints[i]!
-            const lowerB = band.lowerPoints[i + 1]!
-
-            this.fillScratch[writeIndex++] = upperA.x
-            this.fillScratch[writeIndex++] = upperA.y
-            this.fillScratch[writeIndex++] = lowerA.x
-            this.fillScratch[writeIndex++] = lowerA.y
-            this.fillScratch[writeIndex++] = upperB.x
-            this.fillScratch[writeIndex++] = upperB.y
-            this.fillScratch[writeIndex++] = upperB.x
-            this.fillScratch[writeIndex++] = upperB.y
-            this.fillScratch[writeIndex++] = lowerA.x
-            this.fillScratch[writeIndex++] = lowerA.y
-            this.fillScratch[writeIndex++] = lowerB.x
-            this.fillScratch[writeIndex++] = lowerB.y
+        for (let i = 0; i < pointCount; i++) {
+            const upper = band.upperPoints[i]!
+            const lower = band.lowerPoints[i]!
+            this.fillScratch[writeIndex++] = upper.x
+            this.fillScratch[writeIndex++] = upper.y
+            this.fillScratch[writeIndex++] = lower.x
+            this.fillScratch[writeIndex++] = lower.y
         }
 
         const { gl } = handles
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
         gl.useProgram(handles.basic.program)
         gl.bindVertexArray(handles.basic.vao)
         gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
@@ -628,7 +520,7 @@ export class LineWebGLSurface {
         gl.uniform2f(handles.basic.resolutionLocation, this.logicalWidth, this.logicalHeight)
         gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
         gl.uniform4f(handles.basic.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-        gl.drawArrays(gl.TRIANGLES, 0, vertexCount)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexCount)
         gl.bindVertexArray(null)
         return true
     }
@@ -637,23 +529,16 @@ export class LineWebGLSurface {
         const handles = this.handles
         if (!handles) {
             this.vertexCapacity = 0
-            this.aaVertexCapacity = 0
             return
         }
 
-        const { gl, basic, aa } = handles
+        const { gl, basic } = handles
         gl.deleteBuffer(basic.vertexBuffer)
         gl.deleteVertexArray(basic.vao)
         gl.deleteProgram(basic.program)
-        if (aa) {
-            gl.deleteBuffer(aa.vertexBuffer)
-            gl.deleteVertexArray(aa.vao)
-            gl.deleteProgram(aa.program)
-        }
         this.handles = null
         this.available = false
         this.vertexCapacity = 0
-        this.aaVertexCapacity = 0
     }
 
     private initLineHandles(): LineWebGLHandles | null {
@@ -661,7 +546,7 @@ export class LineWebGLSurface {
         try {
             gl = this.canvas.getContext('webgl2', {
                 alpha: true,
-                antialias: !this.useShaderAA, // MSAA 仅在非着色器 AA 模式下启用
+                antialias: true,
                 depth: false,
                 stencil: false,
                 premultipliedAlpha: true,
@@ -719,73 +604,6 @@ export class LineWebGLSurface {
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
         gl.bindVertexArray(null)
 
-        let aa: AALineWebGLHandles | null = null
-        // 仅在着色器抗锯齿模式下创建 AA shader
-        if (this.useShaderAA) {
-            const aaVertexShader = createShader(gl, gl.VERTEX_SHADER, AA_LINE_VERTEX_SHADER_SOURCE)
-            const aaFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, AA_LINE_FRAGMENT_SHADER_SOURCE)
-            if (aaVertexShader && aaFragmentShader) {
-                const aaProgram = createProgram(gl, aaVertexShader, aaFragmentShader)
-                gl.deleteShader(aaVertexShader)
-                gl.deleteShader(aaFragmentShader)
-
-                if (aaProgram) {
-                    const aaVao = gl.createVertexArray()
-                    const aaVertexBuffer = gl.createBuffer()
-                    const aaResolutionLocation = gl.getUniformLocation(aaProgram, 'u_resolution')
-                    const aaScrollXLocation = gl.getUniformLocation(aaProgram, 'u_scrollX')
-                    const aaColorLocation = gl.getUniformLocation(aaProgram, 'u_color')
-                    const aaHalfWidthLocation = gl.getUniformLocation(aaProgram, 'u_halfWidth')
-                    const aaFeatherLocation = gl.getUniformLocation(aaProgram, 'u_feather')
-                    const aaPositionLocation = gl.getAttribLocation(aaProgram, 'a_position')
-                    const aaSegmentStartLocation = gl.getAttribLocation(aaProgram, 'a_segmentStart')
-                    const aaSegmentEndLocation = gl.getAttribLocation(aaProgram, 'a_segmentEnd')
-
-                    if (
-                        aaVao &&
-                        aaVertexBuffer &&
-                        aaResolutionLocation &&
-                        aaScrollXLocation &&
-                        aaColorLocation &&
-                        aaHalfWidthLocation &&
-                        aaFeatherLocation &&
-                        aaPositionLocation >= 0 &&
-                        aaSegmentStartLocation >= 0 &&
-                        aaSegmentEndLocation >= 0
-                    ) {
-                        const stride = 6 * Float32Array.BYTES_PER_ELEMENT
-                        gl.bindVertexArray(aaVao)
-                        gl.bindBuffer(gl.ARRAY_BUFFER, aaVertexBuffer)
-                        gl.enableVertexAttribArray(aaPositionLocation)
-                        gl.vertexAttribPointer(aaPositionLocation, 2, gl.FLOAT, false, stride, 0)
-                        gl.enableVertexAttribArray(aaSegmentStartLocation)
-                        gl.vertexAttribPointer(aaSegmentStartLocation, 2, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT)
-                        gl.enableVertexAttribArray(aaSegmentEndLocation)
-                        gl.vertexAttribPointer(aaSegmentEndLocation, 2, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT)
-                        gl.bindVertexArray(null)
-
-                        aa = {
-                            program: aaProgram,
-                            vao: aaVao,
-                            vertexBuffer: aaVertexBuffer,
-                            resolutionLocation: aaResolutionLocation,
-                            scrollXLocation: aaScrollXLocation,
-                            colorLocation: aaColorLocation,
-                            halfWidthLocation: aaHalfWidthLocation,
-                            featherLocation: aaFeatherLocation,
-                        }
-                    } else {
-                        if (aaVao) gl.deleteVertexArray(aaVao)
-                        if (aaVertexBuffer) gl.deleteBuffer(aaVertexBuffer)
-                        gl.deleteProgram(aaProgram)
-                    }
-                }
-            } else {
-                if (aaVertexShader) gl.deleteShader(aaVertexShader)
-                if (aaFragmentShader) gl.deleteShader(aaFragmentShader)
-            }
-        }
-
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
@@ -799,99 +617,9 @@ export class LineWebGLSurface {
                 scrollXLocation,
                 colorLocation,
             },
-            aa,
         }
     }
 }
-function buildAALineSegmentGeometry(points: Array<{ x: number; y: number }>, halfWidth: number) {
-    if (points.length < 2) return null
-
-    let validSegmentCount = 0
-    for (let i = 0; i < points.length - 1; i++) {
-        const start = points[i]!
-        const end = points[i + 1]!
-        const dx = end.x - start.x
-        const dy = end.y - start.y
-        if (dx * dx + dy * dy > 0) validSegmentCount++
-    }
-
-    if (validSegmentCount === 0) return null
-
-    const floatsPerVertex = 6
-    const vertices = new Float32Array(validSegmentCount * 6 * floatsPerVertex)
-    let writeIndex = 0
-
-    for (let i = 0; i < points.length - 1; i++) {
-        const start = points[i]!
-        const end = points[i + 1]!
-        const dx = end.x - start.x
-        const dy = end.y - start.y
-        const lengthSquared = dx * dx + dy * dy
-        if (lengthSquared <= 0) continue
-
-        const invLength = 1 / Math.sqrt(lengthSquared)
-        const tangentX = dx * invLength
-        const tangentY = dy * invLength
-        const normalX = -dy * invLength
-        const normalY = dx * invLength
-        const extendX = tangentX * halfWidth
-        const extendY = tangentY * halfWidth
-
-        const quadStartX = start.x - extendX
-        const quadStartY = start.y - extendY
-        const quadEndX = end.x + extendX
-        const quadEndY = end.y + extendY
-
-        const leftAX = quadStartX + normalX * halfWidth
-        const leftAY = quadStartY + normalY * halfWidth
-        const rightAX = quadStartX - normalX * halfWidth
-        const rightAY = quadStartY - normalY * halfWidth
-        const leftBX = quadEndX + normalX * halfWidth
-        const leftBY = quadEndY + normalY * halfWidth
-        const rightBX = quadEndX - normalX * halfWidth
-        const rightBY = quadEndY - normalY * halfWidth
-
-        writeLineAAVertex(vertices, writeIndex, leftAX, leftAY, start.x, start.y, end.x, end.y)
-        writeIndex += floatsPerVertex
-        writeLineAAVertex(vertices, writeIndex, rightAX, rightAY, start.x, start.y, end.x, end.y)
-        writeIndex += floatsPerVertex
-        writeLineAAVertex(vertices, writeIndex, leftBX, leftBY, start.x, start.y, end.x, end.y)
-        writeIndex += floatsPerVertex
-        writeLineAAVertex(vertices, writeIndex, leftBX, leftBY, start.x, start.y, end.x, end.y)
-        writeIndex += floatsPerVertex
-        writeLineAAVertex(vertices, writeIndex, rightAX, rightAY, start.x, start.y, end.x, end.y)
-        writeIndex += floatsPerVertex
-        writeLineAAVertex(vertices, writeIndex, rightBX, rightBY, start.x, start.y, end.x, end.y)
-        writeIndex += floatsPerVertex
-    }
-
-    if (writeIndex === 0) return null
-
-    return {
-        vertices: writeIndex === vertices.length ? vertices : vertices.subarray(0, writeIndex),
-        vertexCount: writeIndex / floatsPerVertex,
-    }
-}
-
-function writeLineAAVertex(
-    target: Float32Array,
-    offset: number,
-    x: number,
-    y: number,
-    segmentStartX: number,
-    segmentStartY: number,
-    segmentEndX: number,
-    segmentEndY: number,
-) {
-    target[offset] = x
-    target[offset + 1] = y
-    target[offset + 2] = segmentStartX
-    target[offset + 3] = segmentStartY
-    target[offset + 4] = segmentEndX
-    target[offset + 5] = segmentEndY
-}
-
-
 function nextBufferFloatCapacity(required: number): number {
     let capacity = 1
     while (capacity < required) {
@@ -1062,35 +790,36 @@ function createProgram(gl: WebGL2RenderingContext, vertexShader: WebGLShader, fr
     return null
 }
 
+const colorCache = new Map<string, FloatColor>()
+
 function parseColor(color: string): FloatColor | null {
+    const cached = colorCache.get(color)
+    if (cached) return cached
+
     const normalized = color.trim().toLowerCase()
+    let result: FloatColor | null = null
 
     if (normalized.startsWith('rgba(')) {
         const values = normalized.slice(5, -1).split(',').map((part) => Number(part.trim()))
         if (values.length === 4 && values.every((value) => Number.isFinite(value))) {
-            return [values[0]! / 255, values[1]! / 255, values[2]! / 255, values[3]!]
+            result = [values[0]! / 255, values[1]! / 255, values[2]! / 255, values[3]!]
         }
-    }
-
-    if (normalized.startsWith('rgb(')) {
+    } else if (normalized.startsWith('rgb(')) {
         const values = normalized.slice(4, -1).split(',').map((part) => Number(part.trim()))
         if (values.length === 3 && values.every((value) => Number.isFinite(value))) {
-            return [values[0]! / 255, values[1]! / 255, values[2]! / 255, 1]
+            result = [values[0]! / 255, values[1]! / 255, values[2]! / 255, 1]
         }
-    }
-
-    if (normalized.startsWith('#')) {
+    } else if (normalized.startsWith('#')) {
         const hex = normalized.slice(1)
         if (hex.length === 6) {
-            return [
+            result = [
                 Number.parseInt(hex.slice(0, 2), 16) / 255,
                 Number.parseInt(hex.slice(2, 4), 16) / 255,
                 Number.parseInt(hex.slice(4, 6), 16) / 255,
                 1,
             ]
-        }
-        if (hex.length === 3) {
-            return [
+        } else if (hex.length === 3) {
+            result = [
                 Number.parseInt(hex[0]! + hex[0]!, 16) / 255,
                 Number.parseInt(hex[1]! + hex[1]!, 16) / 255,
                 Number.parseInt(hex[2]! + hex[2]!, 16) / 255,
@@ -1099,5 +828,6 @@ function parseColor(color: string): FloatColor | null {
         }
     }
 
-    return null
+    if (result) colorCache.set(color, result)
+    return result
 }

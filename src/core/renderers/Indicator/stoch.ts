@@ -210,22 +210,15 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
             const enableWebGL = context.settings?.enableWebGLRendering !== false
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-                let allOk = true
-
+                const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (params.showK && cachedKPoints.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedKPoints, width: 1 },
-                        KDJ_COLORS.K,
-                        scrollLeft
-                    )
+                    lines.push({ points: cachedKPoints, width: 1, color: KDJ_COLORS.K })
                 }
-                if (allOk && params.showD && cachedDPoints.length >= 2) {
-                    allOk = lineWebGLSurface.drawLineStrip(
-                        { points: cachedDPoints, width: 1 },
-                        KDJ_COLORS.D,
-                        scrollLeft
-                    )
+                if (params.showD && cachedDPoints.length >= 2) {
+                    lines.push({ points: cachedDPoints, width: 1, color: KDJ_COLORS.D })
                 }
+
+                const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
 
                 if (allOk) {
                     usedWebGL = true

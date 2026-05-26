@@ -107,20 +107,13 @@ export function createMARendererPlugin(): RendererPluginWithHost {
             const enableWebGL = context.settings?.enableWebGLRendering !== false
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
-                let allOk = true
+                const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 for (const period of state.enabledPeriods) {
                     const points = cachedLines.get(period)
                     if (!points) continue
-                    const ok = lineWebGLSurface.drawLineStrip(
-                        { points, width: 1 },
-                        MA_COLOR_MAP[period] ?? MA_COLORS.MA5,
-                        scrollLeft
-                    )
-                    if (!ok) {
-                        allOk = false
-                        break
-                    }
+                    lines.push({ points, width: 1, color: MA_COLOR_MAP[period] ?? MA_COLORS.MA5 })
                 }
+                const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
 
                 if (allOk) {
                     usedWebGL = true

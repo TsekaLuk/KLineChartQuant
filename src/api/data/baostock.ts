@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { get, HttpError } from '@/utils/http'
 import type { KLineData } from '@/types/price'
 
 // ==================== 接口定义 ====================
@@ -218,8 +218,8 @@ export async function getKlineDataBaoStock(
   }
 
   try {
-    const response = await axios.get<BaoStockKDataResponse>(url, {
-      params: request,
+    const response = await get<BaoStockKDataResponse>(url, {
+      params: request as unknown as Record<string, string | number | undefined>,
       timeout: timeout ? timeout * 1000 : undefined,
     })
 
@@ -253,10 +253,7 @@ export async function getKlineDataBaoStock(
     } catch {
       // mock 数据也失败了，抛出原始错误
     }
-    if (axios.isAxiosError(error)) {
-      throw new Error(`获取K线数据失败: ${error.message}`)
-    }
-    throw error
+    throw new Error(`获取K线数据失败: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 
@@ -283,8 +280,8 @@ export async function queryKlineDataBaoStock(
   }
 
   try {
-    const response = await axios.get<BaoStockKDataResponse>(url, {
-      params: request,
+    const response = await get<BaoStockKDataResponse>(url, {
+      params: request as unknown as Record<string, string | number | undefined>,
       timeout: timeout ? timeout * 1000 : undefined,
     })
 
@@ -303,10 +300,7 @@ export async function queryKlineDataBaoStock(
       .map(mapBaoStockToKLineData)
       .sort((a, b) => a.timestamp - b.timestamp)
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(`查询K线数据失败: ${error.message}`)
-    }
-    throw error
+    throw new Error(`查询K线数据失败: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

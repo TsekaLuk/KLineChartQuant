@@ -36,7 +36,7 @@ export class SemanticChartController {
    */
   async applyConfig(config: SemanticChartConfig): Promise<ApplyResult> {
     // 1. Schema 校验
-    const validation = this.validator.validate(config)
+    const validation = await this.validator.validate(config)
     if (!validation.valid) {
       return { success: false, errors: validation.errors }
     }

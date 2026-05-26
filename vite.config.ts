@@ -55,10 +55,11 @@ export default defineConfig({
       fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
     },
     rollupOptions: {
-      external: ['vue'],
+      external: ['vue', 'ajv'],
       output: {
-        globals: { vue: 'Vue' },
+        globals: { vue: 'Vue', ajv: 'Ajv' },
       },
     },
   },
+  publicDir: false,
 })

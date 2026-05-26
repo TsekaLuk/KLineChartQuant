@@ -1,5 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import axios from 'axios'
+import { describe, it, expect } from 'vitest'
 import { getKlineDataBaoStock, queryKlineDataBaoStock } from './baostock'
 
 /**
@@ -10,14 +9,7 @@ import { getKlineDataBaoStock, queryKlineDataBaoStock } from './baostock'
  * - 只验证请求能正常返回，不校验具体数据
  * - 每次只发一个请求（Vitest 默认串行执行）
  * - 使用较长超时时间应对网络延迟
- *
- * ⚠️ 注意：Vitest jsdom 环境不会走 Vite 代理，需要直接配置后端地址
  */
-
-// 配置 axios 直接访问后端（不走 Vite 代理）
-beforeAll(() => {
-  axios.defaults.baseURL = 'http://127.0.0.1:8000'
-})
 
 // 使用 sequential 确保测试串行执行，避免并发请求
 describe.sequential('baostock', () => {

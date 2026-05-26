@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { get } from '@/utils/http'
 import { type KLineDailyDongCaiResponse } from '@/types/price'
 
 interface KLineDailyDongCaiRequest {
@@ -87,16 +87,13 @@ export async function getKlineDataDongCai(
 ): Promise<KLineDailyDongCaiResponse[]> {
   try {
     const { timeout, ...requestParams } = param
-    const response = await axios.get<KLineDailyDongCaiResponseChinese[]>(url, {
+    const response = await get<KLineDailyDongCaiResponseChinese[]>(url, {
       params: requestParams,
       timeout: timeout ? timeout * 1000 : undefined,
     })
     return response.data.map(mapChineseToEnglish)
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(`获取K线数据失败: ${error.message}`)
-    }
-    throw error
+    throw new Error(`获取K线数据失败: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

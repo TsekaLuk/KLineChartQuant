@@ -3,9 +3,7 @@
  * 包含 JSON Schema 校验、安全校验、业务逻辑校验
  */
 
-import Ajv from 'ajv'
 import type { SemanticChartConfig, DataConfig, ValidationResult, SecurityResult, MarkerStyle } from './types'
-import schema from './schema.json'
 
 // ============ 常量定义 ============
 
@@ -55,24 +53,32 @@ const _colorCtx = _colorCanvas?.getContext('2d') ?? null
 // ============ 校验器类 ============
 
 export class SemanticConfigValidator {
-  private ajv: Ajv
   private limits: SecurityLimits
+  private _ajv: Promise<any> | null = null
 
   constructor() {
-    this.ajv = new Ajv({ allErrors: true, allowUnionTypes: true })
-
-    // 添加 date 格式支持（Ajv 默认不包含）
-    this.ajv.addFormat('date', {
-      type: 'string',
-      validate: (data: string) => /^\d{4}-\d{2}-\d{2}$/.test(data),
-    })
-
-    this.ajv.addSchema(schema)
     this.limits = {
       maxJsonSize: 64 * 1024, // 64KB
       maxIndicators: 10,
       maxCustomMarkers: 100,
     }
+  }
+
+  private async getAjv(): Promise<any> {
+    if (!this._ajv) {
+      this._ajv = (async () => {
+        const Ajv = (await import('ajv')).default
+        const ajv = new Ajv({ allErrors: true, allowUnionTypes: true })
+        ajv.addFormat('date', {
+          type: 'string',
+          validate: (data: string) => /^\d{4}-\d{2}-\d{2}$/.test(data),
+        })
+        const schemaModule = await import('./schema.json')
+        ajv.addSchema(schemaModule.default || schemaModule)
+        return ajv
+      })()
+    }
+    return this._ajv
   }
 
   /**
@@ -94,7 +100,7 @@ export class SemanticConfigValidator {
   /**
    * JSON Schema 校验
    */
-  validate(config: unknown): ValidationResult {
+  async validate(config: unknown): Promise<ValidationResult> {
     // 1. 类型检查
     if (!config || typeof config !== 'object') {
       return { valid: false, errors: ['Config must be an object'] }
@@ -107,10 +113,15 @@ export class SemanticConfigValidator {
     }
 
     // 3. JSON Schema 校验
-    const valid = this.ajv.validate('https://kmap.dev/schemas/semantic-chart-config/1.0.0', config)
-    if (!valid) {
-      const errors = this.ajv.errors?.map((e) => `${e.instancePath} ${e.message}`) || ['Schema validation failed']
-      return { valid: false, errors }
+    try {
+      const ajv = await this.getAjv()
+      const valid = ajv.validate('https://kmap.dev/schemas/semantic-chart-config/1.0.0', config)
+      if (!valid) {
+        const errors = ajv.errors?.map((e: { instancePath: string; message?: string }) => `${e.instancePath} ${e.message}`) || ['Schema validation failed']
+        return { valid: false, errors }
+      }
+    } catch {
+      return { valid: false, errors: ['Schema validation unavailable (ajv not loaded)'] }
     }
 
     return { valid: true }

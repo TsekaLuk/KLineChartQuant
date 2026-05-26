@@ -344,13 +344,19 @@ function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: num
 
 function setTooltipEl(el: HTMLDivElement | null) {
   if (!el) return
-  const size = measureTooltipSize(el, 180, 80)
-  chartRef.value?.interaction.setTooltipSize(size)
+  nextTick(() => {
+    if (!el.isConnected) return
+    const size = measureTooltipSize(el, 180, 80)
+    chartRef.value?.interaction.setTooltipSize(size)
+  })
 }
 
 function setMarkerTooltipEl(el: HTMLDivElement | null) {
   if (!el) return
-  markerTooltipSize.value = measureTooltipSize(el, 120, 60)
+  nextTick(() => {
+    if (!el.isConnected) return
+    markerTooltipSize.value = measureTooltipSize(el, 120, 60)
+  })
 }
 
 // ===== Marker tooltip 状态 =====

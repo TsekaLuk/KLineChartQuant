@@ -7,6 +7,8 @@ import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollStat
 
 type LinePoint = { x: number; y: number }
 
+const BOLL_LINE_WIDTH = 1
+
 function buildBOLLCacheKey(
     range: { start: number; end: number },
     kLineCenters: number[],
@@ -112,13 +114,13 @@ function drawBOLLWithWebGL(
 
     const lineStrips: Array<{ points: LinePoint[]; width: number; color: string }> = []
     if (data.showUpper && data.upperPoints.length >= 2) {
-        lineStrips.push({ points: data.upperPoints, width: 1, color: BOLL_COLORS.UPPER })
+        lineStrips.push({ points: data.upperPoints, width: BOLL_LINE_WIDTH, color: BOLL_COLORS.UPPER })
     }
     if (data.showMiddle && data.middlePoints.length >= 2) {
-        lineStrips.push({ points: data.middlePoints, width: 1, color: BOLL_COLORS.MIDDLE })
+        lineStrips.push({ points: data.middlePoints, width: BOLL_LINE_WIDTH, color: BOLL_COLORS.MIDDLE })
     }
     if (data.showLower && data.lowerPoints.length >= 2) {
-        lineStrips.push({ points: data.lowerPoints, width: 1, color: BOLL_COLORS.LOWER })
+        lineStrips.push({ points: data.lowerPoints, width: BOLL_LINE_WIDTH, color: BOLL_COLORS.LOWER })
     }
 
     if (lineStrips.length > 0) {
@@ -326,7 +328,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
-            ctx.lineWidth = 1
+            ctx.lineWidth = BOLL_LINE_WIDTH
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
 

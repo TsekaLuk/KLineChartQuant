@@ -145,11 +145,23 @@
                   <div class="settings-item">
                     <label class="settings-label">
                       <span>{{ item.label }}</span>
-                      <input
-                        type="checkbox"
-                        class="settings-checkbox"
-                        v-model="settings[item.key]"
-                      />
+                      <template v-if="item.type === 'boolean'">
+                        <input
+                          type="checkbox"
+                          class="settings-checkbox"
+                          v-model="settings[item.key]"
+                        />
+                      </template>
+                      <template v-else-if="item.type === 'select' && item.options">
+                        <select
+                          class="settings-select"
+                          v-model="settings[item.key]"
+                        >
+                          <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
+                            {{ opt.label }}
+                          </option>
+                        </select>
+                      </template>
                     </label>
                   </div>
                 </template>
@@ -164,11 +176,23 @@
                   <div class="settings-item experimental">
                     <label class="settings-label">
                       <span>{{ item.label }}</span>
-                      <input
-                        type="checkbox"
-                        class="settings-checkbox"
-                        v-model="settings[item.key]"
-                      />
+                      <template v-if="item.type === 'boolean'">
+                        <input
+                          type="checkbox"
+                          class="settings-checkbox"
+                          v-model="settings[item.key]"
+                        />
+                      </template>
+                      <template v-else-if="item.type === 'select' && item.options">
+                        <select
+                          class="settings-select"
+                          v-model="settings[item.key]"
+                        >
+                          <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
+                            {{ opt.label }}
+                          </option>
+                        </select>
+                      </template>
                     </label>
                   </div>
                 </template>
@@ -244,7 +268,7 @@ const emit = defineEmits<{
   (e: 'toggleFullscreen'): void
   (e: 'zoomIn'): void
   (e: 'zoomOut'): void
-  (e: 'settingsChange', settings: Record<string, boolean>): void
+  (e: 'settingsChange', settings: Record<string, boolean | string>): void
 }>()
 
 const primaryTools: ToolDef[] = [
@@ -280,9 +304,9 @@ const primaryTools: ToolDef[] = [
 export type { SettingItem } from '../config/chartSettings'
 
 // 设置项分组
-const mainSettings = computed(() => DEFAULT_SETTINGS.filter((s) => s.group === 'main'))
+const mainSettings = computed(() => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[])
 const experimentalSettings = computed(() =>
-  DEFAULT_SETTINGS.filter((s) => s.group === 'experimental'),
+  DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
 )
 
 const selectedToolId = ref('cursor')
@@ -293,13 +317,13 @@ const showSettings = ref(false)
 const teleportTarget = useFullscreenTeleportTarget()
 
 // 从 localStorage 加载设置，或使用默认值
-function loadSettings(): Record<string, boolean> {
+function loadSettings(): Record<string, boolean | string> {
   try {
     const saved = localStorage.getItem(SETTINGS_STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
       // 确保所有默认设置项都存在
-      const result: Record<string, boolean> = {}
+      const result: Record<string, boolean | string> = {}
       DEFAULT_SETTINGS.forEach((item) => {
         result[item.key] = parsed[item.key] ?? item.default
       })
@@ -309,7 +333,7 @@ function loadSettings(): Record<string, boolean> {
     // 解析失败，使用默认值
   }
   // 返回默认设置
-  const defaults: Record<string, boolean> = {}
+  const defaults: Record<string, boolean | string> = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
   })
@@ -317,7 +341,7 @@ function loadSettings(): Record<string, boolean> {
 }
 
 // 保存设置到 localStorage
-function saveSettings(settings: Record<string, boolean>) {
+function saveSettings(settings: Record<string, boolean | string>) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch {
@@ -325,8 +349,8 @@ function saveSettings(settings: Record<string, boolean>) {
   }
 }
 
-const appliedSettings = ref<Record<string, boolean>>(loadSettings())
-const settings = ref<Record<string, boolean>>({ ...appliedSettings.value })
+const appliedSettings = ref<Record<string, boolean | string>>(loadSettings())
+const settings = ref<Record<string, boolean | string>>({ ...appliedSettings.value })
 
 function isActive(tool: ToolDef): boolean {
   if (selectedToolId.value === tool.id) return true
@@ -372,7 +396,7 @@ function closeSettings() {
 }
 
 function resetSettings() {
-  const defaults: Record<string, boolean> = {}
+  const defaults: Record<string, boolean | string> = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
   })
@@ -383,13 +407,13 @@ function confirmSettings() {
   appliedSettings.value = { ...settings.value }
   saveSettings(appliedSettings.value)
   // 同步 Canvas Profiler 状态
-  setCanvasProfilerEnabled(appliedSettings.value['enableCanvasProfiler'] ?? false)
+  setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
   emit('settingsChange', { ...appliedSettings.value })
   closeSettings()
 }
 
 // 暴露方法给父组件
-function getCurrentSettings(): Record<string, boolean> {
+function getCurrentSettings(): Record<string, boolean | string> {
   return { ...appliedSettings.value }
 }
 
@@ -409,7 +433,7 @@ onMounted(() => {
   // 挂载后立即通知父组件当前设置（包括从 localStorage 加载的）
   emit('settingsChange', { ...appliedSettings.value })
   // 根据已保存的设置初始化 Canvas Profiler 状态
-  setCanvasProfilerEnabled(appliedSettings.value['enableCanvasProfiler'] ?? false)
+  setCanvasProfilerEnabled(!!appliedSettings.value['enableCanvasProfiler'])
 })
 
 onUnmounted(() => {
@@ -715,6 +739,27 @@ onUnmounted(() => {
   height: 16px;
   cursor: pointer;
   accent-color: #1a1a1a;
+}
+
+.settings-select {
+  padding: 4px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  min-width: 140px;
+}
+
+.settings-select:hover {
+  border-color: #9ca3af;
+}
+
+.settings-select:focus {
+  border-color: #6b7280;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.15);
 }
 
 .settings-section-divider {

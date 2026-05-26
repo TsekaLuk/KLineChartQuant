@@ -32,14 +32,30 @@ type RectWebGLHandles = {
     colorLocation: WebGLUniformLocation
 }
 
-type LineWebGLHandles = {
-    gl: WebGL2RenderingContext
+type BasicLineWebGLHandles = {
     program: WebGLProgram
     vao: WebGLVertexArrayObject
     vertexBuffer: WebGLBuffer
     resolutionLocation: WebGLUniformLocation
     scrollXLocation: WebGLUniformLocation
     colorLocation: WebGLUniformLocation
+}
+
+type AALineWebGLHandles = {
+    program: WebGLProgram
+    vao: WebGLVertexArrayObject
+    vertexBuffer: WebGLBuffer
+    resolutionLocation: WebGLUniformLocation
+    scrollXLocation: WebGLUniformLocation
+    colorLocation: WebGLUniformLocation
+    halfWidthLocation: WebGLUniformLocation
+    featherLocation: WebGLUniformLocation
+}
+
+type LineWebGLHandles = {
+    gl: WebGL2RenderingContext
+    basic: BasicLineWebGLHandles
+    aa: AALineWebGLHandles | null
 }
 
 const RECT_VERTEX_SHADER_SOURCE = `#version 300 es
@@ -85,6 +101,35 @@ void main() {
     gl_Position = vec4(clip, 0.0, 1.0);
 }`
 
+const AA_LINE_VERTEX_SHADER_SOURCE = `#version 300 es
+precision mediump float;
+
+in vec2 a_position;
+in vec2 a_segmentStart;
+in vec2 a_segmentEnd;
+
+uniform vec2 u_resolution;
+uniform float u_scrollX;
+
+out vec2 v_position;
+out vec2 v_segmentStart;
+out vec2 v_segmentEnd;
+
+void main() {
+    vec2 position = vec2(a_position.x - u_scrollX, a_position.y);
+    v_position = position;
+    v_segmentStart = vec2(a_segmentStart.x - u_scrollX, a_segmentStart.y);
+    v_segmentEnd = vec2(a_segmentEnd.x - u_scrollX, a_segmentEnd.y);
+
+    vec2 zeroToOne = position / u_resolution;
+    vec2 clip = vec2(
+        zeroToOne.x * 2.0 - 1.0,
+        1.0 - zeroToOne.y * 2.0
+    );
+
+    gl_Position = vec4(clip, 0.0, 1.0);
+}`
+
 const FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision mediump float;
 
@@ -93,6 +138,33 @@ out vec4 outColor;
 
 void main() {
     outColor = u_color;
+}`
+
+const AA_LINE_FRAGMENT_SHADER_SOURCE = `#version 300 es
+precision mediump float;
+
+uniform vec4 u_color;
+uniform float u_halfWidth;
+uniform float u_feather;
+
+in vec2 v_position;
+in vec2 v_segmentStart;
+in vec2 v_segmentEnd;
+
+out vec4 outColor;
+
+void main() {
+    vec2 segment = v_segmentEnd - v_segmentStart;
+    float segmentLengthSquared = dot(segment, segment);
+    float projection = 0.0;
+    if (segmentLengthSquared > 0.0) {
+        projection = clamp(dot(v_position - v_segmentStart, segment) / segmentLengthSquared, 0.0, 1.0);
+    }
+
+    vec2 closest = v_segmentStart + segment * projection;
+    float distanceToSegment = length(v_position - closest);
+    float alpha = 1.0 - smoothstep(max(0.0, u_halfWidth - u_feather), u_halfWidth + u_feather, distanceToSegment);
+    outColor = vec4(u_color.rgb, u_color.a * alpha);
 }`
 
 const UNIT_QUAD = new Float32Array([
@@ -306,13 +378,30 @@ export class LineWebGLSurface {
     private dpr = 1
     private available = false
     private vertexCapacity = 0
+    private aaVertexCapacity = 0
     private fillScratch = new Float32Array(0)
+    private useShaderAA: boolean
 
     // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
     private geoCache = new WeakMap<Array<{ x: number; y: number }>, Map<number, { vertices: Float32Array; vertexCount: number }>>()
 
-    constructor(canvas?: HTMLCanvasElement) {
+    constructor(canvas?: HTMLCanvasElement, useShaderAA = true) {
         this.canvas = canvas ?? document.createElement('canvas')
+        this.useShaderAA = useShaderAA
+        this.handles = this.initLineHandles()
+        this.available = this.handles !== null
+    }
+
+    /** 重新初始化以应用新的抗锯齿设置 */
+    reinitialize(useShaderAA: boolean): void {
+        if (this.useShaderAA === useShaderAA) return
+        this.destroy()
+        this.canvas = document.createElement('canvas')
+        if (this.logicalWidth > 0 && this.logicalHeight > 0) {
+            this.canvas.width = Math.max(1, Math.round(this.logicalWidth * this.dpr))
+            this.canvas.height = Math.max(1, Math.round(this.logicalHeight * this.dpr))
+        }
+        this.useShaderAA = useShaderAA
         this.handles = this.initLineHandles()
         this.available = this.handles !== null
     }
@@ -366,15 +455,35 @@ export class LineWebGLSurface {
             vertices: Float32Array
             mode: number
         }> = []
+        const aaEntries: Array<{
+            colorValue: FloatColor
+            pointCount: number
+            vertices: Float32Array
+            halfWidth: number
+        }> = []
+
         for (const line of lines) {
             if (line.points.length < 2) return false
 
             const colorValue = parseColor(line.color)
             if (!colorValue) return false
 
-            if (line.width === 1) {
+            if (line.width === 1 && !handles.aa) {
                 const vertices = this.getThinLineVertices(line.points)
                 entries.push({ colorValue, pointCount: line.points.length, vertices, mode: handles.gl.LINE_STRIP })
+                continue
+            }
+
+            if (handles.aa) {
+                const geometry = buildAALineSegmentGeometry(line.points, line.width / 2)
+                if (!geometry) return false
+
+                aaEntries.push({
+                    colorValue,
+                    pointCount: geometry.vertexCount,
+                    vertices: geometry.vertices,
+                    halfWidth: line.width / 2,
+                })
                 continue
             }
 
@@ -391,23 +500,50 @@ export class LineWebGLSurface {
 
         const { gl } = handles
         gl.viewport(0, 0, this.canvas.width, this.canvas.height)
-        gl.useProgram(handles.program)
-        gl.bindVertexArray(handles.vao)
-        gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
 
-        gl.uniform2f(handles.resolutionLocation, this.logicalWidth, this.logicalHeight)
-        gl.uniform1f(handles.scrollXLocation, scrollLeft)
+        if (entries.length > 0) {
+            gl.useProgram(handles.basic.program)
+            gl.bindVertexArray(handles.basic.vao)
+            gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
 
-        for (const entry of entries) {
-            const { colorValue, pointCount, vertices, mode } = entry
-            const floatCount = vertices.length
-            if (this.vertexCapacity < floatCount) {
-                this.vertexCapacity = nextBufferFloatCapacity(floatCount)
-                gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
+            gl.uniform2f(handles.basic.resolutionLocation, this.logicalWidth, this.logicalHeight)
+            gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
+
+            for (const entry of entries) {
+                const { colorValue, pointCount, vertices, mode } = entry
+                const floatCount = vertices.length
+                if (this.vertexCapacity < floatCount) {
+                    this.vertexCapacity = nextBufferFloatCapacity(floatCount)
+                    gl.bufferData(gl.ARRAY_BUFFER, this.vertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
+                }
+                gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices)
+                gl.uniform4f(handles.basic.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
+                gl.drawArrays(mode, 0, pointCount)
             }
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices)
-            gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
-            gl.drawArrays(mode, 0, pointCount)
+        }
+
+        if (handles.aa && aaEntries.length > 0) {
+            const feather = 1 / Math.max(this.dpr, 1)
+            gl.useProgram(handles.aa.program)
+            gl.bindVertexArray(handles.aa.vao)
+            gl.bindBuffer(gl.ARRAY_BUFFER, handles.aa.vertexBuffer)
+
+            gl.uniform2f(handles.aa.resolutionLocation, this.logicalWidth, this.logicalHeight)
+            gl.uniform1f(handles.aa.scrollXLocation, scrollLeft)
+            gl.uniform1f(handles.aa.featherLocation, feather)
+
+            for (const entry of aaEntries) {
+                const { colorValue, pointCount, vertices, halfWidth } = entry
+                const floatCount = vertices.length
+                if (this.aaVertexCapacity < floatCount) {
+                    this.aaVertexCapacity = nextBufferFloatCapacity(floatCount)
+                    gl.bufferData(gl.ARRAY_BUFFER, this.aaVertexCapacity * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW)
+                }
+                gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices)
+                gl.uniform4f(handles.aa.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
+                gl.uniform1f(handles.aa.halfWidthLocation, halfWidth)
+                gl.drawArrays(gl.TRIANGLES, 0, pointCount)
+            }
         }
 
         gl.bindVertexArray(null)
@@ -479,9 +615,9 @@ export class LineWebGLSurface {
 
         const { gl } = handles
         gl.viewport(0, 0, this.canvas.width, this.canvas.height)
-        gl.useProgram(handles.program)
-        gl.bindVertexArray(handles.vao)
-        gl.bindBuffer(gl.ARRAY_BUFFER, handles.vertexBuffer)
+        gl.useProgram(handles.basic.program)
+        gl.bindVertexArray(handles.basic.vao)
+        gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
 
         if (this.vertexCapacity < floatCount) {
             this.vertexCapacity = nextBufferFloatCapacity(floatCount)
@@ -489,9 +625,9 @@ export class LineWebGLSurface {
         }
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.fillScratch.subarray(0, floatCount))
 
-        gl.uniform2f(handles.resolutionLocation, this.logicalWidth, this.logicalHeight)
-        gl.uniform1f(handles.scrollXLocation, scrollLeft)
-        gl.uniform4f(handles.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
+        gl.uniform2f(handles.basic.resolutionLocation, this.logicalWidth, this.logicalHeight)
+        gl.uniform1f(handles.basic.scrollXLocation, scrollLeft)
+        gl.uniform4f(handles.basic.colorLocation, colorValue[0], colorValue[1], colorValue[2], colorValue[3])
         gl.drawArrays(gl.TRIANGLES, 0, vertexCount)
         gl.bindVertexArray(null)
         return true
@@ -499,14 +635,25 @@ export class LineWebGLSurface {
 
     destroy(): void {
         const handles = this.handles
-        if (!handles) return
+        if (!handles) {
+            this.vertexCapacity = 0
+            this.aaVertexCapacity = 0
+            return
+        }
 
-        const { gl, program, vao, vertexBuffer } = handles
-        gl.deleteBuffer(vertexBuffer)
-        gl.deleteVertexArray(vao)
-        gl.deleteProgram(program)
+        const { gl, basic, aa } = handles
+        gl.deleteBuffer(basic.vertexBuffer)
+        gl.deleteVertexArray(basic.vao)
+        gl.deleteProgram(basic.program)
+        if (aa) {
+            gl.deleteBuffer(aa.vertexBuffer)
+            gl.deleteVertexArray(aa.vao)
+            gl.deleteProgram(aa.program)
+        }
         this.handles = null
         this.available = false
+        this.vertexCapacity = 0
+        this.aaVertexCapacity = 0
     }
 
     private initLineHandles(): LineWebGLHandles | null {
@@ -514,7 +661,7 @@ export class LineWebGLSurface {
         try {
             gl = this.canvas.getContext('webgl2', {
                 alpha: true,
-                antialias: true,
+                antialias: !this.useShaderAA, // MSAA 仅在非着色器 AA 模式下启用
                 depth: false,
                 stencil: false,
                 premultipliedAlpha: true,
@@ -572,19 +719,176 @@ export class LineWebGLSurface {
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
         gl.bindVertexArray(null)
 
+        let aa: AALineWebGLHandles | null = null
+        // 仅在着色器抗锯齿模式下创建 AA shader
+        if (this.useShaderAA) {
+            const aaVertexShader = createShader(gl, gl.VERTEX_SHADER, AA_LINE_VERTEX_SHADER_SOURCE)
+            const aaFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, AA_LINE_FRAGMENT_SHADER_SOURCE)
+            if (aaVertexShader && aaFragmentShader) {
+                const aaProgram = createProgram(gl, aaVertexShader, aaFragmentShader)
+                gl.deleteShader(aaVertexShader)
+                gl.deleteShader(aaFragmentShader)
+
+                if (aaProgram) {
+                    const aaVao = gl.createVertexArray()
+                    const aaVertexBuffer = gl.createBuffer()
+                    const aaResolutionLocation = gl.getUniformLocation(aaProgram, 'u_resolution')
+                    const aaScrollXLocation = gl.getUniformLocation(aaProgram, 'u_scrollX')
+                    const aaColorLocation = gl.getUniformLocation(aaProgram, 'u_color')
+                    const aaHalfWidthLocation = gl.getUniformLocation(aaProgram, 'u_halfWidth')
+                    const aaFeatherLocation = gl.getUniformLocation(aaProgram, 'u_feather')
+                    const aaPositionLocation = gl.getAttribLocation(aaProgram, 'a_position')
+                    const aaSegmentStartLocation = gl.getAttribLocation(aaProgram, 'a_segmentStart')
+                    const aaSegmentEndLocation = gl.getAttribLocation(aaProgram, 'a_segmentEnd')
+
+                    if (
+                        aaVao &&
+                        aaVertexBuffer &&
+                        aaResolutionLocation &&
+                        aaScrollXLocation &&
+                        aaColorLocation &&
+                        aaHalfWidthLocation &&
+                        aaFeatherLocation &&
+                        aaPositionLocation >= 0 &&
+                        aaSegmentStartLocation >= 0 &&
+                        aaSegmentEndLocation >= 0
+                    ) {
+                        const stride = 6 * Float32Array.BYTES_PER_ELEMENT
+                        gl.bindVertexArray(aaVao)
+                        gl.bindBuffer(gl.ARRAY_BUFFER, aaVertexBuffer)
+                        gl.enableVertexAttribArray(aaPositionLocation)
+                        gl.vertexAttribPointer(aaPositionLocation, 2, gl.FLOAT, false, stride, 0)
+                        gl.enableVertexAttribArray(aaSegmentStartLocation)
+                        gl.vertexAttribPointer(aaSegmentStartLocation, 2, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT)
+                        gl.enableVertexAttribArray(aaSegmentEndLocation)
+                        gl.vertexAttribPointer(aaSegmentEndLocation, 2, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT)
+                        gl.bindVertexArray(null)
+
+                        aa = {
+                            program: aaProgram,
+                            vao: aaVao,
+                            vertexBuffer: aaVertexBuffer,
+                            resolutionLocation: aaResolutionLocation,
+                            scrollXLocation: aaScrollXLocation,
+                            colorLocation: aaColorLocation,
+                            halfWidthLocation: aaHalfWidthLocation,
+                            featherLocation: aaFeatherLocation,
+                        }
+                    } else {
+                        if (aaVao) gl.deleteVertexArray(aaVao)
+                        if (aaVertexBuffer) gl.deleteBuffer(aaVertexBuffer)
+                        gl.deleteProgram(aaProgram)
+                    }
+                }
+            } else {
+                if (aaVertexShader) gl.deleteShader(aaVertexShader)
+                if (aaFragmentShader) gl.deleteShader(aaFragmentShader)
+            }
+        }
+
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
         return {
             gl,
-            program,
-            vao,
-            vertexBuffer,
-            resolutionLocation,
-            scrollXLocation,
-            colorLocation,
+            basic: {
+                program,
+                vao,
+                vertexBuffer,
+                resolutionLocation,
+                scrollXLocation,
+                colorLocation,
+            },
+            aa,
         }
     }
+}
+function buildAALineSegmentGeometry(points: Array<{ x: number; y: number }>, halfWidth: number) {
+    if (points.length < 2) return null
+
+    let validSegmentCount = 0
+    for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i]!
+        const end = points[i + 1]!
+        const dx = end.x - start.x
+        const dy = end.y - start.y
+        if (dx * dx + dy * dy > 0) validSegmentCount++
+    }
+
+    if (validSegmentCount === 0) return null
+
+    const floatsPerVertex = 6
+    const vertices = new Float32Array(validSegmentCount * 6 * floatsPerVertex)
+    let writeIndex = 0
+
+    for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i]!
+        const end = points[i + 1]!
+        const dx = end.x - start.x
+        const dy = end.y - start.y
+        const lengthSquared = dx * dx + dy * dy
+        if (lengthSquared <= 0) continue
+
+        const invLength = 1 / Math.sqrt(lengthSquared)
+        const tangentX = dx * invLength
+        const tangentY = dy * invLength
+        const normalX = -dy * invLength
+        const normalY = dx * invLength
+        const extendX = tangentX * halfWidth
+        const extendY = tangentY * halfWidth
+
+        const quadStartX = start.x - extendX
+        const quadStartY = start.y - extendY
+        const quadEndX = end.x + extendX
+        const quadEndY = end.y + extendY
+
+        const leftAX = quadStartX + normalX * halfWidth
+        const leftAY = quadStartY + normalY * halfWidth
+        const rightAX = quadStartX - normalX * halfWidth
+        const rightAY = quadStartY - normalY * halfWidth
+        const leftBX = quadEndX + normalX * halfWidth
+        const leftBY = quadEndY + normalY * halfWidth
+        const rightBX = quadEndX - normalX * halfWidth
+        const rightBY = quadEndY - normalY * halfWidth
+
+        writeLineAAVertex(vertices, writeIndex, leftAX, leftAY, start.x, start.y, end.x, end.y)
+        writeIndex += floatsPerVertex
+        writeLineAAVertex(vertices, writeIndex, rightAX, rightAY, start.x, start.y, end.x, end.y)
+        writeIndex += floatsPerVertex
+        writeLineAAVertex(vertices, writeIndex, leftBX, leftBY, start.x, start.y, end.x, end.y)
+        writeIndex += floatsPerVertex
+        writeLineAAVertex(vertices, writeIndex, leftBX, leftBY, start.x, start.y, end.x, end.y)
+        writeIndex += floatsPerVertex
+        writeLineAAVertex(vertices, writeIndex, rightAX, rightAY, start.x, start.y, end.x, end.y)
+        writeIndex += floatsPerVertex
+        writeLineAAVertex(vertices, writeIndex, rightBX, rightBY, start.x, start.y, end.x, end.y)
+        writeIndex += floatsPerVertex
+    }
+
+    if (writeIndex === 0) return null
+
+    return {
+        vertices: writeIndex === vertices.length ? vertices : vertices.subarray(0, writeIndex),
+        vertexCount: writeIndex / floatsPerVertex,
+    }
+}
+
+function writeLineAAVertex(
+    target: Float32Array,
+    offset: number,
+    x: number,
+    y: number,
+    segmentStartX: number,
+    segmentStartY: number,
+    segmentEndX: number,
+    segmentEndY: number,
+) {
+    target[offset] = x
+    target[offset + 1] = y
+    target[offset + 2] = segmentStartX
+    target[offset + 3] = segmentStartY
+    target[offset + 4] = segmentEndX
+    target[offset + 5] = segmentEndY
 }
 
 

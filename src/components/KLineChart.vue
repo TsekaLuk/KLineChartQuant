@@ -272,7 +272,7 @@ function scheduleRender() {
   chartRef.value?.scheduleDraw()
 }
 
-function handleSettingsChange(settings: Record<string, boolean>) {
+function handleSettingsChange(settings: Record<string, boolean | string>) {
   chartRef.value?.updateSettings(settings)
 
   // 万条K线性能测试

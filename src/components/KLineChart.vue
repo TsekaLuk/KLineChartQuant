@@ -32,6 +32,7 @@
         <div ref="tooltipLayerRef" class="tooltip-layer"></div>
         <div
           class="chart-container"
+          :style="{ cursor: containerCursor }"
           ref="containerRef"
           @scroll.passive="onScroll"
           @pointerdown="onPointerDown"
@@ -357,6 +358,18 @@ function setMarkerTooltipEl(el: HTMLDivElement | null) {
 const mousePos = ref({ x: 0, y: 0 })
 const useAnchorPositioning = ref(false)
 
+// 容器 rect 缓存，避免 pointermove 中反复 getBoundingClientRect 强制同步布局
+let _cachedContainerRect: DOMRect | null = null
+function invalidateContainerRectCache(): void {
+  _cachedContainerRect = null
+}
+function getContainerRect(container: HTMLDivElement): DOMRect {
+  if (!_cachedContainerRect) {
+    _cachedContainerRect = container.getBoundingClientRect()
+  }
+  return _cachedContainerRect
+}
+
 // ===== 交互状态（单一来源：InteractionController snapshot） =====
 const interactionState = shallowRef<InteractionSnapshot>({
   crosshairPos: null,
@@ -402,6 +415,14 @@ const hoveredPaneBoundaryId = computed(() => interactionState.value.hoveredPaneB
 const isHoveringRightAxis = computed(() => interactionState.value.isHoveringRightAxis)
 const hoveredIdx = computed(() => interactionState.value.hoveredIndex)
 const crosshairIdx = computed(() => interactionState.value.crosshairIndex)
+
+// 统一光标样式：用内联 style 替代 CSS 类后代选择器，切断级联失效链
+const containerCursor = computed(() => {
+  if (isDragging.value) return 'grabbing'
+  if (isResizingPane.value || isHoveringPaneSeparator.value) return 'ns-resize'
+  if (hoveredIdx.value !== null) return 'pointer'
+  return 'crosshair'
+})
 
 const hovered = computed(() => {
   const idx = interactionState.value.hoveredIndex
@@ -488,7 +509,7 @@ function onPointerDown(e: PointerEvent) {
 function onPointerMove(e: PointerEvent) {
   const container = containerRef.value
   if (container) {
-    const rect = container.getBoundingClientRect()
+    const rect = getContainerRect(container)
     mousePos.value = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
@@ -1574,6 +1595,7 @@ function initChart(
 
 function setupChartCallbacks(chart: Chart): void {
   chart.setOnViewportChange((vp) => {
+    invalidateContainerRectCache()
     if (store.state.viewportDpr !== vp.dpr) {
       store.actions.setViewportDpr(vp.dpr)
     }
@@ -1594,6 +1616,7 @@ function setupChartCallbacks(chart: Chart): void {
   })
 
   chart.setOnPaneLayoutChange((panes) => {
+    invalidateContainerRectCache()
     const next: Record<string, number> = {}
     for (const pane of panes) {
       next[pane.id] = pane.ratio
@@ -1903,23 +1926,6 @@ watch(
 
 .chart-container::-webkit-scrollbar {
   display: none;
-}
-
-.chart-container:hover {
-  cursor: crosshair;
-}
-
-.chart-stage.is-resizing-pane .chart-container,
-.chart-stage.is-hovering-pane-separator .chart-container {
-  cursor: ns-resize;
-}
-
-.chart-stage.is-hovering-kline .chart-container {
-  cursor: pointer;
-}
-
-.chart-stage.is-dragging .chart-container {
-  cursor: grabbing;
 }
 
 .right-axis-host {

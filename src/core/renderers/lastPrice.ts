@@ -3,8 +3,59 @@ import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { PRICE_COLORS } from '@/core/theme/colors'
 
+function getLastPriceInfo(context: RenderContext) {
+    const { pane, data } = context
+    const klineData = data as KLineData[]
+    const last = klineData[klineData.length - 1]
+    if (!last) return null
+
+    const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
+    if (last.close < displayRange.minPrice || last.close > displayRange.maxPrice) {
+        return null
+    }
+
+    return {
+        price: last.close,
+        y: Math.round(pane.yAxis.priceToY(last.close)),
+        dataIndex: klineData.length - 1,
+    }
+}
+
 /**
- * 创建最新价虚线渲染器插件
+ * 最新价 label 注册渲染器（overlay 层，确保悬停时 label 也注册到 yAxisLabels）
+ */
+export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
+    return {
+        name: 'lastPriceLabelRegistrar',
+        version: '1.0.0',
+        description: '最新价 label 注册',
+        debugName: '最新价标签注册',
+        paneId: 'main',
+        layer: 'overlay',
+        priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
+
+        draw(context: RenderContext) {
+            const info = getLastPriceInfo(context)
+            if (!info) return
+
+            if (!context.yAxisLabels) context.yAxisLabels = []
+            context.yAxisLabels.push({
+                dataIndex: info.dataIndex,
+                price: info.price,
+                y: info.y,
+                type: 'lastPrice',
+                style: {
+                    bgColor: 'rgba(255, 247, 248, 0.98)',
+                    borderColor: PRICE_COLORS.LAST_PRICE,
+                    textColor: PRICE_COLORS.LAST_PRICE,
+                }
+            })
+        },
+    }
+}
+
+/**
+ * 创建最新价虚线渲染器插件（仅绘制虚线，不注册 label）
  */
 export function createLastPriceLineRendererPlugin(): RendererPlugin {
     return {
@@ -16,39 +67,16 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
-            const { ctx, pane, data, scrollLeft, dpr, kLinePositions, paneWidth } = context
-            const klineData = data as KLineData[]
-            const last = klineData[klineData.length - 1]
-            if (!last) return
+            const { ctx, scrollLeft, dpr, kLinePositions, paneWidth } = context
+            const info = getLastPriceInfo(context)
+            if (!info) return
 
-            // 检查价格是否在可视范围内
-            const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
-            if (last.close < displayRange.minPrice || last.close > displayRange.maxPrice) {
-                return
-            }
-
-            const y = Math.round(pane.yAxis.priceToY(last.close))
-
-            // 注册 label 到 yAxisLabels
-            if (!context.yAxisLabels) context.yAxisLabels = []
-            context.yAxisLabels.push({
-                dataIndex: klineData.length - 1,
-                price: last.close,
-                y,
-                type: 'lastPrice',
-                style: {
-                    bgColor: 'rgba(255, 247, 248, 0.98)',
-                    borderColor: PRICE_COLORS.LAST_PRICE,
-                    textColor: PRICE_COLORS.LAST_PRICE,
-                }
-            })
+            const y = info.y
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
 
-            // 使用统一的 kLinePositions 计算绘制范围
             const startX = kLinePositions[0] ?? 0
-            // 虚线始终画到 pane 最右侧，而不是最后一条K线
             const endX = paneWidth + scrollLeft
 
             ctx.strokeStyle = PRICE_COLORS.LAST_PRICE

@@ -131,7 +131,7 @@ import {
 import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
 import { createCandleRenderer } from '@/core/renderers/candle'
 import { createGridLinesRendererPlugin } from '@/core/renderers/gridLines'
-import { createLastPriceLineRendererPlugin } from '@/core/renderers/lastPrice'
+import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from '@/core/renderers/lastPrice'
 import {
   createMARendererPlugin,
   createBOLLRendererPlugin,
@@ -148,7 +148,6 @@ import {
   getKSTTitleInfo,
   getFASTKTitleInfo,
 } from '@/core/renderers/Indicator'
-import { createExtremaMarkersRendererPlugin } from '@/core/renderers/extremaMarkers'
 import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
 import { createMacdScaleRendererPlugin } from '@/core/renderers/Indicator/scale/macd_scale'
 import { createVolumeScaleRendererPlugin } from '@/core/renderers/Indicator/scale/volume_scale'
@@ -1506,7 +1505,6 @@ function initChart(
   )
 
   chart.useRenderer(createGridLinesRendererPlugin())
-  chart.useRenderer(createExtremaMarkersRendererPlugin())
   chart.useRenderer(createMARendererPlugin())
   chart.setRendererEnabled('ma', false)
   chart.useRenderer(createBOLLRendererPlugin())
@@ -1517,6 +1515,7 @@ function initChart(
   chart.setRendererEnabled('ene', false)
   chart.useRenderer(createCandleRenderer())
   chart.useRenderer(createLastPriceLineRendererPlugin())
+  chart.useRenderer(createLastPriceLabelRegistrarPlugin())
   chart.useRenderer(createCustomMarkersRenderer())
 
   const axisWidth = props.rightAxisWidth + props.priceLabelWidth

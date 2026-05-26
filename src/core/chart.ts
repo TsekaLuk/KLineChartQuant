@@ -709,8 +709,8 @@ export class Chart {
             this.cachedDrawFrame = {
                 viewport: { ...vp },
                 range: { ...range },
-                kLinePositions: [...kLinePositions],
-                kLineCenters: [...kLineCenters],
+                kLinePositions,
+                kLineCenters,
                 kBarRects,
                 kWidthPx,
             }

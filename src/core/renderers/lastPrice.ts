@@ -55,7 +55,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
 }
 
 /**
- * 创建最新价虚线渲染器插件（仅绘制虚线，不注册 label）
+ * 创建最新价虚线渲染器插件（绘制虚线）
  */
 export function createLastPriceLineRendererPlugin(): RendererPlugin {
     return {

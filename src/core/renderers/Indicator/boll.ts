@@ -129,8 +129,24 @@ function buildPriceCacheKey(
 export function createBOLLRendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
 
-    function clearCache() {
-        // 不再需要缓存
+    // 对象池：复用 {x,y} 对象，消除每帧 GC 压力
+    const _upperPool: LinePoint[] = []
+    const _middlePool: LinePoint[] = []
+    const _lowerPool: LinePoint[] = []
+    const _bandUpperPool: LinePoint[] = []
+    const _bandLowerPool: LinePoint[] = []
+    let _poolSize = 0
+
+    function _growPool(size: number) {
+        if (size <= _poolSize) return
+        for (let i = _poolSize; i < size; i++) {
+            _upperPool[i] = { x: 0, y: 0 }
+            _middlePool[i] = { x: 0, y: 0 }
+            _lowerPool[i] = { x: 0, y: 0 }
+            _bandUpperPool[i] = { x: 0, y: 0 }
+            _bandLowerPool[i] = { x: 0, y: 0 }
+        }
+        _poolSize = size
     }
 
     return {
@@ -167,12 +183,14 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
             const drawEnd = Math.min(range.end, klineData.length)
             if (drawEnd <= drawStart) return
 
-            // ====== 一次性完成：提取数据 + 坐标转换 + 点构建 ======
+            // ====== 复用池对象，零分配构建点集 ======
             const rangeStart = range.start
             const priceToY = pane.yAxis.priceToY.bind(pane.yAxis)
 
-            // 预分配数组（避免动态扩容）
             const pointCount = drawEnd - drawStart
+            _growPool(pointCount)
+
+            // 新数组作为 WebGL geoCache key（避免缓存命中旧数据）
             const upperPoints: LinePoint[] = new Array(pointCount)
             const middlePoints: LinePoint[] = new Array(pointCount)
             const lowerPoints: LinePoint[] = new Array(pointCount)
@@ -188,19 +206,24 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
                 const centerX = kLineCenters[i - rangeStart]
                 if (centerX === undefined) continue
 
-                // 批量坐标转换
+                // 坐标转换
                 const upperY = alignToPhysicalPixelCenter(priceToY(boll.upper), dpr)
                 const middleY = alignToPhysicalPixelCenter(priceToY(boll.middle), dpr)
                 const lowerY = alignToPhysicalPixelCenter(priceToY(boll.lower), dpr)
 
-                // 直接写入预分配数组
-                upperPoints[upperIdx++] = { x: centerX, y: upperY }
-                middlePoints[middleIdx++] = { x: centerX, y: middleY }
-                lowerPoints[lowerIdx++] = { x: centerX, y: lowerY }
+                // 从池中取对象，只改坐标，零分配
+                let p = _upperPool[upperIdx]; p.x = centerX; p.y = upperY
+                upperPoints[upperIdx++] = p
+                p = _middlePool[middleIdx]; p.x = centerX; p.y = middleY
+                middlePoints[middleIdx++] = p
+                p = _lowerPool[lowerIdx]; p.x = centerX; p.y = lowerY
+                lowerPoints[lowerIdx++] = p
 
                 if (showBand) {
-                    bandUpperPoints[bandIdx] = { x: centerX, y: upperY }
-                    bandLowerPoints[bandIdx] = { x: centerX, y: lowerY }
+                    p = _bandUpperPool[bandIdx]; p.x = centerX; p.y = upperY
+                    bandUpperPoints[bandIdx] = p
+                    p = _bandLowerPool[bandIdx]; p.x = centerX; p.y = lowerY
+                    bandLowerPoints[bandIdx] = p
                     bandIdx++
                 }
             }

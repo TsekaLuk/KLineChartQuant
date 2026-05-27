@@ -47,7 +47,7 @@ export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}):
 
     return {
         name: `macdLegend_${paneId}`,
-        version: '2.0.0',
+        version: '2.1.0',
         description: 'MACD 图例渲染器（StateStore 版）',
         debugName: 'MACD 图例',
         paneId,

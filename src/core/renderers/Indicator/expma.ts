@@ -41,7 +41,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
 
     return {
         name: 'expma',
-        version: '2.0.0',
+        version: '2.1.0',
         description: 'EXPMA 指数平滑移动平均线渲染器（带绘制缓存）',
         debugName: 'EXPMA',
         paneId: 'main',
@@ -106,13 +106,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
 
                 if (allOk) {
                     usedWebGL = true
-                    const canvas = lineWebGLSurface.getCanvas()
-                    if (canvas.width > 0 && canvas.height > 0) {
-                        const prevImageSmoothingEnabled = ctx.imageSmoothingEnabled
-                        ctx.imageSmoothingEnabled = false
-                        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / dpr, canvas.height / dpr)
-                        ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
-                    }
+                    lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
                 }
             }
 

@@ -1,3 +1,5 @@
+import { SharedWebGLSurface, type PhysicalRegion, type WebGLCompositeOptions, type WebGLRegion } from './sharedWebGLSurface'
+
 type Rect = {
     x: number
     y: number
@@ -22,7 +24,6 @@ type FilledBand = {
 type FloatColor = readonly [number, number, number, number]
 
 type RectWebGLHandles = {
-    gl: WebGL2RenderingContext
     program: WebGLProgram
     vao: WebGLVertexArrayObject
     unitBuffer: WebGLBuffer
@@ -42,8 +43,17 @@ type BasicLineWebGLHandles = {
 }
 
 type LineWebGLHandles = {
-    gl: WebGL2RenderingContext
     basic: BasicLineWebGLHandles
+}
+
+type LineMsaaTargets = {
+    samples: number
+    widthPx: number
+    heightPx: number
+    msaaFramebuffer: WebGLFramebuffer
+    msaaColorRenderbuffer: WebGLRenderbuffer
+    resolveFramebuffer: WebGLFramebuffer
+    resolveTexture: WebGLTexture
 }
 
 const RECT_VERTEX_SHADER_SOURCE = `#version 300 es
@@ -109,16 +119,17 @@ const UNIT_QUAD = new Float32Array([
 ])
 
 export class CandleWebGLSurface {
-    private canvas: HTMLCanvasElement
+    private shared: SharedWebGLSurface
     private handles: RectWebGLHandles | null = null
     private logicalWidth = 0
     private logicalHeight = 0
     private available = false
     private rectCapacity = 0
     private rectScratch = new Float32Array(0)
+    private region: WebGLRegion | null = null
 
-    constructor(canvas?: HTMLCanvasElement) {
-        this.canvas = canvas ?? document.createElement('canvas')
+    constructor(shared: SharedWebGLSurface) {
+        this.shared = shared
         this.handles = this.initRectHandles()
         this.available = this.handles !== null
     }
@@ -128,31 +139,26 @@ export class CandleWebGLSurface {
     }
 
     getCanvas(): HTMLCanvasElement {
-        return this.canvas
+        return this.shared.getCanvas()
     }
 
-    resize(width: number, height: number, dpr: number): void {
+    setRegion(region: WebGLRegion): void {
+        this.region = region
+    }
+
+    resize(width: number, height: number, _dpr: number): void {
         this.logicalWidth = width
         this.logicalHeight = height
-
-        const nextWidth = Math.max(1, Math.round(width * dpr))
-        const nextHeight = Math.max(1, Math.round(height * dpr))
-
-        if (this.canvas.width !== nextWidth) {
-            this.canvas.width = nextWidth
-        }
-        if (this.canvas.height !== nextHeight) {
-            this.canvas.height = nextHeight
-        }
     }
 
     clear(): void {
-        const gl = this.handles?.gl
-        if (!gl || this.logicalWidth <= 0 || this.logicalHeight <= 0) return
+        if (!this.region || this.logicalWidth <= 0 || this.logicalHeight <= 0) return
+        this.shared.clearRegion(this.region)
+    }
 
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
-        gl.clearColor(0, 0, 0, 0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
+    compositeTo(ctx: CanvasRenderingContext2D, options: WebGLCompositeOptions = {}): void {
+        if (!this.region) return
+        this.shared.compositeRegionTo(ctx, this.region, options)
     }
 
     /** 直接传入已打包的 Float32Array：每 4 个元素为一组 (x, y, width, height) */
@@ -166,7 +172,9 @@ export class CandleWebGLSurface {
         if (!colorValue) return false
 
         const floatCount = rectCount * 4
-        const { gl } = handles
+        const gl = this.shared.getGL()
+        if (!gl || !this.region || !this.shared.bindRegion(this.region)) return false
+
         gl.useProgram(handles.program)
         gl.bindVertexArray(handles.vao)
         gl.bindBuffer(gl.ARRAY_BUFFER, handles.rectBuffer)
@@ -217,33 +225,21 @@ export class CandleWebGLSurface {
         const handles = this.handles
         if (!handles) return
 
-        const { gl, program, vao, unitBuffer, rectBuffer } = handles
-        gl.deleteBuffer(unitBuffer)
-        gl.deleteBuffer(rectBuffer)
-        gl.deleteVertexArray(vao)
-        gl.deleteProgram(program)
+        const gl = this.shared.getGL()
+        if (gl) {
+            const { program, vao, unitBuffer, rectBuffer } = handles
+            gl.deleteBuffer(unitBuffer)
+            gl.deleteBuffer(rectBuffer)
+            gl.deleteVertexArray(vao)
+            gl.deleteProgram(program)
+        }
         this.handles = null
         this.available = false
     }
 
     private initRectHandles(): RectWebGLHandles | null {
-        let gl: WebGL2RenderingContext | null = null
-        try {
-            gl = this.canvas.getContext('webgl2', {
-                alpha: true,
-                antialias: false,
-                depth: false,
-                stencil: false,
-                premultipliedAlpha: true,
-                preserveDrawingBuffer: false,
-            })
-        } catch {
-            gl = null
-        }
-
+        const gl = this.shared.getGL()
         if (!gl) return null
-
-        console.log('[CandleWebGLSurface] 抗锯齿已禁用 (antialias: false, 无AA着色器)')
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, RECT_VERTEX_SHADER_SOURCE)
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE)
@@ -307,7 +303,6 @@ export class CandleWebGLSurface {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
         return {
-            gl,
             program,
             vao,
             unitBuffer,
@@ -320,7 +315,7 @@ export class CandleWebGLSurface {
 }
 
 export class LineWebGLSurface {
-    private canvas: HTMLCanvasElement
+    private shared: SharedWebGLSurface
     private handles: LineWebGLHandles | null = null
     private logicalWidth = 0
     private logicalHeight = 0
@@ -329,12 +324,14 @@ export class LineWebGLSurface {
     private vertexCapacity = 0
     private fillScratch = new Float32Array(0)
     private lineScratch = new Float32Array(0)
+    private region: WebGLRegion | null = null
+    private msaaTargets: LineMsaaTargets | null = null
 
     // Geometry cache: 以 points 数组引用 + halfWidth 为 key，避免每帧重算法线/miter
     private geoCache = new WeakMap<Array<{ x: number; y: number }>, Map<number, { vertices: Float32Array; vertexCount: number }>>()
 
-    constructor(canvas?: HTMLCanvasElement) {
-        this.canvas = canvas ?? document.createElement('canvas')
+    constructor(shared: SharedWebGLSurface) {
+        this.shared = shared
         this.handles = this.initLineHandles()
         this.available = this.handles !== null
     }
@@ -344,32 +341,27 @@ export class LineWebGLSurface {
     }
 
     getCanvas(): HTMLCanvasElement {
-        return this.canvas
+        return this.shared.getCanvas()
+    }
+
+    setRegion(region: WebGLRegion): void {
+        this.region = region
     }
 
     resize(width: number, height: number, dpr: number): void {
         this.logicalWidth = width
         this.logicalHeight = height
         this.dpr = dpr
-
-        const nextWidth = Math.max(1, Math.round(width * dpr))
-        const nextHeight = Math.max(1, Math.round(height * dpr))
-
-        if (this.canvas.width !== nextWidth) {
-            this.canvas.width = nextWidth
-        }
-        if (this.canvas.height !== nextHeight) {
-            this.canvas.height = nextHeight
-        }
     }
 
     clear(): void {
-        const gl = this.handles?.gl
-        if (!gl || this.logicalWidth <= 0 || this.logicalHeight <= 0) return
+        if (!this.region || this.logicalWidth <= 0 || this.logicalHeight <= 0) return
+        this.shared.clearRegion(this.region)
+    }
 
-        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
-        gl.clearColor(0, 0, 0, 0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
+    compositeTo(ctx: CanvasRenderingContext2D, options: WebGLCompositeOptions = {}): void {
+        if (!this.region) return
+        this.shared.compositeRegionTo(ctx, this.region, options)
     }
 
     drawLineStrips(lines: ColoredLineStrip[], scrollLeft: number): boolean {
@@ -378,13 +370,17 @@ export class LineWebGLSurface {
             return false
         }
 
-        // Pass 1: count total vertex floats + build draw command list
         type DrawCmd = {
             colorValue: FloatColor
             mode: number
             firstVertex: number
             pointCount: number
         }
+
+        const gl = this.shared.getGL()
+        const region = this.region
+        if (!gl || !region) return false
+
         const drawCmds: DrawCmd[] = []
         let totalFloats = 0
 
@@ -396,17 +392,16 @@ export class LineWebGLSurface {
 
             if (line.width === 1) {
                 const { vertexCount, vertices } = this.getThinLineVertices(line.points)
-                drawCmds.push({ colorValue, mode: handles.gl.LINE_STRIP, firstVertex: totalFloats / 2, pointCount: vertexCount })
+                drawCmds.push({ colorValue, mode: gl.LINE_STRIP, firstVertex: totalFloats / 2, pointCount: vertexCount })
                 totalFloats += vertices.length
             } else {
                 const geometry = this.getLineGeometry(line)
                 if (!geometry) return false
-                drawCmds.push({ colorValue, mode: handles.gl.TRIANGLES, firstVertex: totalFloats / 2, pointCount: geometry.vertexCount })
+                drawCmds.push({ colorValue, mode: gl.TRIANGLES, firstVertex: totalFloats / 2, pointCount: geometry.vertexCount })
                 totalFloats += geometry.vertices.length
             }
         }
 
-        // Pass 2: fill scratch buffer (geometry already cached, recompute is free)
         if (this.lineScratch.length < totalFloats) {
             this.lineScratch = new Float32Array(nextBufferFloatCapacity(totalFloats))
         }
@@ -419,7 +414,20 @@ export class LineWebGLSurface {
             floatOffset += vertices.length
         }
 
-        const { gl } = handles
+        const physical = this.shared.getPhysicalRegion(region)
+        const msaaTargets = physical ? this.ensureLineMsaaTargets(gl, physical) : null
+        const useMsaa = msaaTargets !== null
+
+        if (useMsaa) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, msaaTargets.msaaFramebuffer)
+            gl.viewport(0, 0, msaaTargets.widthPx, msaaTargets.heightPx)
+            gl.disable(gl.SCISSOR_TEST)
+            gl.clearColor(0, 0, 0, 0)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+        } else if (!this.shared.bindRegion(region)) {
+            return false
+        }
+
         gl.useProgram(handles.basic.program)
         gl.bindVertexArray(handles.basic.vao)
         gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
@@ -439,6 +447,12 @@ export class LineWebGLSurface {
         }
 
         gl.bindVertexArray(null)
+
+        if (useMsaa && msaaTargets && physical) {
+            this.resolveLineMsaaToSharedRegion(gl, msaaTargets, physical)
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         return true
     }
 
@@ -506,7 +520,9 @@ export class LineWebGLSurface {
             this.fillScratch[writeIndex++] = lower.y
         }
 
-        const { gl } = handles
+        const gl = this.shared.getGL()
+        if (!gl || !this.region || !this.shared.bindRegion(this.region)) return false
+
         gl.useProgram(handles.basic.program)
         gl.bindVertexArray(handles.basic.vao)
         gl.bindBuffer(gl.ARRAY_BUFFER, handles.basic.vertexBuffer)
@@ -527,35 +543,142 @@ export class LineWebGLSurface {
 
     destroy(): void {
         const handles = this.handles
+        const gl = this.shared.getGL()
+        if (gl) {
+            this.destroyLineMsaaTargets(gl)
+        }
         if (!handles) {
             this.vertexCapacity = 0
             return
         }
 
-        const { gl, basic } = handles
-        gl.deleteBuffer(basic.vertexBuffer)
-        gl.deleteVertexArray(basic.vao)
-        gl.deleteProgram(basic.program)
+        if (gl) {
+            const { basic } = handles
+            gl.deleteBuffer(basic.vertexBuffer)
+            gl.deleteVertexArray(basic.vao)
+            gl.deleteProgram(basic.program)
+        }
         this.handles = null
         this.available = false
         this.vertexCapacity = 0
     }
 
-    private initLineHandles(): LineWebGLHandles | null {
-        let gl: WebGL2RenderingContext | null = null
-        try {
-            gl = this.canvas.getContext('webgl2', {
-                alpha: true,
-                antialias: true,
-                depth: false,
-                stencil: false,
-                premultipliedAlpha: true,
-                preserveDrawingBuffer: false,
-            })
-        } catch {
-            gl = null
+    private ensureLineMsaaTargets(gl: WebGL2RenderingContext, physical: PhysicalRegion): LineMsaaTargets | null {
+        const preferredSamples = 4
+        const maxSamples = Number(gl.getParameter(gl.MAX_SAMPLES)) || 0
+        const samples = Math.max(1, Math.min(preferredSamples, maxSamples))
+        if (samples <= 1) return null
+
+        const existing = this.msaaTargets
+        if (
+            existing
+            && existing.widthPx === physical.widthPx
+            && existing.heightPx === physical.heightPx
+            && existing.samples === samples
+        ) {
+            return existing
         }
 
+        this.destroyLineMsaaTargets(gl)
+
+        const msaaFramebuffer = gl.createFramebuffer()
+        const msaaColorRenderbuffer = gl.createRenderbuffer()
+        const resolveFramebuffer = gl.createFramebuffer()
+        const resolveTexture = gl.createTexture()
+        if (!msaaFramebuffer || !msaaColorRenderbuffer || !resolveFramebuffer || !resolveTexture) {
+            if (msaaFramebuffer) gl.deleteFramebuffer(msaaFramebuffer)
+            if (msaaColorRenderbuffer) gl.deleteRenderbuffer(msaaColorRenderbuffer)
+            if (resolveFramebuffer) gl.deleteFramebuffer(resolveFramebuffer)
+            if (resolveTexture) gl.deleteTexture(resolveTexture)
+            return null
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, msaaFramebuffer)
+        gl.bindRenderbuffer(gl.RENDERBUFFER, msaaColorRenderbuffer)
+        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, physical.widthPx, physical.heightPx)
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, msaaColorRenderbuffer)
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+            gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+            gl.deleteFramebuffer(msaaFramebuffer)
+            gl.deleteRenderbuffer(msaaColorRenderbuffer)
+            gl.deleteFramebuffer(resolveFramebuffer)
+            gl.deleteTexture(resolveTexture)
+            return null
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, resolveFramebuffer)
+        gl.bindTexture(gl.TEXTURE_2D, resolveTexture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, physical.widthPx, physical.heightPx, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, resolveTexture, 0)
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+            gl.bindTexture(gl.TEXTURE_2D, null)
+            gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+            gl.deleteFramebuffer(msaaFramebuffer)
+            gl.deleteRenderbuffer(msaaColorRenderbuffer)
+            gl.deleteFramebuffer(resolveFramebuffer)
+            gl.deleteTexture(resolveTexture)
+            return null
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.bindTexture(gl.TEXTURE_2D, null)
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+
+        const targets = {
+            samples,
+            widthPx: physical.widthPx,
+            heightPx: physical.heightPx,
+            msaaFramebuffer,
+            msaaColorRenderbuffer,
+            resolveFramebuffer,
+            resolveTexture,
+        }
+        this.msaaTargets = targets
+        return targets
+    }
+
+    private destroyLineMsaaTargets(gl: WebGL2RenderingContext): void {
+        const targets = this.msaaTargets
+        if (!targets) return
+        gl.deleteFramebuffer(targets.msaaFramebuffer)
+        gl.deleteRenderbuffer(targets.msaaColorRenderbuffer)
+        gl.deleteFramebuffer(targets.resolveFramebuffer)
+        gl.deleteTexture(targets.resolveTexture)
+        this.msaaTargets = null
+    }
+
+    private resolveLineMsaaToSharedRegion(gl: WebGL2RenderingContext, targets: LineMsaaTargets, physical: PhysicalRegion): void {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, targets.msaaFramebuffer)
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, targets.resolveFramebuffer)
+        gl.blitFramebuffer(
+            0, 0, targets.widthPx, targets.heightPx,
+            0, 0, targets.widthPx, targets.heightPx,
+            gl.COLOR_BUFFER_BIT,
+            gl.NEAREST,
+        )
+
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, targets.resolveFramebuffer)
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+        const destY = this.shared.getCanvas().height - physical.sourceY - physical.heightPx
+        gl.disable(gl.SCISSOR_TEST)
+        gl.blitFramebuffer(
+            0, 0, targets.widthPx, targets.heightPx,
+            physical.sourceX, destY, physical.sourceX + physical.widthPx, destY + physical.heightPx,
+            gl.COLOR_BUFFER_BIT,
+            gl.NEAREST,
+        )
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null)
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+    }
+
+    private initLineHandles(): LineWebGLHandles | null {
+        const gl = this.shared.getGL()
         if (!gl) return null
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, LINE_VERTEX_SHADER_SOURCE)
@@ -608,7 +731,6 @@ export class LineWebGLSurface {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
         return {
-            gl,
             basic: {
                 program,
                 vao,

@@ -103,7 +103,7 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
 
     return {
         name: `mom_${paneId}`,
-        version: '2.0.0',
+        version: '2.1.0',
         description: 'MOM 动量指标渲染器（WebGL + Canvas2D 回退）',
         debugName: 'MOM',
         paneId: paneId,
@@ -191,13 +191,7 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
                     )
                     if (ok) {
                         usedWebGL = true
-                        const canvas = lineWebGLSurface.getCanvas()
-                        if (canvas.width > 0 && canvas.height > 0) {
-                            const prevImageSmoothingEnabled = ctx.imageSmoothingEnabled
-                            ctx.imageSmoothingEnabled = false
-                            ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / dpr, canvas.height / dpr)
-                            ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
-                        }
+                        lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
                     }
                 }
             }

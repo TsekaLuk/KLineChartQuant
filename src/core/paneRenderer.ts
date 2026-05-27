@@ -1,4 +1,5 @@
 import { CandleWebGLSurface, LineWebGLSurface } from './renderers/webgl/candleSurface'
+import type { SharedWebGLSurface, WebGLRegion } from './renderers/webgl/sharedWebGLSurface'
 
 export type PaneRendererDom = {
     mainCanvas: HTMLCanvasElement      // 主画布：K线、指标、网格
@@ -35,7 +36,12 @@ export class PaneRenderer {
     private contexts: PaneRendererContexts | null = null
     private webgl: PaneRendererWebGLHandles
 
-    constructor(dom: PaneRendererDom, pane: import('./layout/pane').Pane, opt: PaneRendererOptions) {
+    constructor(
+        dom: PaneRendererDom,
+        pane: import('./layout/pane').Pane,
+        opt: PaneRendererOptions,
+        sharedWebGLSurface: SharedWebGLSurface,
+    ) {
         this.dom = dom
         this.pane = pane
         this.opt = {
@@ -43,8 +49,8 @@ export class PaneRenderer {
             priceLabelWidth: opt.priceLabelWidth || 60,
         }
         this.webgl = {
-            candleSurface: new CandleWebGLSurface(),
-            lineSurface: new LineWebGLSurface(),
+            candleSurface: new CandleWebGLSurface(sharedWebGLSurface),
+            lineSurface: new LineWebGLSurface(sharedWebGLSurface),
         }
     }
 
@@ -71,6 +77,11 @@ export class PaneRenderer {
 
     getWebGL(): PaneRendererWebGLHandles {
         return this.webgl
+    }
+
+    setWebGLRegion(region: WebGLRegion): void {
+        this.webgl.candleSurface?.setRegion(region)
+        this.webgl.lineSurface?.setRegion(region)
     }
 
     /**

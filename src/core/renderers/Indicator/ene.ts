@@ -23,26 +23,10 @@ function compositeLineSurface(
     surface: NonNullable<RenderContext['lineWebGLSurface']>,
     alpha = 1
 ): void {
-    const canvas = surface.getCanvas()
-    if (canvas.width <= 0 || canvas.height <= 0) return
-
-    const prevImageSmoothingEnabled = context.ctx.imageSmoothingEnabled
-    const prevGlobalAlpha = context.ctx.globalAlpha
-    context.ctx.imageSmoothingEnabled = false
-    context.ctx.globalAlpha = prevGlobalAlpha * alpha
-    context.ctx.drawImage(
-        canvas,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-        0,
-        0,
-        canvas.width / context.dpr,
-        canvas.height / context.dpr
-    )
-    context.ctx.globalAlpha = prevGlobalAlpha
-    context.ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
+    surface.compositeTo(context.ctx, {
+        alpha,
+        imageSmoothingEnabled: false,
+    })
 }
 
 function drawENEWithWebGL(
@@ -91,10 +75,7 @@ function drawENEWithWebGL(
         return false
     }
 
-    const canvas = surface.getCanvas()
-    if (canvas.width > 0 && canvas.height > 0) {
-        compositeLineSurface(context, surface)
-    }
+    compositeLineSurface(context, surface)
     surface.clear()
     return true
 }
@@ -112,7 +93,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
 
     return {
         name: 'ene',
-        version: '2.0.0',
+        version: '2.1.0',
         description: 'ENE 轨道线渲染器（无状态）',
         debugName: 'ENE轨道线',
         paneId: 'main',

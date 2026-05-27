@@ -237,13 +237,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
         const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
         if (allOk) {
           usedWebGLForLines = true
-          const canvas = lineWebGLSurface.getCanvas()
-          if (canvas.width > 0 && canvas.height > 0) {
-            const prevImageSmoothingEnabled = ctx.imageSmoothingEnabled
-            ctx.imageSmoothingEnabled = false
-            ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / dpr, canvas.height / dpr)
-            ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
-          }
+          lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
         }
       }
 
@@ -386,10 +380,7 @@ function compositeMacdWebGL(ctx: CanvasRenderingContext2D, context: RenderContex
   const surface = context.candleWebGLSurface
   if (!surface) return
 
-  const canvas = surface.getCanvas()
-  if (canvas.width <= 0 || canvas.height <= 0) return
-
-  ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / context.dpr, canvas.height / context.dpr)
+  surface.compositeTo(ctx)
 }
 
 /**

@@ -117,8 +117,11 @@ export class RendererPluginManager {
     const plugin = this.plugins.get(name)
     if (!plugin) return
 
-    // 自动清理状态（在 onUninstall 之前）
-    this.pluginHost?.clearByOwner(name)
+    // 自动清理状态（在 onUninstall 之前），仅当插件声明过命名空间时
+    const withHost = plugin as RendererPluginWithHost
+    if (withHost.getDeclaredNamespaces) {
+      this.pluginHost?.clearByOwner(name)
+    }
 
     // 调用卸载回调
     if (plugin.onUninstall) {

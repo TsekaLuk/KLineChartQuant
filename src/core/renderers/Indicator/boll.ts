@@ -31,26 +31,10 @@ function compositeLineSurface(
     surface: NonNullable<RenderContext['lineWebGLSurface']>,
     alpha = 1
 ): void {
-    const canvas = surface.getCanvas()
-    if (canvas.width <= 0 || canvas.height <= 0) return
-
-    const prevImageSmoothingEnabled = context.ctx.imageSmoothingEnabled
-    const prevGlobalAlpha = context.ctx.globalAlpha
-    context.ctx.imageSmoothingEnabled = false
-    context.ctx.globalAlpha = prevGlobalAlpha * alpha
-    context.ctx.drawImage(
-        canvas,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-        0,
-        0,
-        canvas.width / context.dpr,
-        canvas.height / context.dpr
-    )
-    context.ctx.globalAlpha = prevGlobalAlpha
-    context.ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
+    surface.compositeTo(context.ctx, {
+        alpha,
+        imageSmoothingEnabled: false,
+    })
 }
 
 function drawBOLLWithWebGL(
@@ -104,12 +88,6 @@ function drawBOLLWithWebGL(
     if (!allOk) {
         surface.clear()
         return false
-    }
-
-    const canvas = surface.getCanvas()
-    if (canvas.width <= 0 || canvas.height <= 0) {
-        surface.clear()
-        return true
     }
 
     compositeLineSurface(context, surface)

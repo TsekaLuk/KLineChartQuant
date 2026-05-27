@@ -51,8 +51,8 @@ export function createMARendererPlugin(): RendererPluginWithHost {
 
     return {
         name: 'ma',
-        version: '2.0.0',
-        description: 'MA均线渲染器（带绘制缓存）',
+        version: '2.1.0',
+        description: 'MA均线渲染器',
         debugName: 'MA均线',
         paneId: 'main',
         priority: RENDERER_PRIORITY.INDICATOR,
@@ -104,9 +104,11 @@ export function createMARendererPlugin(): RendererPluginWithHost {
                 }
             }
 
+            // 检查 WebGL 渲染开关（默认开启）及 GPU 加速是否可用
             const enableWebGL = context.settings?.enableWebGLRendering !== false
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
+                // 组装所有周期的折线数据，批量提交 GPU 一次性渲染，避免逐条 beginPath 的 CPU 开销
                 const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 for (const period of state.enabledPeriods) {
                     const points = cachedLines.get(period)
@@ -117,16 +119,12 @@ export function createMARendererPlugin(): RendererPluginWithHost {
 
                 if (allOk) {
                     usedWebGL = true
-                    const canvas = lineWebGLSurface.getCanvas()
-                    if (canvas.width > 0 && canvas.height > 0) {
-                        const prevImageSmoothingEnabled = ctx.imageSmoothingEnabled
-                        ctx.imageSmoothingEnabled = false
-                        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / dpr, canvas.height / dpr)
-                        ctx.imageSmoothingEnabled = prevImageSmoothingEnabled
-                    }
+                    // 将 WebGL 离屏帧缓冲区内容通过 drawImage 合成到主 Canvas2D
+                    lineWebGLSurface.compositeTo(ctx, { imageSmoothingEnabled: false })
                 }
             }
 
+            // WebGL 渲染失败或未开启时的 Canvas2D 降级路径
             if (usedWebGL) return
 
             ctx.save()

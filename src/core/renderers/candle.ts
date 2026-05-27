@@ -287,10 +287,7 @@ function compositeWebGLToMainCanvas(ctx: CanvasRenderingContext2D, context: Rend
     const surface = context.candleWebGLSurface
     if (!surface) return
 
-    const canvas = surface.getCanvas()
-    if (canvas.width <= 0 || canvas.height <= 0) return
-
-    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width / context.dpr, canvas.height / context.dpr)
+    surface.compositeTo(ctx)
 }
 
 function drawVolumePriceMarkers(

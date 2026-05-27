@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Pane } from '@/core/layout/pane'
 import { PaneRenderer } from '@/core/paneRenderer'
+import { SharedWebGLSurface } from '@/core/renderers/webgl/sharedWebGLSurface'
 
 describe('PaneRenderer resize DPR mapping', () => {
   it('maps logical plot size to physical canvas size and keeps CSS size logical', () => {
@@ -8,6 +9,7 @@ describe('PaneRenderer resize DPR mapping', () => {
     const overlayCanvas = document.createElement('canvas')
     const yAxisCanvas = document.createElement('canvas')
     const pane = new Pane('main')
+    const sharedWebGLSurface = new SharedWebGLSurface()
     const renderer = new PaneRenderer(
       { mainCanvas, overlayCanvas, yAxisCanvas },
       pane,
@@ -15,7 +17,8 @@ describe('PaneRenderer resize DPR mapping', () => {
         rightAxisWidth: 80,
         yPaddingPx: 0,
         priceLabelWidth: 60,
-      }
+      },
+      sharedWebGLSurface,
     )
 
     renderer.resize(500, 240, 2)
@@ -34,6 +37,7 @@ describe('PaneRenderer resize DPR mapping', () => {
     const overlayCanvas = document.createElement('canvas')
     const yAxisCanvas = document.createElement('canvas')
     const pane = new Pane('main')
+    const sharedWebGLSurface = new SharedWebGLSurface()
     const renderer = new PaneRenderer(
       { mainCanvas, overlayCanvas, yAxisCanvas },
       pane,
@@ -41,7 +45,8 @@ describe('PaneRenderer resize DPR mapping', () => {
         rightAxisWidth: 100,
         yPaddingPx: 0,
         priceLabelWidth: 70,
-      }
+      },
+      sharedWebGLSurface,
     )
 
     renderer.resize(500, 200, 1.5)
@@ -65,6 +70,7 @@ describe('PaneRenderer resize DPR mapping', () => {
     host.appendChild(yAxisCanvas)
 
     const pane = new Pane('main')
+    const sharedWebGLSurface = new SharedWebGLSurface()
     const renderer = new PaneRenderer(
       { mainCanvas, overlayCanvas, yAxisCanvas },
       pane,
@@ -72,7 +78,8 @@ describe('PaneRenderer resize DPR mapping', () => {
         rightAxisWidth: 100,
         yPaddingPx: 0,
         priceLabelWidth: 70,
-      }
+      },
+      sharedWebGLSurface,
     )
 
     renderer.resize(500, 200, 1.5)

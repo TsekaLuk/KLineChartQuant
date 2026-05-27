@@ -4,6 +4,7 @@ import { getVisibleRange } from '@/core/viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from '@/core/layout/pane'
 import { InteractionController } from '@/core/controller/interaction'
 import { PaneRenderer } from '@/core/paneRenderer'
+import { SharedWebGLSurface } from '@/core/renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from '@/core/utils/klineConfig'
 import { computeContentWidth } from '@/core/chart-store'
@@ -187,6 +188,9 @@ export class Chart {
 
     /** 共享 X 轴上下文缓存 */
     private xAxisCtx: CanvasRenderingContext2D | null = null
+
+    /** Chart 级共享 WebGL canvas/context */
+    private sharedWebGLSurface: SharedWebGLSurface
 
     /** pane 布局回流回调（Chart -> UI 单向） */
     private onPaneLayoutChange?: (panes: PaneSpec[]) => void
@@ -492,6 +496,7 @@ export class Chart {
         this.markerManager = new MarkerManager()
         this.pluginHost = createPluginHost()
         this.rendererPluginManager = new RendererPluginManager()
+        this.sharedWebGLSurface = new SharedWebGLSurface()
 
         // 注入依赖
         this.rendererPluginManager.setPluginHost(this.pluginHost)
@@ -1572,6 +1577,7 @@ export class Chart {
         this.xAxisCtx = null
         this.paneRenderers.forEach((r) => r.destroy())
         this.paneRenderers = []
+        this.sharedWebGLSurface.destroy()
 
         // 清理渲染器插件管理器（会调用所有 onUninstall）
         this.rendererPluginManager.clear()
@@ -1624,7 +1630,8 @@ export class Chart {
                     rightAxisWidth: this.opt.rightAxisWidth,
                     yPaddingPx: this.opt.yPaddingPx,
                     priceLabelWidth: this.opt.priceLabelWidth,
-                }
+                },
+                this.sharedWebGLSurface,
             )
 
             return renderer
@@ -1788,6 +1795,13 @@ export class Chart {
             pane.setPadding(this.opt.yPaddingPx, this.opt.yPaddingPx)
 
             renderer.resize(vp.plotWidth, h, vp.dpr)
+            renderer.setWebGLRegion({
+                x: 0,
+                y,
+                width: vp.plotWidth,
+                height: h,
+                dpr: vp.dpr,
+            })
             this.rendererPluginManager.notifyResize(pane.id, wrapPaneInfo(pane))
             const dom = renderer.getDom()
             dom.mainCanvas.style.top = `${y}px`
@@ -1865,6 +1879,8 @@ export class Chart {
         if (this.dom.xAxisCanvas.style.height !== xAxisCssHeight) {
             this.dom.xAxisCanvas.style.height = xAxisCssHeight
         }
+
+        this.sharedWebGLSurface.resize(plotWidth, plotHeight, dpr)
 
         const vp: Viewport = {
             viewWidth,

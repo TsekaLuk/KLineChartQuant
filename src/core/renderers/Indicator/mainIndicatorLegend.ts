@@ -61,7 +61,7 @@ export function createMainIndicatorLegendRendererPlugin(options: {
 
   return {
     name: 'mainIndicatorLegend',
-    version: '2.0.0',
+    version: '2.1.0',
     description: '主图指标图例渲染器（MA 数据来自 StateStore）',
     debugName: '主图指标图例',
     paneId: 'main',

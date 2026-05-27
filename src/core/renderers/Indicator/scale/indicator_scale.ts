@@ -81,26 +81,11 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
 
     ctx.clearRect(0, 0, axisWidth, height)
 
-    // 使用外部状态缓存，避免读取 ctx 属性（读取 fillStyle 会触发颜色序列化，很慢）
-    const state = getCanvasState(ctx)
     const font = getFont(12)
-
-    if (state.font !== font) {
-        setCanvasFont(ctx, font)
-        state.font = font
-    }
-    if (state.textBaseline !== BASELINE_MIDDLE) {
-        ctx.textBaseline = BASELINE_MIDDLE
-        state.textBaseline = BASELINE_MIDDLE
-    }
-    if (state.textAlign !== ALIGN_CENTER) {
-        ctx.textAlign = ALIGN_CENTER
-        state.textAlign = ALIGN_CENTER
-    }
-    if (state.fillStyle !== TEXT_COLORS.SECONDARY) {
-        ctx.fillStyle = TEXT_COLORS.SECONDARY
-        state.fillStyle = TEXT_COLORS.SECONDARY
-    }
+    setCanvasFont(ctx, font)
+    ctx.textBaseline = BASELINE_MIDDLE
+    ctx.textAlign = ALIGN_CENTER
+    ctx.fillStyle = TEXT_COLORS.SECONDARY
 
     const centerX = axisWidth / 2
     const centerXPx = roundToPhysicalPixel(centerX, dpr)
@@ -161,6 +146,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
             if (!state) return
 
             const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
+            const effectiveAxisWidth = yAxisCtx.canvas ? (yAxisCtx.canvas.width / dpr) : axisWidth
 
             const displayRange = pane.yAxis.getDisplayRange({
                 minPrice: state.valueMin,
@@ -170,7 +156,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
             drawScaleTicks({
                 ctx: yAxisCtx,
                 dpr,
-                axisWidth,
+                axisWidth: effectiveAxisWidth,
                 height: pane.height,
                 paddingTop: pane.yAxis.getPaddingTop(),
                 paddingBottom: pane.yAxis.getPaddingBottom(),
@@ -199,7 +185,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
             drawCrosshairPriceLabel(yAxisCtx, {
                 x: 0,
                 y: 0,
-                width: axisWidth,
+                width: effectiveAxisWidth,
                 height: pane.height,
                 crosshairY: localY,
                 priceRange: displayRange,

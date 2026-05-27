@@ -36,6 +36,11 @@ import type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
+    SuperTrendSchedulerConfig,
+    KeltnerSchedulerConfig,
+    DonchianSchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -74,7 +79,26 @@ import { createDEMAStateKey, DEFAULT_DEMA_PERIOD } from './demaState'
 import type { TEMARenderState } from './temaState'
 import { createTEMAStateKey, DEFAULT_TEMA_PERIOD } from './temaState'
 import type { HMARenderState } from './hmaState'
-import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'
+import { createHMAStateKey, DEFAULT_HMA_PERIOD } from './hmaState'  
+import type { KAMARenderState } from './kamaState'
+import { createKAMAStateKey, DEFAULT_KAMA_PERIOD, DEFAULT_KAMA_FAST_PERIOD, DEFAULT_KAMA_SLOW_PERIOD } from './kamaState'
+import type { SARRenderState } from './sarState'
+import { createSARStateKey, DEFAULT_SAR_STEP, DEFAULT_SAR_MAX_STEP } from './sarState'
+import type { SuperTrendRenderState } from './supertrendState'
+import {
+    createSuperTrendStateKey,
+    DEFAULT_SUPERTREND_ATR_PERIOD,
+    DEFAULT_SUPERTREND_MULTIPLIER,
+} from './supertrendState'
+import type { KeltnerRenderState } from './keltnerState'
+import {
+    createKeltnerStateKey,
+    DEFAULT_KELTNER_EMA_PERIOD,
+    DEFAULT_KELTNER_ATR_PERIOD,
+    DEFAULT_KELTNER_MULTIPLIER,
+} from './keltnerState'
+import type { DonchianRenderState } from './donchianState'
+import { createDonchianStateKey, DEFAULT_DONCHIAN_PERIOD } from './donchianState'
 
 /**
  * 可见范围
@@ -98,6 +122,11 @@ type VisibleSubIndicatorMask = {
     dema: boolean
     tema: boolean
     hma: boolean
+    kama: boolean
+    sar: boolean
+    supertrend: boolean
+    keltner: boolean
+    donchian: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -118,6 +147,11 @@ export type {
     DEMASchedulerConfig,
     TEMASchedulerConfig,
     HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
+    SuperTrendSchedulerConfig,
+    KeltnerSchedulerConfig,
+    DonchianSchedulerConfig,
 }
 
 /**
@@ -254,6 +288,32 @@ export class IndicatorScheduler {
             dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
             tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
             hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
+            kama: {
+                period: DEFAULT_KAMA_PERIOD,
+                fastPeriod: DEFAULT_KAMA_FAST_PERIOD,
+                slowPeriod: DEFAULT_KAMA_SLOW_PERIOD,
+                showKAMA: true,
+            },
+            sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
+            supertrend: {
+                atrPeriod: DEFAULT_SUPERTREND_ATR_PERIOD,
+                multiplier: DEFAULT_SUPERTREND_MULTIPLIER,
+                showSuperTrend: true,
+            },
+            keltner: {
+                emaPeriod: DEFAULT_KELTNER_EMA_PERIOD,
+                atrPeriod: DEFAULT_KELTNER_ATR_PERIOD,
+                multiplier: DEFAULT_KELTNER_MULTIPLIER,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+            },
+            donchian: {
+                period: DEFAULT_DONCHIAN_PERIOD,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+            },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -267,6 +327,11 @@ export class IndicatorScheduler {
             demaPaneId: 'sub_DEMA',
             temaPaneId: 'sub_TEMA',
             hmaPaneId: 'sub_HMA',
+            kamaPaneId: 'sub_KAMA',
+            sarPaneId: 'sub_SAR',
+            supertrendPaneId: 'sub_SuperTrend',
+            keltnerPaneId: 'sub_Keltner',
+            donchianPaneId: 'sub_Donchian',
         }
     }
 
@@ -473,7 +538,6 @@ export class IndicatorScheduler {
         // ATR
         if (changed.has('atr')) {
             const atrKey = createATRStateKey(this.configSnapshot.atrPaneId)
-            console.log(`[ATR-Scheduler] applyResults: set state at key=${atrKey} paneId=${this.configSnapshot.atrPaneId} seriesLen=${states.atr.series.length} vMin=${states.atr.valueMin} vMax=${states.atr.valueMax}`)
             this.pluginHost.setSharedState<ATRRenderState>(atrKey, states.atr, 'indicator_scheduler')
         }
 
@@ -499,6 +563,36 @@ export class IndicatorScheduler {
         if (changed.has('hma')) {
             const hmaKey = createHMAStateKey(this.configSnapshot.hmaPaneId)
             this.pluginHost.setSharedState<HMARenderState>(hmaKey, states.hma, 'indicator_scheduler')
+        }
+
+        // KAMA
+        if (changed.has('kama')) {
+            const kamaKey = createKAMAStateKey(this.configSnapshot.kamaPaneId)
+            this.pluginHost.setSharedState<KAMARenderState>(kamaKey, states.kama, 'indicator_scheduler')
+        }
+
+        // SAR
+        if (changed.has('sar')) {
+            const sarKey = createSARStateKey(this.configSnapshot.sarPaneId)
+            this.pluginHost.setSharedState<SARRenderState>(sarKey, states.sar, 'indicator_scheduler')
+        }
+
+        // SuperTrend
+        if (changed.has('supertrend')) {
+            const stKey = createSuperTrendStateKey(this.configSnapshot.supertrendPaneId)
+            this.pluginHost.setSharedState<SuperTrendRenderState>(stKey, states.supertrend, 'indicator_scheduler')
+        }
+
+        // Keltner
+        if (changed.has('keltner')) {
+            const kKey = createKeltnerStateKey(this.configSnapshot.keltnerPaneId)
+            this.pluginHost.setSharedState<KeltnerRenderState>(kKey, states.keltner, 'indicator_scheduler')
+        }
+
+        // Donchian
+        if (changed.has('donchian')) {
+            const dKey = createDonchianStateKey(this.configSnapshot.donchianPaneId)
+            this.pluginHost.setSharedState<DonchianRenderState>(dKey, states.donchian, 'indicator_scheduler')
         }
     }
 
@@ -569,6 +663,18 @@ export class IndicatorScheduler {
         // SAR
         const sarKey = createSARStateKey(this.configSnapshot.sarPaneId)
         this.pluginHost.setSharedState<SARRenderState>(sarKey, states.sar, 'indicator_scheduler')
+
+        // SuperTrend
+        const stKey = createSuperTrendStateKey(this.configSnapshot.supertrendPaneId)
+        this.pluginHost.setSharedState<SuperTrendRenderState>(stKey, states.supertrend, 'indicator_scheduler')
+
+        // Keltner
+        const kKey = createKeltnerStateKey(this.configSnapshot.keltnerPaneId)
+        this.pluginHost.setSharedState<KeltnerRenderState>(kKey, states.keltner, 'indicator_scheduler')
+
+        // Donchian
+        const dKey = createDonchianStateKey(this.configSnapshot.donchianPaneId)
+        this.pluginHost.setSharedState<DonchianRenderState>(dKey, states.donchian, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -589,6 +695,9 @@ export class IndicatorScheduler {
             hma: activeIds.includes(this.configSnapshot.hmaPaneId),
             kama: activeIds.includes(this.configSnapshot.kamaPaneId),
             sar: activeIds.includes(this.configSnapshot.sarPaneId),
+            supertrend: activeIds.includes(this.configSnapshot.supertrendPaneId),
+            keltner: activeIds.includes(this.configSnapshot.keltnerPaneId),
+            donchian: activeIds.includes(this.configSnapshot.donchianPaneId),
         }
     }
 
@@ -598,7 +707,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -859,6 +968,36 @@ export class IndicatorScheduler {
             this.configSnapshot.sarPaneId = paneId
         }
         this.configSnapshot.sar = { ...this.configSnapshot.sar, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * SuperTrend 配置变更
+     */
+    updateSuperTrendConfig(config: Partial<SuperTrendSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.supertrendPaneId = paneId
+        this.configSnapshot.supertrend = { ...this.configSnapshot.supertrend, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Keltner 配置变更
+     */
+    updateKeltnerConfig(config: Partial<KeltnerSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.keltnerPaneId = paneId
+        this.configSnapshot.keltner = { ...this.configSnapshot.keltner, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Donchian 配置变更
+     */
+    updateDonchianConfig(config: Partial<DonchianSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.donchianPaneId = paneId
+        this.configSnapshot.donchian = { ...this.configSnapshot.donchian, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

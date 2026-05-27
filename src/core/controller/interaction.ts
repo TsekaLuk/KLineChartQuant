@@ -2,6 +2,9 @@
 
 import type { Chart } from '../chart'
 import type { MarkerEntity, CustomMarkerEntity } from '@/core/marker/registry'
+import { MarkerInteractionState } from './markerInteraction'
+import { PinchTracker } from './pinchTracker'
+import { computeTooltipPosition } from './tooltipPosition'
 import { UpdateLevel } from '@/core/layout/pane'
 import type { ChartSettings } from '@/config/chartSettings'
 
@@ -59,13 +62,7 @@ export class InteractionController {
     /** [触屏]:触摸会话标记，避免触摸触发的模拟 mouse 事件干扰 */
     private isTouchSession = false
 
-    /** [触屏]:多点触摸跟踪，用于双指捏合缩放 */
-    private activePointers = new Map<number, { x: number; y: number }>()
-    private lastPinchDistance = 0
-    private pinchCenter = { x: 0, y: 0 }
-    private isPinching = false
-    /** 捏合缩放回调 */
-    private onPinchZoomCallback?: (delta: number, centerX: number) => void
+    private pinchTracker = new PinchTracker()
 
     /** 十字线位置 */
     crosshairPos: { x: number; y: number } | null = null
@@ -90,25 +87,7 @@ export class InteractionController {
     /** 用户设置 */
     private settings: ChartSettings = {}
 
-    /** 当前 hover 的 marker ID */
-    hoveredMarkerId: string | null = null
-    /** 当前点击的 marker ID */
-    clickedMarkerId: string | null = null
-    /** 当前 hover 的 marker 数据（供外部显示 tooltip 使用） */
-    hoveredMarkerData: MarkerEntity | null = null
-    /** 当前点击的 marker 数据（供外部显示 tooltip 使用） */
-    clickedMarkerData: MarkerEntity | null = null
-    /** marker hover 回调函数 */
-    private onMarkerHoverCallback?: (marker: MarkerEntity | null) => void
-    /** marker click 回调函数 */
-    private onMarkerClickCallback?: (marker: MarkerEntity) => void
-
-    /** 当前 hover 的自定义标记 */
-    hoveredCustomMarker: CustomMarkerEntity | null = null
-    /** 自定义标记 hover 回调 */
-    private onCustomMarkerHoverCallback?: (marker: CustomMarkerEntity | null) => void
-    /** 自定义标记 click 回调 */
-    private onCustomMarkerClickCallback?: (marker: CustomMarkerEntity) => void
+    private markerState = new MarkerInteractionState()
 
     /** 当前帧的 K 线起始 x 坐标数组 */
     private kLinePositions: number[] | null = null
@@ -125,9 +104,8 @@ export class InteractionController {
         this.chart = chart
     }
 
-    /** 设置捏合缩放回调 */
     setOnPinchZoom(callback: (delta: number, centerX: number) => void) {
-        this.onPinchZoomCallback = callback
+        this.pinchTracker.setOnPinchZoom(callback)
     }
 
     /** 更新用户设置 */
@@ -149,8 +127,8 @@ export class InteractionController {
             activePaneId: this.activePaneId,
             tooltipPos: { ...this.tooltipPos },
             tooltipAnchorPlacement: this.tooltipAnchorPlacement,
-            hoveredMarkerData: this.hoveredMarkerData,
-            hoveredCustomMarker: this.hoveredCustomMarker,
+            hoveredMarkerData: this.markerState.hoveredMarkerData,
+            hoveredCustomMarker: this.markerState.hoveredCustomMarker,
             isDragging: this.isDragging,
             isResizingPaneBoundary: this.dragMode === 'resize-separator',
             isHoveringPaneBoundary: this.hoveredSeparatorUpperPaneId !== null,
@@ -176,8 +154,8 @@ export class InteractionController {
             this.activePaneId ?? 'n',
             this.hoveredRightAxisPaneId ?? 'n',
             this.hoveredSeparatorUpperPaneId ?? 'n',
-            this.hoveredMarkerId ?? 'n',
-            this.hoveredCustomMarker?.id ?? 'n',
+            this.markerState.hoveredMarkerId ?? 'n',
+            this.markerState.hoveredCustomMarker?.id ?? 'n',
             crosshairX,
             crosshairY,
         ].join('|')
@@ -188,27 +166,16 @@ export class InteractionController {
      * @param e PointerEvent
      */
     onPointerDown(e: PointerEvent) {
-        // 多点触控支持：追踪所有指针，不只是主指针
         this.isTouchSession = e.pointerType === 'touch'
-        this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-
-        // 双指捏合开始
-        if (this.activePointers.size === 2 && this.isTouchSession) {
-            this.isPinching = true
+        if (this.pinchTracker.handlePointerDown(e, this.isTouchSession)) {
             this.isDragging = false
             this.dragMode = 'none'
-            const pointers = Array.from(this.activePointers.values())
-            const p1 = pointers[0]!
-            const p2 = pointers[1]!
-            this.lastPinchDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-            this.pinchCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
             return
         }
 
         // 单指操作（需要是主指针且不在捏合中，且不是捏合后的残余手指）
-        if (e.isPrimary === false || this.isPinching) return
-        // 捏合后可能还有一根手指残留，此时忽略单指拖拽
-        if (this.activePointers.size > 1) return
+        if (e.isPrimary === false || this.pinchTracker.getIsPinching()) return
+        if (this.pinchTracker.getPointerCount() > 1) return
 
         const location = this.getPlotPointerLocation(e.clientX, e.clientY)
         if (!location) return
@@ -221,11 +188,7 @@ export class InteractionController {
         const hitMarker = markerManager.hitTest(worldX, mouseY, 3)
 
         if (hitMarker) {
-            this.clickedMarkerId = hitMarker.id
-            this.clickedMarkerData = hitMarker
-            if (this.onMarkerClickCallback) {
-                this.onMarkerClickCallback(hitMarker)
-            }
+            this.markerState.handleClick(hitMarker)
             return
         }
 
@@ -272,14 +235,7 @@ export class InteractionController {
      * @param e PointerEvent
      */
     onPointerUp(e: PointerEvent) {
-        // 移除指针
-        this.activePointers.delete(e.pointerId)
-
-        // 捏合结束
-        if (this.isPinching && this.activePointers.size < 2) {
-            this.isPinching = false
-            this.lastPinchDistance = 0
-        }
+        this.pinchTracker.handlePointerUp(e)
 
         if (e.isPrimary === false) return
         this.isDragging = false
@@ -294,12 +250,7 @@ export class InteractionController {
      * @param e PointerEvent
      */
     onPointerLeave(e: PointerEvent) {
-        // 清理指针跟踪（必须先于 isPrimary 检查，否则非主指针泄漏）
-        this.activePointers.delete(e.pointerId)
-        if (this.activePointers.size < 2) {
-            this.isPinching = false
-            this.lastPinchDistance = 0
-        }
+        this.pinchTracker.handlePointerLeave(e)
 
         if (e.isPrimary === false) return
 
@@ -327,28 +278,7 @@ export class InteractionController {
      * @param e PointerEvent
      */
     onPointerMove(e: PointerEvent) {
-        // 更新指针位置
-        if (this.activePointers.has(e.pointerId)) {
-            this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-        }
-
-        // 处理双指捏合
-        if (this.isPinching && this.activePointers.size === 2) {
-            const pointers = Array.from(this.activePointers.values())
-            const p1 = pointers[0]!
-            const p2 = pointers[1]!
-            const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-            const deltaDistance = distance - this.lastPinchDistance
-
-            // 距离变化超过阈值时触发缩放（10px 防止高 DPR 设备过于敏感）
-            if (Math.abs(deltaDistance) > 10) {
-                const pinchDelta = deltaDistance > 0 ? 1 : -1
-                const centerX = (p1.x + p2.x) / 2
-                this.onPinchZoomCallback?.(pinchDelta, centerX)
-                this.lastPinchDistance = distance
-            }
-            return
-        }
+        if (this.pinchTracker.handlePointerMove(e)) return
 
         if (!e.isPrimary) return
 
@@ -477,24 +407,20 @@ export class InteractionController {
         return this.isDragging
     }
 
-    /** 设置 marker hover 回调 */
     setOnMarkerHover(callback: (marker: MarkerEntity | null) => void) {
-        this.onMarkerHoverCallback = callback
+        this.markerState.setOnMarkerHover(callback)
     }
 
-    /** 设置 marker click 回调 */
     setOnMarkerClick(callback: (marker: MarkerEntity) => void) {
-        this.onMarkerClickCallback = callback
+        this.markerState.setOnMarkerClick(callback)
     }
 
-    /** 设置自定义标记 hover 回调 */
     setOnCustomMarkerHover(callback: (marker: CustomMarkerEntity | null) => void) {
-        this.onCustomMarkerHoverCallback = callback
+        this.markerState.setOnCustomMarkerHover(callback)
     }
 
-    /** 设置自定义标记 click 回调 */
     setOnCustomMarkerClick(callback: (marker: CustomMarkerEntity) => void) {
-        this.onCustomMarkerClickCallback = callback
+        this.markerState.setOnCustomMarkerClick(callback)
     }
 
     /** 命中可拖拽分隔线（返回上方 paneId） */
@@ -570,26 +496,7 @@ export class InteractionController {
         this.hoveredIndex = null
         this.activePaneId = null
 
-        // 清除 marker hover 状态
-        if (this.hoveredMarkerId !== null) {
-            this.hoveredMarkerId = null
-            this.hoveredMarkerData = null
-            const markerManager = this.chart.getMarkerManager()
-            markerManager.setHover(null)
-            if (this.onMarkerHoverCallback) {
-                this.onMarkerHoverCallback(null)
-            }
-        } else {
-            this.hoveredMarkerData = null
-        }
-
-        // 清除自定义标记 hover 状态
-        if (this.hoveredCustomMarker !== null) {
-            this.hoveredCustomMarker = null
-            if (this.onCustomMarkerHoverCallback) {
-                this.onCustomMarkerHoverCallback(null)
-            }
-        }
+        this.markerState.clearAll(this.chart.getMarkerManager())
     }
 
 
@@ -657,67 +564,12 @@ export class InteractionController {
 
         const markerManager = this.chart.getMarkerManager()
         const worldX = scrollLeft + mouseX
-        const hitMarker = markerManager.hitTest(worldX, mouseY, 3)
-
-        if (hitMarker) {
-            if (this.hoveredMarkerId !== hitMarker.id) {
-                this.hoveredMarkerId = hitMarker.id
-                this.hoveredMarkerData = hitMarker
-                markerManager.setHover(hitMarker.id)
-                if (this.onMarkerHoverCallback) {
-                    this.onMarkerHoverCallback(hitMarker)
-                }
-            }
-            if (this.hoveredCustomMarker !== null) {
-                this.hoveredCustomMarker = null
-                if (this.onCustomMarkerHoverCallback) {
-                    this.onCustomMarkerHoverCallback(null)
-                }
-            }
+        if (this.markerState.updateHoverFromPoint(worldX, mouseX, mouseY, markerManager)) {
             this.crosshairPos = null
             this.crosshairIndex = null
             this.crosshairPrice = null
             this.hoveredIndex = null
             return
-        } else {
-            if (this.hoveredMarkerId !== null) {
-                this.hoveredMarkerId = null
-                this.hoveredMarkerData = null
-                markerManager.setHover(null)
-                if (this.onMarkerHoverCallback) {
-                    this.onMarkerHoverCallback(null)
-                }
-            }
-        }
-
-        const hitCustomMarker = markerManager.hitTestCustomMarker(mouseX, mouseY)
-        if (hitCustomMarker) {
-            if (this.hoveredCustomMarker?.id !== hitCustomMarker.id) {
-                this.hoveredCustomMarker = hitCustomMarker
-                if (this.onCustomMarkerHoverCallback) {
-                    this.onCustomMarkerHoverCallback(hitCustomMarker)
-                }
-            }
-            if (this.hoveredMarkerId !== null) {
-                this.hoveredMarkerId = null
-                this.hoveredMarkerData = null
-                markerManager.setHover(null)
-                if (this.onMarkerHoverCallback) {
-                    this.onMarkerHoverCallback(null)
-                }
-            }
-            this.crosshairPos = null
-            this.crosshairIndex = null
-            this.crosshairPrice = null
-            this.hoveredIndex = null
-            return
-        } else {
-            if (this.hoveredCustomMarker !== null) {
-                this.hoveredCustomMarker = null
-                if (this.onCustomMarkerHoverCallback) {
-                    this.onCustomMarkerHoverCallback(null)
-                }
-            }
         }
 
         if (!this.kLinePositions || !this.visibleRange || !this.kWidthPx) {
@@ -817,35 +669,20 @@ export class InteractionController {
 
         this.hoveredIndex = this.crosshairIndex
 
-        if (this.useTooltipAnchorPositioning) {
-            const padding = 12
-            const preferGap = 14
-            const tooltipW = this.tooltipSize.width
-            const rightCandidateX = mouseX + preferGap
-            const rightWouldOverflow = rightCandidateX + tooltipW + padding > plotWidth
-            this.tooltipAnchorPlacement = rightWouldOverflow ? 'left-bottom' : 'right-bottom'
-            this.tooltipPos = {
-                x: Math.min(Math.max(mouseX, padding), Math.max(padding, plotWidth - padding)),
-                y: Math.min(Math.max(mouseY, padding), Math.max(padding, plotHeight - padding)),
-            }
-            return
+        const tooltipResult = computeTooltipPosition({
+            mouseX,
+            mouseY,
+            viewWidth,
+            viewHeight,
+            plotWidth,
+            plotHeight,
+            tooltipSize: this.tooltipSize,
+            useAnchorPositioning: this.useTooltipAnchorPositioning,
+        })
+        if (tooltipResult.anchorPlacement) {
+            this.tooltipAnchorPlacement = tooltipResult.anchorPlacement
         }
-
-        const padding = 12
-        const preferGap = 14
-        const tooltipW = this.tooltipSize.width
-        const tooltipH = this.tooltipSize.height
-        const rightX = mouseX + preferGap
-        const leftX = mouseX - preferGap - tooltipW
-        const desiredX = rightX + tooltipW + padding <= viewWidth ? rightX : leftX
-
-        const desiredY = mouseY + preferGap
-        const maxX = Math.max(padding, viewWidth - tooltipW - padding)
-        const maxY = Math.max(padding, viewHeight - tooltipH - padding)
-        this.tooltipPos = {
-            x: Math.min(Math.max(desiredX, padding), maxX),
-            y: Math.min(Math.max(desiredY, padding), maxY),
-        }
+        this.tooltipPos = tooltipResult.pos
     }
 
 
@@ -861,19 +698,13 @@ export class InteractionController {
         this.activePaneIdOnDrag = null
         this.clearSeparatorState()
         this.isTouchSession = false
-        this.activePointers.clear()
-        this.isPinching = false
-        this.lastPinchDistance = 0
+        this.pinchTracker.reset()
         this.crosshairPos = null
         this.crosshairIndex = null
         this.crosshairPrice = null
         this.hoveredIndex = null
         this.activePaneId = null
-        this.hoveredMarkerId = null
-        this.clickedMarkerId = null
-        this.hoveredMarkerData = null
-        this.clickedMarkerData = null
-        this.hoveredCustomMarker = null
+        this.markerState.reset()
         this.kLinePositions = null
         this.visibleRange = null
         this.lastHoverRenderKey = ''

@@ -128,6 +128,16 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
     kGap: number
 }
 
+type FrameData = {
+    vp: Viewport
+    range: VisibleRange
+    kLinePositions: KLinePositions
+    kLineCenters: number[]
+    kBarRects: Array<{ x: number; width: number }>
+    kWidthPx: number
+    useCachedFrame: boolean
+}
+
 export class Chart {
     private dom: ChartDom
     private opt: ResolvedChartOptions
@@ -645,17 +655,45 @@ export class Chart {
      * @param level 更新级别，决定渲染哪些层
      */
     draw(level: UpdateLevel = UpdateLevel.All) {
-        // 重置 Marker 标记
+        // 1. 重置 Marker 标记
         this.markerManager.clear()
 
-        const useCachedOverlayFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
-        const vp = useCachedOverlayFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
-        if (!vp) return
+        // 2. 准备帧数据（视口 / 可见范围 / K 线坐标，优先走缓存）
+        const frame = this.prepareFrameData(level)
+        if (!frame) return
 
-        // 数据为空时跳过渲染
-        if (this.data.length === 0) return
+        const { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame } = frame
 
-        const range = useCachedOverlayFrame
+        // 3. 更新交互控制器坐标映射
+        this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
+
+        // 4. 通知调度器当前活跃主图指标 + 获取价格范围
+        this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
+        const mainIndicatorRange = useCachedFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
+        const hasCrosshair = this.interaction.getCrosshairIndex() !== null
+
+        // 5. 遍历所有 Pane 渲染主层 / overlay / Y 轴
+        const { sharedXAxisLabels, sharedXAxisRanges } = this.renderPanes(
+            vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx,
+            mainIndicatorRange, hasCrosshair, useCachedFrame, level,
+        )
+
+        // 6. 持久化十字线状态供下帧判断清除
+        this.overlayHadCrosshair = hasCrosshair
+
+        // 7. 渲染 X 轴时间轴
+        this.renderXAxis(vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, sharedXAxisLabels, sharedXAxisRanges)
+    }
+
+    private prepareFrameData(level: UpdateLevel): FrameData | null {
+        const useCachedFrame = level === UpdateLevel.Overlay && this.cachedDrawFrame !== null
+
+        const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
+        if (!vp) return null
+
+        if (this.data.length === 0) return null
+
+        const range = useCachedFrame
             ? this.cachedDrawFrame!.range
             : (() => {
                 const { start, end } = getVisibleRange(
@@ -669,13 +707,12 @@ export class Chart {
                 return { start, end }
             })()
 
-        // 2.5 视口变更时更新指标调度器（在渲染前确保 StateStore 是最新的）
-        if (!useCachedOverlayFrame && (range.start !== this.lastVisibleRange.start || range.end !== this.lastVisibleRange.end)) {
+        if (!useCachedFrame && (range.start !== this.lastVisibleRange.start || range.end !== this.lastVisibleRange.end)) {
             this.indicatorScheduler.updateVisibleRange(range)
             this.lastVisibleRange = range
         }
 
-        const kLinePositions = useCachedOverlayFrame
+        const kLinePositions = useCachedFrame
             ? this.cachedDrawFrame!.kLinePositions
             : this.calcKLinePositions(range)
 
@@ -683,7 +720,7 @@ export class Chart {
         let kBarRects: Array<{ x: number; width: number }>
         let kWidthPx: number
 
-        if (useCachedOverlayFrame) {
+        if (useCachedFrame) {
             kLineCenters = this.cachedDrawFrame!.kLineCenters
             kBarRects = this.cachedDrawFrame!.kBarRects
             kWidthPx = this.cachedDrawFrame!.kWidthPx
@@ -716,26 +753,32 @@ export class Chart {
             }
         }
 
-        // 4. 设置交互控制器
-        this.interaction.setKLinePositions(kLinePositions, range, kWidthPx)
+        return { vp, range, kLinePositions, kLineCenters, kBarRects, kWidthPx, useCachedFrame }
+    }
 
-        // 5. 遍历所有 Pane 渲染
+    private renderPanes(
+        vp: Viewport,
+        range: VisibleRange,
+        kLinePositions: KLinePositions,
+        kLineCenters: number[],
+        kBarRects: Array<{ x: number; width: number }>,
+        kWidthPx: number,
+        mainIndicatorRange: { min: number; max: number } | null,
+        hasCrosshair: boolean,
+        useCachedFrame: boolean,
+        level: UpdateLevel,
+    ): { sharedXAxisLabels: XAxisLabel[]; sharedXAxisRanges: XAxisRange[] } {
         const sharedYAxisLabels: YAxisLabel[] = []
         const sharedXAxisLabels: XAxisLabel[] = []
         const sharedYAxisRanges: YAxisRange[] = []
         const sharedXAxisRanges: XAxisRange[] = []
-
-        this.indicatorScheduler.setActiveMainIndicators(Array.from(this.activeMainIndicators))
-        const mainIndicatorRange = useCachedOverlayFrame ? null : this.indicatorScheduler.getMainIndicatorPriceRange()
-
-        const hasCrosshair = this.interaction.getCrosshairIndex() !== null
 
         for (const renderer of this.paneRenderers) {
             const pane = renderer.getPane()
             const { mainCtx, overlayCtx, yAxisCtx } = renderer.getContexts()
             const { candleSurface, lineSurface } = renderer.getWebGL()
 
-            if (!useCachedOverlayFrame) {
+            if (!useCachedFrame) {
                 const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
                 pane.updateRange(this.data, range, indicatorRange)
             }
@@ -758,7 +801,7 @@ export class Chart {
                 overlayCtx.clearRect(0, 0, overlayWidth + 1, pane.height + 2 / vp.dpr)
             }
 
-            if (yAxisCtx && !useCachedOverlayFrame) {
+            if (yAxisCtx && !useCachedFrame) {
                 const yAxisWidth = yAxisCtx.canvas.width / vp.dpr
                 yAxisCtx.setTransform(1, 0, 0, 1, 0, 0)
                 yAxisCtx.scale(vp.dpr, vp.dpr)
@@ -809,9 +852,19 @@ export class Chart {
             }
         }
 
-        // 更新 overlay 十字线状态标记
-        this.overlayHadCrosshair = hasCrosshair
+        return { sharedXAxisLabels, sharedXAxisRanges }
+    }
 
+    private renderXAxis(
+        vp: Viewport,
+        range: VisibleRange,
+        kLinePositions: KLinePositions,
+        kLineCenters: number[],
+        kBarRects: Array<{ x: number; width: number }>,
+        kWidthPx: number,
+        sharedXAxisLabels: XAxisLabel[],
+        sharedXAxisRanges: XAxisRange[],
+    ): void {
         const xAxisCtx = this.xAxisCtx ?? this.dom.xAxisCanvas.getContext('2d')
         if (!this.xAxisCtx) {
             this.xAxisCtx = xAxisCtx

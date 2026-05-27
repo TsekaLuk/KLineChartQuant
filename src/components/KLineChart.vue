@@ -139,15 +139,8 @@ import {
   createENERendererPlugin,
   createMainIndicatorLegendRendererPlugin,
   type SubIndicatorType,
-  getMACDTitleInfo,
-  getRSITitleInfo,
-  getCCITitleInfo,
-  getSTOCHTitleInfo,
-  getMOMTitleInfo,
-  getWMSRTitleInfo,
-  getKSTTitleInfo,
-  getFASTKTitleInfo,
 } from '@/core/renderers/Indicator'
+import { SUB_PANE_INDICATOR_CONFIGS, SUB_PANE_INDICATORS } from '@/core/renderers/Indicator/subPaneConfig'
 import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
 import { createMacdScaleRendererPlugin } from '@/core/renderers/Indicator/scale/macd_scale'
 import { createVolumeScaleRendererPlugin } from '@/core/renderers/Indicator/scale/volume_scale'
@@ -578,138 +571,7 @@ interface SubPaneSlot {
 // 副图槽位数组（支持多副图）
 const subPanes = ref<SubPaneSlot[]>([])
 
-// 副图指标元数据
-interface SubPaneIndicatorConfig {
-  defaultParams: Record<string, number | boolean>
-  getTitleInfo: (
-    data: any[],
-    index: number | null,
-    params: Record<string, number | boolean>,
-  ) => TitleInfo | null
-}
 
-const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicatorConfig> = {
-  VOLUME: {
-    defaultParams: {},
-    getTitleInfo: () => ({ name: 'VOL', params: [], values: [] }),
-  },
-  MACD: {
-    defaultParams: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null || !chartRef.value) return null
-      return getMACDTitleInfo(
-        index,
-        (params.fastPeriod as number) ?? 12,
-        (params.slowPeriod as number) ?? 26,
-        (params.signalPeriod as number) ?? 9,
-        chartRef.value.plugin,
-        'sub_MACD',
-      )
-    },
-  },
-  RSI: {
-    defaultParams: { period1: 6, period2: 12, period3: 24 },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getRSITitleInfo(
-        index,
-        (params.period1 as number) ?? 6,
-        (params.period2 as number) ?? 12,
-        (params.period3 as number) ?? 24,
-        chartRef.value!.plugin,
-        'sub_RSI',
-      )
-    },
-  },
-  CCI: {
-    defaultParams: { period: 14, showCCI: true },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getCCITitleInfo(
-        index,
-        (params.period as number) ?? 14,
-        chartRef.value!.plugin,
-        'sub_CCI',
-      )
-    },
-  },
-  STOCH: {
-    defaultParams: { n: 9, m: 3, showK: true, showD: true },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getSTOCHTitleInfo(
-        index,
-        (params.n as number) ?? 9,
-        (params.m as number) ?? 3,
-        chartRef.value!.plugin,
-        'sub_STOCH',
-      )
-    },
-  },
-  MOM: {
-    defaultParams: { period: 10, showMOM: true },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getMOMTitleInfo(
-        index,
-        (params.period as number) ?? 10,
-        chartRef.value!.plugin,
-        'sub_MOM',
-      )
-    },
-  },
-  WMSR: {
-    defaultParams: { period: 14, showWMSR: true },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getWMSRTitleInfo(
-        index,
-        (params.period as number) ?? 14,
-        chartRef.value!.plugin,
-        'sub_WMSR',
-      )
-    },
-  },
-  KST: {
-    defaultParams: {
-      roc1: 10,
-      roc2: 15,
-      roc3: 20,
-      roc4: 30,
-      signalPeriod: 9,
-      showKST: true,
-      showSignal: true,
-    },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getKSTTitleInfo(
-        index,
-        (params.roc1 as number) ?? 10,
-        (params.roc2 as number) ?? 15,
-        (params.roc3 as number) ?? 20,
-        (params.roc4 as number) ?? 30,
-        (params.signalPeriod as number) ?? 9,
-        chartRef.value!.plugin,
-        'sub_KST',
-      )
-    },
-  },
-  FASTK: {
-    defaultParams: { period: 9, showFASTK: true },
-    getTitleInfo: (_data, index, params) => {
-      if (index === null) return null
-      return getFASTKTitleInfo(
-        index,
-        (params.period as number) ?? 9,
-        chartRef.value!.plugin,
-        'sub_FASTK',
-      )
-    },
-  },
-}
-
-// 副图指标列表
-const SUB_PANE_INDICATORS = Object.keys(SUB_PANE_INDICATOR_CONFIGS) as SubIndicatorType[]
 
 // 最大副图数量
 const maxSubPanes = 4
@@ -732,6 +594,42 @@ function buildPaneLayoutIntent(): PaneSpec[] {
 // 获取指标默认参数
 function getDefaultParams(indicatorId: SubIndicatorType): Record<string, number | boolean> {
   return { ...SUB_PANE_INDICATOR_CONFIGS[indicatorId].defaultParams }
+}
+
+// 推送副图指标配置到 Scheduler（统一调度入口，替代重复的 if 分支）
+function pushSubPaneSchedulerConfig(
+  indicatorId: SubIndicatorType,
+  params: Record<string, number | boolean>,
+  paneId: string,
+): void {
+  const scheduler = chartRef.value?.getIndicatorScheduler()
+  if (!scheduler) return
+  switch (indicatorId) {
+    case 'MACD':
+      scheduler.updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
+      break
+    case 'RSI':
+      scheduler.updateRSIConfig(params as Partial<RSISchedulerConfig>, paneId)
+      break
+    case 'CCI':
+      scheduler.updateCCIConfig(params as Partial<CCISchedulerConfig>, paneId)
+      break
+    case 'STOCH':
+      scheduler.updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, paneId)
+      break
+    case 'MOM':
+      scheduler.updateMOMConfig(params as Partial<MOMSchedulerConfig>, paneId)
+      break
+    case 'WMSR':
+      scheduler.updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, paneId)
+      break
+    case 'KST':
+      scheduler.updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
+      break
+    case 'FASTK':
+      scheduler.updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)
+      break
+  }
 }
 
 // 添加副图（使用 Chart API）
@@ -757,85 +655,7 @@ function addSubPane(
   )
   if (!success) return false
 
-  // MACD 初始化：推送配置到 Scheduler
-  if (indicatorId === 'MACD') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateMACDConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<MACDSchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // RSI 初始化：推送配置到 Scheduler
-  if (indicatorId === 'RSI') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateRSIConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<RSISchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // CCI 初始化：推送配置到 Scheduler
-  if (indicatorId === 'CCI') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateCCIConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<CCISchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // STOCH 初始化：推送配置到 Scheduler
-  if (indicatorId === 'STOCH') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateSTOCHConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<STOCHSchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // MOM 初始化：推送配置到 Scheduler
-  if (indicatorId === 'MOM') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateMOMConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<MOMSchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // WMSR 初始化：推送配置到 Scheduler
-  if (indicatorId === 'WMSR') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateWMSRConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<WMSRSchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // KST 初始化：推送配置到 Scheduler
-  if (indicatorId === 'KST') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateKSTConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<KSTSchedulerConfig>),
-        paneId,
-      )
-  }
-
-  // FASTK 初始化：推送配置到 Scheduler
-  if (indicatorId === 'FASTK') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateFASTKConfig(
-        params ?? (getDefaultParams(indicatorId) as Partial<FASTKSchedulerConfig>),
-        paneId,
-      )
-  }
+  pushSubPaneSchedulerConfig(indicatorId, params ?? getDefaultParams(indicatorId), paneId)
 
   // 创建 paneTitle 渲染器（UI 层职责）
   const paneTitleRenderer = createPaneTitleRendererPlugin({
@@ -1079,7 +899,8 @@ function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
 
   const config = SUB_PANE_INDICATOR_CONFIGS[pane.indicatorId]
   const params = pane.params as Record<string, number>
-  const result = config.getTitleInfo(data, idx, params)
+  const pluginHost = chartRef.value?.plugin
+  const result = pluginHost ? config.getTitleInfo(data, idx, params, pluginHost) : null
 
   _titleInfoCache.set(paneId, { idx, dataLen, result })
   return result
@@ -1180,128 +1001,15 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
     return
   }
 
-  // MACD 配置通过 Scheduler 更新
-  if (indicatorId === 'MACD') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateMACDConfig(params as Partial<MACDSchedulerConfig>, 'sub_MACD')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'MACD')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // RSI 配置通过 Scheduler 更新（副图但采用无状态架构）
-  if (indicatorId === 'RSI') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateRSIConfig(params as Partial<RSISchedulerConfig>, 'sub_RSI')
-    // 更新本地 pane 参数
-    subPanes.value
-      .filter((p) => p.indicatorId === 'RSI')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // CCI 配置通过 Scheduler 更新
-  if (indicatorId === 'CCI') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateCCIConfig(params as Partial<CCISchedulerConfig>, 'sub_CCI')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'CCI')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // STOCH 配置通过 Scheduler 更新
-  if (indicatorId === 'STOCH') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, 'sub_STOCH')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'STOCH')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // MOM 配置通过 Scheduler 更新
-  if (indicatorId === 'MOM') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateMOMConfig(params as Partial<MOMSchedulerConfig>, 'sub_MOM')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'MOM')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // WMSR 配置通过 Scheduler 更新
-  if (indicatorId === 'WMSR') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, 'sub_WMSR')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'WMSR')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // KST 配置通过 Scheduler 更新
-  if (indicatorId === 'KST') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateKSTConfig(params as Partial<KSTSchedulerConfig>, 'sub_KST')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'KST')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // FASTK 配置通过 Scheduler 更新
-  if (indicatorId === 'FASTK') {
-    chartRef.value
-      ?.getIndicatorScheduler()
-      .updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, 'sub_FASTK')
-    subPanes.value
-      .filter((p) => p.indicatorId === 'FASTK')
-      .forEach((pane) => {
-        pane.params = { ...params }
-      })
-    scheduleRender()
-    return
-  }
-
-  // 其他副图指标参数更新
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
-    // 更新所有使用该指标的 pane
+    pushSubPaneSchedulerConfig(indicatorId as SubIndicatorType, params as Record<string, number | boolean>, `sub_${indicatorId}`)
     subPanes.value
       .filter((p) => p.indicatorId === indicatorId)
       .forEach((pane) => {
         pane.params = { ...params }
-        chartRef.value?.updateRendererConfig(pane.rendererName, params)
       })
+    scheduleRender()
+    return
   }
 
   scheduleRender()
@@ -1509,7 +1217,11 @@ function initChart(
       initialZoomLevel: props.initialZoomLevel,
     },
   )
+  registerRenderers(chart)
+  return chart
+}
 
+function registerRenderers(chart: Chart): void {
   chart.useRenderer(createGridLinesRendererPlugin())
   chart.useRenderer(createMARendererPlugin())
   chart.setRendererEnabled('ma', false)
@@ -1594,8 +1306,6 @@ function initChart(
       },
     }),
   )
-
-  return chart
 }
 
 function setupChartCallbacks(chart: Chart): void {

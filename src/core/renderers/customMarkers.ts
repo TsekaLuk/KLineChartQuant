@@ -41,8 +41,9 @@ export function createCustomMarkersRenderer(): RendererPlugin {
         priority: RENDERER_PRIORITY.OVERLAY,
 
         draw(context: RenderContext): void {
-            const { ctx, pane, data, range, scrollLeft, kWidth, kLineCenters, dpr, markerManager } = context
+            const { ctx, pane, data, range, scrollLeft, kWidth, kLineCenters, dpr, markerManager, zoomLevel } = context
             if (!markerManager) return
+            if ((zoomLevel ?? 1) < 2) return
 
             const customMarkers = markerManager.getCustomMarkers() as CustomMarkerEntity[]
             if (!customMarkers || customMarkers.length === 0) return

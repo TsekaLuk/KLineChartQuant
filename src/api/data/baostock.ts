@@ -182,6 +182,20 @@ const QUERY_PATH = import.meta.env.VITE_BAOSTOCK_QUERY_PATH || '/api/stock/query
  * @param param 请求参数
  * @returns Promise<KLineData[]>
  */
+/**
+ * 从静态 JSON 加载 mock K 线数据（用于 GitHub Pages 等静态部署）
+ */
+export async function loadMockKLineData(): Promise<KLineData[]> {
+  const mockResponse = await fetch('mock-stock-data.json')
+  const mockData: BaoStockKDataResponse = await mockResponse.json()
+  if (mockData.success && mockData.data) {
+    return mockData.data
+      .map(mapBaoStockToKLineData)
+      .sort((a, b) => a.timestamp - b.timestamp)
+  }
+  throw new Error('Mock data failed')
+}
+
 export async function getKlineDataBaoStock(
   param: {
     symbol: string
@@ -194,14 +208,7 @@ export async function getKlineDataBaoStock(
 ): Promise<KLineData[]> {
   // GitHub Pages 静态部署环境直接走 mock
   if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-    const mockResponse = await fetch('mock-stock-data.json')
-    const mockData: BaoStockKDataResponse = await mockResponse.json()
-    if (mockData.success && mockData.data) {
-      return mockData.data
-        .map(mapBaoStockToKLineData)
-        .sort((a, b) => a.timestamp - b.timestamp)
-    }
-    throw new Error('Mock data failed')
+    return loadMockKLineData()
   }
 
   const { timeout, ...requestParams } = param
@@ -240,16 +247,7 @@ export async function getKlineDataBaoStock(
   } catch (error) {
     // API 失败时尝试使用 mock 数据（用于 GitHub Pages 等静态部署）
     try {
-      console.log('fetch mock-stock-data.json')
-      const mockResponse = await fetch('mock-stock-data.json')
-      if (mockResponse.ok) {
-        const mockData: BaoStockKDataResponse = await mockResponse.json()
-        if (mockData.success && mockData.data) {
-          return mockData.data
-            .map(mapBaoStockToKLineData)
-            .sort((a, b) => a.timestamp - b.timestamp)
-        }
-      }
+      return await loadMockKLineData()
     } catch {
       // mock 数据也失败了，抛出原始错误
     }

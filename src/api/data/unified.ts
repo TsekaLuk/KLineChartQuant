@@ -1,6 +1,6 @@
 import type { KLineData } from '@/types/price'
 import type { KLineDataSourceConfig, IKLineDataSource, DataSourceType } from './types'
-import { getKlineDataBaoStock } from './baostock'
+import { getKlineDataBaoStock, loadMockKLineData } from './baostock'
 import { getKlineDataDongCai } from './kLine'
 import { toKLineData } from '@/types/price'
 import { cache } from '@/utils/cache'
@@ -154,6 +154,12 @@ export async function fetchKLineData(
   config: KLineDataSourceConfig,
   useCache: boolean = true,
 ): Promise<KLineData[]> {
+  // GitHub Pages 静态部署：直接加载 mock 数据，不走网络
+  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+    console.log(`[KLine] GitHub Pages 模式，加载 mock 数据`)
+    return loadMockKLineData()
+  }
+
   // 生成缓存键
   const cacheKey = generateKLineCacheKey(type, config)
 
@@ -167,16 +173,26 @@ export async function fetchKLineData(
   }
 
   // 获取数据
-  const dataSource = DataSourceFactory.create(type)
-  const data = await dataSource.fetchKLineData(config)
+  try {
+    const dataSource = DataSourceFactory.create(type)
+    const data = await dataSource.fetchKLineData(config)
 
-  // 写入缓存
-  if (useCache && data.length > 0) {
-    cache.set(cacheKey, data)
-    console.log(`[KLineCache] 写入缓存: ${cacheKey}, ${data.length} 条数据`)
+    // 写入缓存
+    if (useCache && data.length > 0) {
+      cache.set(cacheKey, data)
+      console.log(`[KLineCache] 写入缓存: ${cacheKey}, ${data.length} 条数据`)
+    }
+
+    return data
+  } catch (error) {
+    // 网络请求失败时，尝试使用本地缓存（忽略过期时间）
+    const fallback = cache.get<KLineData[]>(cacheKey, Number.MAX_SAFE_INTEGER)
+    if (fallback) {
+      console.warn(`[KLineCache] 网络请求失败，使用缓存回退: ${cacheKey}`, error)
+      return fallback
+    }
+    throw error
   }
-
-  return data
 }
 
 export { DataSourceFactory }

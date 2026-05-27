@@ -268,16 +268,16 @@ describe('Chart pane layout regressions', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
 
-    expect(chart.createSubPane('MACD')).toBe(true)
-    expect(chart.createSubPane('RSI')).toBe(true)
+    expect(chart.createSubPane('MACD_0', 'MACD')).toBe(true)
+    expect(chart.createSubPane('RSI_0', 'RSI')).toBe(true)
 
     const specs = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
     expect(specs).toHaveLength(3)
 
     const byId = new Map(specs.map((pane) => [pane.id, pane]))
     expect(byId.get('main')?.ratio ?? 0).toBeCloseTo(7 / 12, 6)
-    expect(byId.get('sub_MACD')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
-    expect(byId.get('sub_RSI')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
+    expect(byId.get('MACD_0')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
+    expect(byId.get('RSI_0')?.ratio ?? 0).toBeCloseTo(5 / 24, 6)
 
     await chart.destroy()
   })
@@ -285,13 +285,13 @@ describe('Chart pane layout regressions', () => {
   it('keeps indicator pane heights equal for main+MACD+RSI', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.createSubPane('MACD')
-    chart.createSubPane('RSI')
+    chart.createSubPane('MACD_0', 'MACD')
+    chart.createSubPane('RSI_0', 'RSI')
     chart.resize()
 
     const panes = chart.getPaneRenderers().map((renderer) => renderer.getPane())
-    const macd = panes.find((pane) => pane.id === 'sub_MACD')
-    const rsi = panes.find((pane) => pane.id === 'sub_RSI')
+    const macd = panes.find((pane) => pane.id === 'MACD_0')
+    const rsi = panes.find((pane) => pane.id === 'RSI_0')
 
     expect(macd).toBeDefined()
     expect(rsi).toBeDefined()
@@ -303,11 +303,11 @@ describe('Chart pane layout regressions', () => {
   it('keeps visible ratio sum at 1 after boundary resize', async () => {
     const chart = new Chart(createDom(1000, 800), defaultOptions)
     chart.resize()
-    chart.createSubPane('MACD')
-    chart.createSubPane('RSI')
+    chart.createSubPane('MACD_0', 'MACD')
+    chart.createSubPane('RSI_0', 'RSI')
     chart.resize()
 
-    const resized = chart.resizePaneBoundary('sub_MACD', 20)
+    const resized = chart.resizePaneBoundary('MACD_0', 20)
     expect(resized).toBe(true)
 
     const visible = chart.getPaneLayoutSpecs().filter((pane) => pane.visible !== false)
@@ -320,8 +320,8 @@ describe('Chart pane layout regressions', () => {
   it('returns false and keeps layout unchanged for invalid boundary resize input', async () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     chart.resize()
-    chart.createSubPane('MACD')
-    chart.createSubPane('RSI')
+    chart.createSubPane('MACD_0', 'MACD')
+    chart.createSubPane('RSI_0', 'RSI')
     chart.resize()
 
     const before = chart.getPaneLayoutSpecs()

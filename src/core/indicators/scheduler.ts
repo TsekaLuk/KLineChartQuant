@@ -154,6 +154,13 @@ export class IndicatorScheduler {
     }
 
     /**
+     * 副图增删后通知 scheduler 刷新 active mask
+     */
+    onSubPaneChanged(): void {
+        if (this.latestResult) this.updateVisibleStatesOnly()
+    }
+
+    /**
      * 设置活跃副图 paneId 提供者（来自 Chart.getSubPaneIndicators）
      */
     setActiveSubPaneProvider(provider: () => string[]): void {

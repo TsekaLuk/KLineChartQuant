@@ -9,6 +9,7 @@ import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from '@/core/utils/klineConfig'
 import { computeContentWidth } from '@/core/chart-store'
 import { IndicatorScheduler } from '@/core/indicators/scheduler'
+import { SubPaneManager, type SubPaneEntry } from '@/core/subPaneManager'
 
 import {
     createPluginHost,
@@ -221,6 +222,9 @@ export class Chart {
         kBarRects: Array<{ x: number; width: number }>
         kWidthPx: number
     } | null = null
+
+    /** 副图管理器 */
+    private subPaneManager: SubPaneManager
 
     /** 当前激活的主图指标列表（如 ['boll', 'ma']） */
     private activeMainIndicators: Set<string> = new Set()
@@ -514,9 +518,12 @@ export class Chart {
         this.indicatorScheduler = new IndicatorScheduler()
         this.indicatorScheduler.setPluginHost(this.pluginHost)
         this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
+        
+        // 初始化副图管理器
+        this.subPaneManager = new SubPaneManager()
         // 注册副图活跃列表提供者，调度器据此只计算启用的副图
         this.indicatorScheduler.setActiveSubPaneProvider(
-            () => this.getSubPaneIndicators().map(id => `sub_${id}`),
+            () => this.subPaneManager.getPaneIds(),
         )
 
         this.initPanes()
@@ -1290,25 +1297,15 @@ export class Chart {
 
     // ========== 副图管理 API ==========
 
-    /** 副图渲染器名称前缀 */
-    private static readonly SUB_PANE_PREFIX = 'sub_'
-
     /**
      * 创建副图面板并注册指标渲染器
+     * @param paneId 副图实例标识符（如 'RSI_0', 'MACD_0'）
      * @param indicatorId 指标类型
      * @param params 指标参数
      * @returns 是否创建成功
      */
-    createSubPane(indicatorId: SubIndicatorType, params?: Record<string, number | boolean>): boolean {
-        const paneId = `${Chart.SUB_PANE_PREFIX}${indicatorId}`
-        const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
-
-        const existingRenderer = this.getRenderer(rendererName)
-        if (existingRenderer) {
-            if (params) this.updateRendererConfig(rendererName, params)
-            return true
-        }
-
+    createSubPane(paneId: string, indicatorId: SubIndicatorType, params?: Record<string, number | boolean>): boolean {
+        // 调整 pane ratios：主图占 3，副图各占 1
         const visibleSpecs = this.opt.panes.filter((pane) => pane.visible !== false)
         const pricePanes = visibleSpecs.filter((pane, index) => this.resolvePaneRole(pane, index) === 'price')
         const indicatorPanes = visibleSpecs.filter((pane, index) => this.resolvePaneRole(pane, index) === 'indicator')
@@ -1327,56 +1324,101 @@ export class Chart {
         }
 
         this.upsertPane({ id: paneId, ratio: this.paneRatios.get(paneId) ?? 1, visible: true, role: 'indicator' })
-        this.bindIndicatorToPane(paneId, indicatorId, params)
-        return true
+
+        const success = this.subPaneManager.create(this, paneId, indicatorId, params ?? this.getDefaultSubPaneParams(indicatorId))
+        return success
     }
 
     /**
      * 移除副图面板及其渲染器
-     * @param indicatorId 指标类型
+     * @param paneId 副图实例标识符
      */
-    removeSubPane(indicatorId: SubIndicatorType): void {
-        const paneId = `${Chart.SUB_PANE_PREFIX}${indicatorId}`
-
-        if (!this.hasPane(paneId)) return
-
-        // 移除渲染器
-        const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
-        this.removeRenderer(rendererName)
-
+    removeSubPane(paneId: string): void {
+        this.subPaneManager.remove(this, paneId)
         this.paneRatios.delete(paneId)
-        this.applyPaneLayoutSpecs(this.opt.panes.filter((spec) => spec.id !== paneId))
+    }
+
+    /**
+     * 替换副图的指标类型
+     * @param paneId 副图实例标识符
+     * @param newIndicatorId 新的指标类型
+     * @param params 新指标参数
+     */
+    replaceSubPaneIndicator(paneId: string, newIndicatorId: SubIndicatorType, params?: Record<string, number | boolean>): void {
+        this.subPaneManager.replaceIndicator(this, paneId, newIndicatorId, params ?? this.getDefaultSubPaneParams(newIndicatorId))
+    }
+
+    /**
+     * 更新副图指标参数
+     * @param paneId 副图实例标识符
+     * @param params 新参数
+     */
+    updateSubPaneParams(paneId: string, params: Record<string, unknown>): void {
+        this.subPaneManager.updateParams(this, paneId, params)
     }
 
     /**
      * 清除所有副图面板
      */
     clearSubPanes(): void {
-        const subPaneIds = this.opt.panes
-            .map((spec) => spec.id)
-            .filter((id) => id.startsWith(Chart.SUB_PANE_PREFIX))
+        // 获取所有副图 paneId
+        const subPaneIds = this.subPaneManager.getPaneIds()
 
         if (subPaneIds.length === 0) return
 
+        // 移除所有副图
+        this.subPaneManager.clear(this)
+
+        // 清理 pane ratios
         for (const paneId of subPaneIds) {
-            const indicatorId = paneId.slice(Chart.SUB_PANE_PREFIX.length) as SubIndicatorType
-            const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
-            this.removeRenderer(rendererName)
             this.paneRatios.delete(paneId)
         }
 
-        this.applyPaneLayoutSpecs(this.opt.panes.filter((spec) => !spec.id.startsWith(Chart.SUB_PANE_PREFIX)))
+        // 更新布局，移除所有副图 pane
+        this.applyPaneLayoutSpecs(this.opt.panes.filter((spec) => !subPaneIds.includes(spec.id)))
     }
 
     /**
      * 获取当前所有副图指标类型
+     * @deprecated 使用 getSubPaneEntries 获取完整信息
      */
     getSubPaneIndicators(): SubIndicatorType[] {
-        return this.opt.panes
-            .map((spec) => spec.id)
-            .filter((id) => id.startsWith(Chart.SUB_PANE_PREFIX))
-            .map((id) => id.slice(Chart.SUB_PANE_PREFIX.length) as SubIndicatorType)
+        return this.subPaneManager.getAll().map((entry) => entry.indicatorId)
     }
+
+    /**
+     * 获取所有副图条目
+     */
+    getSubPaneEntries(): SubPaneEntry[] {
+        return this.subPaneManager.getAll()
+    }
+
+    /**
+     * 根据 paneId 获取副图条目
+     * @param paneId 副图实例标识符
+     */
+    getSubPaneEntry(paneId: string): SubPaneEntry | undefined {
+        return this.subPaneManager.getByPaneId(paneId)
+    }
+
+    private getDefaultSubPaneParams(indicatorId: SubIndicatorType): Record<string, unknown> {
+        // 默认参数定义在 SubPaneManager 中，这里导入使用
+        const defaults: Record<SubIndicatorType, Record<string, unknown>> = {
+            VOLUME: {},
+            MACD: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
+            RSI: { period1: 6, period2: 12, period3: 24 },
+            CCI: { period: 14, showCCI: true },
+            STOCH: { n: 9, m: 3, showK: true, showD: true },
+            MOM: { period: 10, showMOM: true },
+            WMSR: { period: 14, showWMSR: true },
+            KST: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9, showKST: true, showSignal: true },
+            FASTK: { period: 9, showFASTK: true },
+        }
+        return { ...defaults[indicatorId] }
+    }
+
+    /** 副图渲染器名称前缀（保留向后兼容） */
+    private static readonly SUB_PANE_PREFIX = 'sub_'
 
     /**
      * 平移价格轴（用于主图区域上下拖动）

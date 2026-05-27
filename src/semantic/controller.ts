@@ -212,8 +212,11 @@ export class SemanticChartController {
 
     const { type, params } = indicator
 
+    // 生成 paneId（格式：'RSI_0', 'MACD_0'）
+    const paneId = `${type}_0`
+
     // 直接调用 Chart 的副图创建 API
-    const success = this.chart.createSubPane(type, params)
+    const success = this.chart.createSubPane(paneId, type, params)
     if (!success) {
       console.warn(`[Semantic] Failed to create sub pane for ${type}`)
     }

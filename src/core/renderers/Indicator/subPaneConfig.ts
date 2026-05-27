@@ -26,6 +26,7 @@ export interface SubPaneIndicatorConfig {
     index: number | null,
     params: Record<string, number | boolean>,
     pluginHost: PluginHost,
+    paneId: string,  // 新增：paneId 参数
   ) => TitleInfo | null
 }
 
@@ -36,7 +37,7 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicat
   },
   MACD: {
     defaultParams: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getMACDTitleInfo(
         index,
@@ -44,13 +45,13 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicat
         (params.slowPeriod as number) ?? 26,
         (params.signalPeriod as number) ?? 9,
         pluginHost,
-        'sub_MACD',
+        paneId,  // 使用传入的 paneId
       )
     },
   },
   RSI: {
     defaultParams: { period1: 6, period2: 12, period3: 24 },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getRSITitleInfo(
         index,
@@ -58,56 +59,56 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicat
         (params.period2 as number) ?? 12,
         (params.period3 as number) ?? 24,
         pluginHost,
-        'sub_RSI',
+        paneId,
       )
     },
   },
   CCI: {
     defaultParams: { period: 14, showCCI: true },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getCCITitleInfo(
         index,
         (params.period as number) ?? 14,
         pluginHost,
-        'sub_CCI',
+        paneId,
       )
     },
   },
   STOCH: {
     defaultParams: { n: 9, m: 3, showK: true, showD: true },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getSTOCHTitleInfo(
         index,
         (params.n as number) ?? 9,
         (params.m as number) ?? 3,
         pluginHost,
-        'sub_STOCH',
+        paneId,
       )
     },
   },
   MOM: {
     defaultParams: { period: 10, showMOM: true },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getMOMTitleInfo(
         index,
         (params.period as number) ?? 10,
         pluginHost,
-        'sub_MOM',
+        paneId,
       )
     },
   },
   WMSR: {
     defaultParams: { period: 14, showWMSR: true },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getWMSRTitleInfo(
         index,
         (params.period as number) ?? 14,
         pluginHost,
-        'sub_WMSR',
+        paneId,
       )
     },
   },
@@ -116,7 +117,7 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicat
       roc1: 10, roc2: 15, roc3: 20, roc4: 30,
       signalPeriod: 9, showKST: true, showSignal: true,
     },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getKSTTitleInfo(
         index,
@@ -126,19 +127,19 @@ export const SUB_PANE_INDICATOR_CONFIGS: Record<SubIndicatorType, SubPaneIndicat
         (params.roc4 as number) ?? 30,
         (params.signalPeriod as number) ?? 9,
         pluginHost,
-        'sub_KST',
+        paneId,
       )
     },
   },
   FASTK: {
     defaultParams: { period: 9, showFASTK: true },
-    getTitleInfo: (_data, index, params, pluginHost) => {
+    getTitleInfo: (_data, index, params, pluginHost, paneId) => {
       if (index === null) return null
       return getFASTKTitleInfo(
         index,
         (params.period as number) ?? 9,
         pluginHost,
-        'sub_FASTK',
+        paneId,
       )
     },
   },

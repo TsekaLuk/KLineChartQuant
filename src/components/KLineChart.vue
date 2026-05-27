@@ -148,15 +148,6 @@ import {
   SUB_PANE_INDICATORS,
 } from '@/core/renderers/Indicator/subPaneConfig'
 import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
-import { createMacdScaleRendererPlugin } from '@/core/renderers/Indicator/scale/macd_scale'
-import { createVolumeScaleRendererPlugin } from '@/core/renderers/Indicator/scale/volume_scale'
-import { createRsiScaleRendererPlugin } from '@/core/renderers/Indicator/scale/rsi_scale'
-import { createCciScaleRendererPlugin } from '@/core/renderers/Indicator/scale/cci_scale'
-import { createStochScaleRendererPlugin } from '@/core/renderers/Indicator/scale/stoch_scale'
-import { createMomScaleRendererPlugin } from '@/core/renderers/Indicator/scale/mom_scale'
-import { createWmsrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/wmsr_scale'
-import { createKstScaleRendererPlugin } from '@/core/renderers/Indicator/scale/kst_scale'
-import { createFastkScaleRendererPlugin } from '@/core/renderers/Indicator/scale/fastk_scale'
 import { createTimeAxisRendererPlugin } from '@/core/renderers/timeAxis'
 import { createCrosshairRendererPlugin } from '@/core/renderers/crosshair'
 import { createPaneTitleRendererPlugin, type TitleInfo } from '@/core/renderers/paneTitle'
@@ -164,16 +155,6 @@ import type { InteractionSnapshot } from '@/core/controller/interaction'
 import type { DrawingStyle } from '@/plugin'
 import LeftToolbar from './LeftToolbar.vue'
 import { DrawingInteractionController, type DrawingToolId } from '@/core/drawing'
-import type {
-  RSISchedulerConfig,
-  CCISchedulerConfig,
-  STOCHSchedulerConfig,
-  MOMSchedulerConfig,
-  WMSRSchedulerConfig,
-  KSTSchedulerConfig,
-  FASTKSchedulerConfig,
-} from '@/core/indicators/scheduler'
-import type { MACDSchedulerConfig } from '@/core/indicators/macdState'
 
 const props = withDefaults(
   defineProps<{
@@ -556,18 +537,35 @@ function onScroll() {
   chartRef.value?.interaction.onScroll()
 }
 
-// 指标选择器状态（由 semanticConfig 初始化）
-const activeIndicators = ref<string[]>([])
+// 主图指标显式状态（副图指标从 subPanes 派生）
+const mainActiveIndicators = ref<string[]>([])
+
+// 副图指标列表从 subPanes 自动派生
+const subActiveIndicators = computed(() => {
+  const ids: string[] = []
+  const seen = new Set<string>()
+  for (const pane of subPanes.value) {
+    if (!seen.has(pane.indicatorId)) {
+      seen.add(pane.indicatorId)
+      ids.push(pane.indicatorId)
+    }
+  }
+  return ids
+})
+
+// 最终合并列表（主图 + 副图），保持显示顺序
+const activeIndicators = computed(() => [
+  ...mainActiveIndicators.value,
+  ...subActiveIndicators.value,
+])
 
 // 指标参数配置（MA 的 periods 是数组，需要更宽松的类型）
 const indicatorParams = ref<Record<string, Record<string, unknown>>>({})
 
 // 副图槽位状态
 interface SubPaneSlot {
-  id: string // pane ID: 'sub_0', 'sub_1', ...
+  id: string // pane ID: 'RSI_0', 'MACD_0', ...
   indicatorId: SubIndicatorType
-  rendererName: string
-  paneTitleRendererName: string // paneTitle 渲染器名称
   params: Record<string, unknown>
 }
 
@@ -597,39 +595,33 @@ function getDefaultParams(indicatorId: SubIndicatorType): Record<string, number 
   return { ...SUB_PANE_INDICATOR_CONFIGS[indicatorId].defaultParams }
 }
 
-// 推送副图指标配置到 Scheduler（统一调度入口，替代重复的 if 分支）
-function pushSubPaneSchedulerConfig(
-  indicatorId: SubIndicatorType,
-  params: Record<string, number | boolean>,
-  paneId: string,
-): void {
-  const scheduler = chartRef.value?.getIndicatorScheduler()
-  if (!scheduler) return
-  switch (indicatorId) {
-    case 'MACD':
-      scheduler.updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
-      break
-    case 'RSI':
-      scheduler.updateRSIConfig(params as Partial<RSISchedulerConfig>, paneId)
-      break
-    case 'CCI':
-      scheduler.updateCCIConfig(params as Partial<CCISchedulerConfig>, paneId)
-      break
-    case 'STOCH':
-      scheduler.updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, paneId)
-      break
-    case 'MOM':
-      scheduler.updateMOMConfig(params as Partial<MOMSchedulerConfig>, paneId)
-      break
-    case 'WMSR':
-      scheduler.updateWMSRConfig(params as Partial<WMSRSchedulerConfig>, paneId)
-      break
-    case 'KST':
-      scheduler.updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
-      break
-    case 'FASTK':
-      scheduler.updateFASTKConfig(params as Partial<FASTKSchedulerConfig>, paneId)
-      break
+// 副图实例计数器：用于生成 'RSI_0', 'MACD_0' 这样的 paneId
+const subPaneCounters = new Map<SubIndicatorType, number>()
+
+function generatePaneId(indicatorId: SubIndicatorType): string {
+  const count = subPaneCounters.get(indicatorId) ?? 0
+  subPaneCounters.set(indicatorId, count + 1)
+  return `${indicatorId}_${count}`
+}
+
+// paneTitle 渲染器名称映射（paneId -> rendererName）
+const paneTitleRendererNames = new Map<string, string>()
+
+function mountSubPaneTitle(paneId: string, indicatorId: SubIndicatorType): void {
+  const paneTitleRenderer = createPaneTitleRendererPlugin({
+    paneId,
+    title: indicatorId,
+    getTitleInfo: () => getSubPaneTitleInfo(paneId),
+  })
+  chartRef.value?.useRenderer(paneTitleRenderer)
+  paneTitleRendererNames.set(paneId, paneTitleRenderer.name)
+}
+
+function unmountSubPaneTitle(paneId: string): void {
+  const rendererName = paneTitleRendererNames.get(paneId)
+  if (rendererName) {
+    chartRef.value?.removeRenderer(rendererName)
+    paneTitleRendererNames.delete(paneId)
   }
 }
 
@@ -642,48 +634,24 @@ function addSubPane(
     return false
   }
 
-  const paneId = `sub_${indicatorId}`
+  const paneId = generatePaneId(indicatorId)
+  const mergedParams = params ?? getDefaultParams(indicatorId)
 
-  // 已存在则跳过
-  if (subPanes.value.some((p) => p.id === paneId)) {
-    return true
-  }
-
-  // 使用 Chart API 创建副图（pane + 指标渲染器）
-  const success = chartRef.value?.createSubPane(
-    indicatorId,
-    params ?? getDefaultParams(indicatorId),
-  )
+  // 使用 Chart API 创建副图（pane + 指标渲染器 + scale renderer + scheduler 配置）
+  const success = chartRef.value?.createSubPane(paneId, indicatorId, mergedParams)
   if (!success) return false
 
-  pushSubPaneSchedulerConfig(indicatorId, params ?? getDefaultParams(indicatorId), paneId)
-
   // 创建 paneTitle 渲染器（UI 层职责）
-  const paneTitleRenderer = createPaneTitleRendererPlugin({
-    paneId,
-    title: indicatorId,
-    getTitleInfo: () => getSubPaneTitleInfo(paneId),
-  })
-  chartRef.value?.useRenderer(paneTitleRenderer)
+  mountSubPaneTitle(paneId, indicatorId)
 
   // 更新本地状态
   subPanes.value.push({
     id: paneId,
     indicatorId,
-    rendererName: `${indicatorId.toLowerCase()}_${paneId}`,
-    paneTitleRendererName: paneTitleRenderer.name,
-    params: params ?? getDefaultParams(indicatorId),
+    params: mergedParams,
   })
 
-  // 新增副图后，由 Chart 回流 ratio
-
-  // 更新 activeIndicators
-  if (!activeIndicators.value.includes(indicatorId)) {
-    activeIndicators.value.push(indicatorId)
-  }
-
   scheduleRender()
-
   return true
 }
 
@@ -696,28 +664,20 @@ function removeSubPane(paneId: string): void {
   if (!pane) return
 
   // 移除 paneTitle 渲染器
-  chartRef.value?.removeRenderer(pane.paneTitleRendererName)
+  unmountSubPaneTitle(paneId)
 
-  // 使用 Chart API 移除副图（pane + 指标渲染器）
-  chartRef.value?.removeSubPane(pane.indicatorId)
+  // 使用 Chart API 移除副图（pane + 指标渲染器 + scale renderer）
+  chartRef.value?.removeSubPane(paneId)
 
   // 更新本地状态
   subPanes.value.splice(index, 1)
-
-  // 移除副图后，由 Chart 回流 ratio
-
-  // 更新 activeIndicators
-  const hasOtherPane = subPanes.value.some((p) => p.indicatorId === pane.indicatorId)
-  if (!hasOtherPane) {
-    activeIndicators.value = activeIndicators.value.filter((id) => id !== pane.indicatorId)
-  }
 }
 
 // 清除所有副图（使用 Chart API）
 function clearAllSubPanes(): void {
   // 移除所有 paneTitle 渲染器
   for (const pane of subPanes.value) {
-    chartRef.value?.removeRenderer(pane.paneTitleRendererName)
+    unmountSubPaneTitle(pane.id)
   }
 
   // 使用 Chart API 清除所有副图
@@ -725,9 +685,8 @@ function clearAllSubPanes(): void {
 
   // 清空本地状态
   subPanes.value = []
-  activeIndicators.value = activeIndicators.value.filter(
-    (id) => !SUB_PANE_INDICATORS.includes(id as SubIndicatorType),
-  )
+  subPaneCounters.clear()
+  paneTitleRendererNames.clear()
 }
 
 // 从语义化配置初始化指标状态（单向数据流：config → chart）
@@ -742,8 +701,8 @@ function initIndicatorsFromConfig(): void {
     for (const indicator of mainIndicators) {
       if (indicator.enabled) {
         // 同步Vue状态（用于UI展示）
-        if (!activeIndicators.value.includes(indicator.type)) {
-          activeIndicators.value.push(indicator.type)
+        if (!mainActiveIndicators.value.includes(indicator.type)) {
+          mainActiveIndicators.value.push(indicator.type)
         }
         // 保存参数
         if (indicator.params) {
@@ -798,35 +757,35 @@ watch(
 
 // 从 Chart 同步副图状态到本地（语义化配置后调用）
 function syncSubPanesFromChart(): void {
-  const chartSubPanes = chartRef.value?.getSubPaneIndicators() ?? []
+  const chartSubPaneEntries = chartRef.value?.getSubPaneEntries() ?? []
 
   // 清空本地状态
   subPanes.value = []
+  paneTitleRendererNames.clear()
 
-  for (const indicatorId of chartSubPanes) {
-    const paneId = `sub_${indicatorId}`
+  for (const entry of chartSubPaneEntries) {
+    const { paneId, indicatorId, params } = entry
+
+    // 恢复计数器状态
+    const match = paneId.match(/^(.+)_(\d+)$/)
+    if (match) {
+      const [, indicator, countStr] = match
+      const count = parseInt(countStr!, 10)
+      const currentCount = subPaneCounters.get(indicator as SubIndicatorType) ?? 0
+      if (count >= currentCount) {
+        subPaneCounters.set(indicator as SubIndicatorType, count + 1)
+      }
+    }
 
     // 创建 paneTitle 渲染器
-    const paneTitleRenderer = createPaneTitleRendererPlugin({
-      paneId,
-      title: indicatorId,
-      getTitleInfo: () => getSubPaneTitleInfo(paneId),
-    })
-    chartRef.value?.useRenderer(paneTitleRenderer)
+    mountSubPaneTitle(paneId, indicatorId)
 
     // 更新本地状态
     subPanes.value.push({
       id: paneId,
       indicatorId,
-      rendererName: `${indicatorId.toLowerCase()}_${paneId}`,
-      paneTitleRendererName: paneTitleRenderer.name,
-      params: getDefaultParams(indicatorId),
+      params: { ...params },
     })
-
-    // 更新 activeIndicators
-    if (!activeIndicators.value.includes(indicatorId)) {
-      activeIndicators.value.push(indicatorId)
-    }
   }
 
   scheduleRender()
@@ -837,42 +796,25 @@ function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): v
   const pane = subPanes.value.find((p) => p.id === paneId)
   if (!pane) return
 
-  const oldIndicatorId = pane.indicatorId
+  const nextParams = getDefaultParams(newIndicatorId)
 
   // 移除旧的 paneTitle 渲染器
-  chartRef.value?.removeRenderer(pane.paneTitleRendererName)
+  unmountSubPaneTitle(paneId)
 
-  // 使用 Chart API 移除旧副图
-  chartRef.value?.removeSubPane(oldIndicatorId)
-
-  // 使用 Chart API 创建新副图
-  chartRef.value?.createSubPane(newIndicatorId, getDefaultParams(newIndicatorId))
+  // 使用 Chart API 替换副图指标（paneId 不变，只换指标类型）
+  chartRef.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
 
   // 创建新的 paneTitle 渲染器
-  const newPaneId = `sub_${newIndicatorId}`
-  const paneTitleRenderer = createPaneTitleRendererPlugin({
-    paneId: newPaneId,
-    title: newIndicatorId,
-    getTitleInfo: () => getSubPaneTitleInfo(newPaneId),
-  })
-  chartRef.value?.useRenderer(paneTitleRenderer)
+  mountSubPaneTitle(paneId, newIndicatorId)
 
-  // 更新本地状态
+  // 更新本地状态（paneId 保持不变）
   const index = subPanes.value.findIndex((p) => p.id === paneId)
   if (index !== -1) {
     subPanes.value[index] = {
-      id: newPaneId,
+      id: paneId,
       indicatorId: newIndicatorId,
-      rendererName: `${newIndicatorId.toLowerCase()}_${newPaneId}`,
-      paneTitleRendererName: paneTitleRenderer.name,
-      params: getDefaultParams(newIndicatorId),
+      params: nextParams,
     }
-  }
-
-  // 更新 activeIndicators：移除旧指标，添加新指标
-  activeIndicators.value = activeIndicators.value.filter((id) => id !== oldIndicatorId)
-  if (!activeIndicators.value.includes(newIndicatorId)) {
-    activeIndicators.value.push(newIndicatorId)
   }
 }
 
@@ -901,7 +843,7 @@ function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
   const config = SUB_PANE_INDICATOR_CONFIGS[pane.indicatorId]
   const params = pane.params as Record<string, number>
   const pluginHost = chartRef.value?.plugin
-  const result = pluginHost ? config.getTitleInfo(data, idx, params, pluginHost) : null
+  const result = pluginHost ? config.getTitleInfo(data, idx, params, pluginHost, paneId) : null
 
   _titleInfoCache.set(paneId, { idx, dataLen, result })
   return result
@@ -922,22 +864,19 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
     chart.toggleMainIndicator(indicatorId, active)
     // 同步本地状态用于UI展示
     if (active) {
-      if (!activeIndicators.value.includes(indicatorId)) {
-        activeIndicators.value.push(indicatorId)
+      if (!mainActiveIndicators.value.includes(indicatorId)) {
+        mainActiveIndicators.value.push(indicatorId)
       }
     } else {
-      activeIndicators.value = activeIndicators.value.filter((id) => id !== indicatorId)
+      mainActiveIndicators.value = mainActiveIndicators.value.filter((id) => id !== indicatorId)
     }
     return
   }
 
-  // 副图指标处理（保持原有逻辑）
+  // 副图指标处理（activeIndicators 由 subPanes 自动派生）
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
     if (active) {
-      if (!activeIndicators.value.includes(indicatorId)) {
-        activeIndicators.value.push(indicatorId)
-      }
-
+      // 如果已存在同类型指标 pane，跳过
       const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
       if (existingPane) return
 
@@ -948,8 +887,6 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
         }
       }
     } else {
-      activeIndicators.value = activeIndicators.value.filter((id) => id !== indicatorId)
-
       // 找到并移除该指标的所有 pane
       const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
       panesToRemove.forEach((pane) => removeSubPane(pane.id))
@@ -1003,14 +940,10 @@ function handleUpdateParams(indicatorId: string, params: Record<string, unknown>
   }
 
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
-    pushSubPaneSchedulerConfig(
-      indicatorId as SubIndicatorType,
-      params as Record<string, number | boolean>,
-      `sub_${indicatorId}`,
-    )
     subPanes.value
       .filter((p) => p.indicatorId === indicatorId)
       .forEach((pane) => {
+        chartRef.value?.updateSubPaneParams(pane.id, params)
         pane.params = { ...params }
       })
     scheduleRender()
@@ -1054,11 +987,7 @@ function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
 
   subPanes.value = nextSubPanes
 
-  const currentMainIndicators = activeIndicators.value.filter(
-    (id) => !SUB_PANE_INDICATORS.includes(id as SubIndicatorType),
-  )
-  const subIndicatorOrder = subPanes.value.map((pane) => pane.indicatorId)
-  activeIndicators.value = [...currentMainIndicators, ...subIndicatorOrder]
+  // activeIndicators 由 computed 自动派生，无需手动同步
 
   const chart = chartRef.value
   if (!chart) return
@@ -1265,28 +1194,7 @@ function registerRenderers(chart: Chart): void {
     }),
   )
 
-  const subScaleRenderers = [
-    { create: createVolumeScaleRendererPlugin, paneId: 'sub_VOLUME' },
-    { create: createMacdScaleRendererPlugin, paneId: 'sub_MACD' },
-    { create: createRsiScaleRendererPlugin, paneId: 'sub_RSI' },
-    { create: createCciScaleRendererPlugin, paneId: 'sub_CCI' },
-    { create: createStochScaleRendererPlugin, paneId: 'sub_STOCH' },
-    { create: createMomScaleRendererPlugin, paneId: 'sub_MOM' },
-    { create: createWmsrScaleRendererPlugin, paneId: 'sub_WMSR' },
-    { create: createKstScaleRendererPlugin, paneId: 'sub_KST' },
-    { create: createFastkScaleRendererPlugin, paneId: 'sub_FASTK' },
-  ] as const
-
-  for (const renderer of subScaleRenderers) {
-    chart.useRenderer(
-      renderer.create({
-        axisWidth,
-        paneId: renderer.paneId,
-        yPaddingPx: props.yPaddingPx,
-        getCrosshair: getAxisCrosshair,
-      }),
-    )
-  }
+  // Scale renderers 由 SubPaneManager 在 addSubPane 时按需注册
 
   chart.useRenderer(
     createCrosshairRendererPlugin({

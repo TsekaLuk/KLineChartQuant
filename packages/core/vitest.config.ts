@@ -12,6 +12,12 @@ export default defineConfig({
     test: {
         environment: 'node',
         include: ['src/**/*.test.ts'],
+        // Bench files are discovered by `vitest bench` separately; restrict
+        // them here so `vitest run` (the test command) does not pick them up
+        // and try to run them as tests.
+        benchmark: {
+            include: ['src/**/*.bench.ts'],
+        },
     },
     resolve: {
         alias: [{ find: /^@\//, replacement: `${repoSrc}/` }],

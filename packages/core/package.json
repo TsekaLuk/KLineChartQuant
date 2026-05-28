@@ -78,6 +78,7 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench": "vitest bench --run",
     "size": "size-limit",
     "lint:publish": "publint --strict .",
     "lint:types": "attw --pack ."

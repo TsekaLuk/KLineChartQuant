@@ -127,20 +127,16 @@ function fillCloud(
     ctx: CanvasRenderingContext2D,
     segs: { x: number; ya: number; yb: number; bull: boolean }[],
 ): void {
-    let i = 0
-    while (i < segs.length - 1) {
-        const startBull = segs[i]!.bull
-        let j = i + 1
-        while (j < segs.length && segs[j]!.bull === startBull) j++
-        if (j - i >= 2) {
-            ctx.fillStyle = startBull ? CLOUD_BULL : CLOUD_BEAR
-            ctx.beginPath()
-            ctx.moveTo(segs[i]!.x, segs[i]!.ya)
-            for (let k = i + 1; k < j; k++) ctx.lineTo(segs[k]!.x, segs[k]!.ya)
-            for (let k = j - 1; k >= i; k--) ctx.lineTo(segs[k]!.x, segs[k]!.yb)
-            ctx.closePath()
-            ctx.fill()
-        }
-        i = j
+    for (let i = 0; i < segs.length - 1; i++) {
+        const a = segs[i]!
+        const b = segs[i + 1]!
+        ctx.fillStyle = a.bull ? CLOUD_BULL : CLOUD_BEAR
+        ctx.beginPath()
+        ctx.moveTo(a.x, a.ya)
+        ctx.lineTo(b.x, b.ya)
+        ctx.lineTo(b.x, b.yb)
+        ctx.lineTo(a.x, a.yb)
+        ctx.closePath()
+        ctx.fill()
     }
 }

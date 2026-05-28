@@ -167,6 +167,9 @@ export interface InjectFootprintOpts {
 export interface InjectFootprintResult {
     bars: NgSignal<ReadonlyArray<FootprintBar>>
     cumulativeDelta: NgSignal<ReadonlyArray<number>>
+    /** Canonical verb (matches FootprintController.ingest). */
+    ingest(trade: TradeWithFlag, bid?: number, ask?: number): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link InjectFootprintResult.ingest}. */
     ingestTrade(trade: TradeWithFlag, bid?: number, ask?: number): void
     setConfig(next: Partial<FootprintConfig>): void
     reset(): void
@@ -182,6 +185,7 @@ export function injectFootprint(opts: InjectFootprintOpts): InjectFootprintResul
     return {
         bars: coreSignalToAngular(c.bars, ref),
         cumulativeDelta: coreSignalToAngular(c.cumulativeDelta, ref),
+        ingest: c.ingest.bind(c),
         ingestTrade: c.ingestTrade.bind(c),
         setConfig: c.setConfig.bind(c),
         reset: c.reset.bind(c),
@@ -234,10 +238,16 @@ export interface InjectAnchoredVwapOpts {
 
 export interface InjectAnchoredVwapResult {
     anchors: NgSignal<ReadonlyArray<ActiveAnchor>>
+    /** Canonical verb (matches AnchoredVwapController.setData). */
+    setData(bars: ReadonlyArray<AVWAPBar>): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link InjectAnchoredVwapResult.setData}. */
     setBars(bars: ReadonlyArray<AVWAPBar>): void
     addAnchor(def: AnchorDefinition): string
     removeAnchor(id: string): boolean
     updateAnchor(id: string, patch: Partial<Omit<AnchorDefinition, 'id'>>): boolean
+    /** Canonical verb (matches AnchoredVwapController.append). */
+    append(bar: AVWAPBar): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link InjectAnchoredVwapResult.append}. */
     appendBar(bar: AVWAPBar): void
 }
 
@@ -252,10 +262,12 @@ export function injectAnchoredVwap(opts: InjectAnchoredVwapOpts = {}): InjectAnc
 
     return {
         anchors: coreSignalToAngular(c.anchors, ref),
+        setData: c.setData.bind(c),
         setBars: c.setBars.bind(c),
         addAnchor: c.addAnchor.bind(c),
         removeAnchor: c.removeAnchor.bind(c),
         updateAnchor: c.updateAnchor.bind(c),
+        append: c.append.bind(c),
         appendBar: c.appendBar.bind(c),
     }
 }
@@ -273,6 +285,9 @@ export interface InjectOrderBookHeatmapResult {
     latestSnapshot: NgSignal<BookSnapshot | null>
     snapshotCount: NgSignal<number>
     deltaCount: NgSignal<number>
+    /** Canonical verb (matches HeatmapController.ingest). */
+    ingest(delta: OrderBookDelta): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link InjectOrderBookHeatmapResult.ingest}. */
     ingestDelta(delta: OrderBookDelta): void
     forceSnapshot(): void
     replay(from: number, to: number, intervalMs: number): ReadonlyArray<BookSnapshot>
@@ -309,6 +324,7 @@ export function injectOrderBookHeatmap(
         latestSnapshot,
         snapshotCount,
         deltaCount,
+        ingest: c.ingest.bind(c),
         ingestDelta: c.ingestDelta.bind(c),
         forceSnapshot: c.forceSnapshot.bind(c),
         replay: c.replay.bind(c),
@@ -328,10 +344,16 @@ export interface InjectMtfOverlayOpts {
 
 export interface InjectMtfOverlayResult {
     series: NgSignal<ReadonlyArray<ActiveMtfSeries>>
+    /** Canonical verb (matches MtfController.setData). */
+    setData(bars: ReadonlyArray<BaseBar>, intervalMs: number): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link InjectMtfOverlayResult.setData}. */
     setBaseBars(bars: ReadonlyArray<BaseBar>, intervalMs: number): void
     addSeries(def: MtfSeriesDefinition): string
     removeSeries(id: string): boolean
     updateSeries(id: string, patch: Partial<Omit<MtfSeriesDefinition, 'id'>>): boolean
+    /** Canonical verb (matches MtfController.append). */
+    append(bar: BaseBar): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link InjectMtfOverlayResult.append}. */
     appendBaseBar(bar: BaseBar): void
 }
 
@@ -347,10 +369,12 @@ export function injectMtfOverlay(opts: InjectMtfOverlayOpts = {}): InjectMtfOver
 
     return {
         series: coreSignalToAngular(c.series, ref),
+        setData: c.setData.bind(c),
         setBaseBars: c.setBaseBars.bind(c),
         addSeries: c.addSeries.bind(c),
         removeSeries: c.removeSeries.bind(c),
         updateSeries: c.updateSeries.bind(c),
+        append: c.append.bind(c),
         appendBaseBar: c.appendBaseBar.bind(c),
     }
 }

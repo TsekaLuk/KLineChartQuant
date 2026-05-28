@@ -15,10 +15,16 @@ export interface UseMtfOverlayOpts {
 
 export interface UseMtfOverlayResult {
     series: Ref<ReadonlyArray<ActiveMtfSeries>>
+    /** Canonical verb (matches MtfController.setData). */
+    setData(bars: ReadonlyArray<BaseBar>, intervalMs: number): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link UseMtfOverlayResult.setData}. */
     setBaseBars(bars: ReadonlyArray<BaseBar>, intervalMs: number): void
     addSeries(def: MtfSeriesDefinition): string
     removeSeries(id: string): boolean
     updateSeries(id: string, patch: Partial<Omit<MtfSeriesDefinition, 'id'>>): boolean
+    /** Canonical verb (matches MtfController.append). */
+    append(bar: BaseBar): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link UseMtfOverlayResult.append}. */
     appendBaseBar(bar: BaseBar): void
 }
 
@@ -41,10 +47,12 @@ export function useMtfOverlay(opts: UseMtfOverlayOpts = {}): UseMtfOverlayResult
 
     return {
         series,
+        setData: c.setData.bind(c),
         setBaseBars: c.setBaseBars.bind(c),
         addSeries: c.addSeries.bind(c),
         removeSeries: c.removeSeries.bind(c),
         updateSeries: c.updateSeries.bind(c),
+        append: c.append.bind(c),
         appendBaseBar: c.appendBaseBar.bind(c),
     }
 }

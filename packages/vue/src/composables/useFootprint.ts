@@ -15,6 +15,9 @@ export interface UseFootprintOpts {
 export interface UseFootprintResult {
     bars: Ref<ReadonlyArray<FootprintBar>>
     cumulativeDelta: Ref<ReadonlyArray<number>>
+    /** Canonical verb (matches FootprintController.ingest). */
+    ingest(trade: TradeWithFlag, bid?: number, ask?: number): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link UseFootprintResult.ingest}. */
     ingestTrade(trade: TradeWithFlag, bid?: number, ask?: number): void
     setConfig(next: Partial<FootprintConfig>): void
     reset(): void
@@ -42,6 +45,7 @@ export function useFootprint(opts: UseFootprintOpts): UseFootprintResult {
     return {
         bars,
         cumulativeDelta,
+        ingest: c.ingest.bind(c),
         ingestTrade: c.ingestTrade.bind(c),
         setConfig: c.setConfig.bind(c),
         reset: c.reset.bind(c),

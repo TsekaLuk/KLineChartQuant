@@ -14,10 +14,16 @@ export interface UseAnchoredVwapOpts {
 
 export interface UseAnchoredVwapResult {
     anchors: Ref<ReadonlyArray<ActiveAnchor>>
+    /** Canonical verb (matches AnchoredVwapController.setData). */
+    setData(bars: ReadonlyArray<AVWAPBar>): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link UseAnchoredVwapResult.setData}. */
     setBars(bars: ReadonlyArray<AVWAPBar>): void
     addAnchor(def: AnchorDefinition): string
     removeAnchor(id: string): boolean
     updateAnchor(id: string, patch: Partial<Omit<AnchorDefinition, 'id'>>): boolean
+    /** Canonical verb (matches AnchoredVwapController.append). */
+    append(bar: AVWAPBar): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link UseAnchoredVwapResult.append}. */
     appendBar(bar: AVWAPBar): void
 }
 
@@ -39,10 +45,12 @@ export function useAnchoredVwap(opts: UseAnchoredVwapOpts = {}): UseAnchoredVwap
 
     return {
         anchors,
+        setData: c.setData.bind(c),
         setBars: c.setBars.bind(c),
         addAnchor: c.addAnchor.bind(c),
         removeAnchor: c.removeAnchor.bind(c),
         updateAnchor: c.updateAnchor.bind(c),
+        append: c.append.bind(c),
         appendBar: c.appendBar.bind(c),
     }
 }

@@ -16,6 +16,9 @@ export interface UseOrderBookHeatmapResult {
     latestSnapshot: Ref<BookSnapshot | null>
     snapshotCount: Ref<number>
     deltaCount: Ref<number>
+    /** Canonical verb (matches HeatmapController.ingest). */
+    ingest(delta: OrderBookDelta): void
+    /** @deprecated since 0.1.0-alpha.1 — use {@link UseOrderBookHeatmapResult.ingest}. */
     ingestDelta(delta: OrderBookDelta): void
     forceSnapshot(): void
     replay(from: number, to: number, intervalMs: number): ReadonlyArray<BookSnapshot>
@@ -47,6 +50,7 @@ export function useOrderBookHeatmap(opts: UseOrderBookHeatmapOpts): UseOrderBook
         latestSnapshot,
         snapshotCount,
         deltaCount,
+        ingest: c.ingest.bind(c),
         ingestDelta: c.ingestDelta.bind(c),
         forceSnapshot: c.forceSnapshot.bind(c),
         replay: c.replay.bind(c),

@@ -42,7 +42,7 @@
 | 组件完整性 | — | **55** | docs/COMPETITIVE_ANALYSIS.md：5 P1 差异化组件已落地（OrderBookHeatmap/Footprint/VolumeProfile/AnchoredVwap/MTF）+ 4 chart types；缺 ~80% 的 TV 400+ indicators / 80+ drawings | feature parity 矩阵 + 关键指标补齐 |
 | UX | — | **45** | anchored zoom 误差 10⁻¹³ px (commit e913fa1)；origin-shift threshold rebaseline 3× 抑制；但无真实运行图表验证 | 真实 demo 渲染 + 交互保真清单 |
 | DX | — | **60** | 4 publishable packages + READMEs + LICENSEs + tsconfig.build × 5 + ai-runtime；DX audit 9 BLOCKER closed 6 (docs/audit/DX_RESPONSE.md) | npm install reality + 真 dist + 错误信息基础类 |
-| API | 45 | **52** | 5 包 contract test 绿；dispose silent no-op 统一 (commit 426c330)；ai-runtime describe* 命名一致；**BLOCKER-001 5 动词 intake 统一为 ingest/setData/append (commit tick-2)**；老名 @deprecated 6 月窗口；仍 9 BLOCKER (export * / canonical Bar / KLineChartError / 等) | export * 收口、canonical Bar、KLineChartError、return 一致 |
+| API | 52 | **58** | 5 包 contract test 绿；dispose silent no-op 统一 (commit 426c330)；ai-runtime describe* 命名一致；**BLOCKER-001 intake 动词 ingest/setData/append 在 core + React + Vue + Angular 全栈统一 (commits b-4 + b-4b)**；老名 @deprecated 6 月窗口；仍 9 BLOCKER (export * / canonical Bar / KLineChartError / 等) | export * 收口、canonical Bar、KLineChartError、return 一致 |
 | 生态 | — | **65** | 21 个 framework binding (7×3) + sideEffects scope 修 + core 14 个 subpath exports + workspace:^ + LICENSE × 5 (commits c44f9a6, 291c4c4, 62d9dbb) | CHANGELOG/Changesets + 真 dist 验证 publint |
 | 性能 | 45 | **65** | bench 套件落地 (commit tick-1)：14 benchmarks across 4 files；real numbers — Signal 13-17 ns; VP typical-price 100k bars 5.59 ms; OB applyDelta 68 ns; snapshot 33 µs; anchored zoom 19.5 ns; origin-shift 9.3 ns. 6/7 自定 target 达标，1 接近 (VP 100k 5.59 vs <5 ms 目标) | 继续优化命中目标 + GPU compute path 落地后回归保护 |
 | 兼容性 | — | **50** | 5 包 peerDeps 合理（React 18/19, Vue 3.4+, Angular 17/18/19）；3 SSR 烟雾示例存在；examples 未跑过 | 浏览器矩阵 CI + SSR 实测 + WebGPU→WebGL fallback |
@@ -70,7 +70,7 @@
 | B-2 | **engine relocation** src/core/ → packages/core/src/engine/ | DX | 20 | 高（解锁 tsc --declaration + size-limit on dist） | L | HIGH | DX BLOCKER-009 close + pnpm -r build 成功 + dist 真实存在 |
 | B-3 | KLineChartError 错误基类 + 错误代码 + 迁移 54 处 throw | API | 35 | 中（错误生态长期收益） | M | MED | 所有 core throw 走 KLineChartError；error.code 枚举完整；测试覆盖 |
 | B-4 | ~~5-动词 intake 统一~~ | — | — | — | — | **DONE** | 完成 tick 2, commit b-4 (5 controller 加 ingest/setData/append 别名 + @deprecated 老名) |
-| B-4b | adapter 侧 hook/composable/binding 暴露 canonical verbs（React×7 / Vue×7 / Angular×7） | API | 28 | 中（adapter 一致性） | M | MED | 21 binding 在 return 里同时暴露 ingest+ingestTrade / setData+setBars / append+appendBar |
+| B-4b | ~~adapter 侧暴露 canonical verbs~~ | — | — | — | — | **DONE** | 完成 tick 3, commit b-4b (18 method additions × 4 binding shapes × 3 frameworks; 实际是 4 binding shapes 不是 7) |
 | B-5 | canonical Bar 类型（KLineData/OHLCV/BaseBar/AVWAPBar/VolumeProfileBar 统一） | API | 35 | 高（多处类型用到，对外稳定） | L | MED | 6 名字 → 1 (CanonicalBar) + 别名导出；Chinese stock domain 字段脱出 |
 | B-6 | `export *` 收口（13 个 barrel 改成显式 re-export，去内部 helper 暴露） | API | 35 | 中 | M | MED | 12 个最差泄露（API audit 列表）从 root barrel 移除；测试无 import 路径变化 |
 | B-7 | Demo / playground app（next-app 真实接入数据 + 渲染图表） | UX/美学 | 35/50 | 高（解锁 UX + 美学 + 视觉回归） | L | MED | examples/next-app 跑 binance ws → 真实 K 线 + 1 个指标 + crosshair |
@@ -135,3 +135,4 @@
 | event-handler | 2026-05-29 02:28 | Perf audit timed out (61 min, no report) → DEAD_ENDS #5; task #34 closed; retry plan: split into 3 focused agents | (next) |
 | 1 | 2026-05-29 02:40 | B-1 BENCH suite — 4 files / 14 benchmarks / real hz+ns numbers; 性能 45→65; B-2 next | b-1 |
 | 2 | 2026-05-29 02:50 | B-4 unify intake verbs (ingest/setData/append) — 5 controllers, additive aliases, 老名 @deprecated; API 45→52; B-4b adapter exposure next | b-4 |
+| 3 | 2026-05-29 03:00 | B-4b adapter canonical verb exposure — 18 method additions × 3 frameworks (React/Vue/Angular); API 52→58; B-6 export * 收口 next | b-4b |

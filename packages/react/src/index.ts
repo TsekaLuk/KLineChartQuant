@@ -238,3 +238,17 @@ export const KLineChart: FC<KLineChartProps> = ({
     useChart(ref, { data, initialZoomLevel, theme })
     return createElement('div', { ref, className, style })
 }
+
+// ---------------------------------------------------------------------------
+// Auto-register the production ChartControllerFactory
+//
+// Consumers don't need to call __setChartFactory manually unless they want
+// to inject a custom backing (e.g. for testing). The contract tests in this
+// package override the factory in `beforeEach` and reset to null in
+// `afterEach`, so this default registration is transparent to them.
+//
+// Importing the factory is side-effect-free at module load — the engine's
+// DOM access only happens when `createChart(opts)` is actually called.
+// ---------------------------------------------------------------------------
+import { createChartController } from '@klinechart-quant/core'
+__setChartFactory(createChartController)

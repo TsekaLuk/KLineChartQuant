@@ -10,7 +10,7 @@ export interface TEMARendererOptions {
 }
 
 export function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub_TEMA' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createTEMAStateKey(paneId)
     let pluginHost: PluginHost | null = null
 
@@ -36,10 +36,7 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
             const state = pluginHost?.getSharedState<TEMARenderState>(STATE_KEY)
             if (!state || !state.params.showTEMA || state.visibleMin > state.visibleMax) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
+            const { series } = state
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -55,7 +52,7 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
                 if (value === undefined) continue
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                const y = pane.height - (value - displayMin) / displayValueRange * pane.height
+                const y = pane.yAxis.priceToY(value)
                 if (!started) {
                     ctx.beginPath()
                     ctx.moveTo(centerX, y)

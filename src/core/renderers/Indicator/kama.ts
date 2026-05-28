@@ -10,7 +10,7 @@ export interface KAMARendererOptions {
 }
 
 export function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub_KAMA' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createKAMAStateKey(paneId)
     let pluginHost: PluginHost | null = null
 
@@ -36,10 +36,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
             const state = pluginHost?.getSharedState<KAMARenderState>(STATE_KEY)
             if (!state || !state.params.showKAMA || state.visibleMin > state.visibleMax) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
+            const { series } = state
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -55,7 +52,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
                 if (value === undefined) continue
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                const y = pane.height - (value - displayMin) / displayValueRange * pane.height
+                const y = pane.yAxis.priceToY(value)
                 if (!started) {
                     ctx.beginPath()
                     ctx.moveTo(centerX, y)

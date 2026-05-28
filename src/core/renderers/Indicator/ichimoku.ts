@@ -18,7 +18,7 @@ export interface IchimokuRendererOptions {
 }
 
 export function createIchimokuRendererPlugin(options: IchimokuRendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub_Ichimoku' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createIchimokuStateKey(paneId)
     let pluginHost: PluginHost | null = null
 
@@ -37,12 +37,9 @@ export function createIchimokuRendererPlugin(options: IchimokuRendererOptions = 
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
             const state = pluginHost?.getSharedState<IchimokuRenderState>(STATE_KEY)
             if (!state || state.visibleMin > state.visibleMax) return
-            const { params, series, valueMin, valueMax } = state
+            const { params, series } = state
 
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
-            const toY = (price: number) => pane.height - (price - displayMin) / displayValueRange * pane.height
+            const toY = (price: number) => pane.yAxis.priceToY(price)
 
             const tenkanPts: Point[] = []
             const kijunPts: Point[] = []

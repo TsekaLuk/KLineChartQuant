@@ -12,7 +12,7 @@ type Point = { x: number; y: number }
 export interface KeltnerRendererOptions { paneId?: string }
 
 export function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub_Keltner' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createKeltnerStateKey(paneId)
     let pluginHost: PluginHost | null = null
 
@@ -34,11 +34,9 @@ export function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}
             const { showUpper, showMiddle, showLower } = state.params
             if (!showUpper && !showMiddle && !showLower) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
+            const { series } = state
 
+            const toY = (v: number) => pane.yAxis.priceToY(v)
             const upperPts: Point[] = []
             const middlePts: Point[] = []
             const lowerPts: Point[] = []
@@ -48,9 +46,9 @@ export function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}
                 if (!point) continue
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                if (showUpper) upperPts.push({ x: centerX, y: pane.height - (point.upper - displayMin) / displayValueRange * pane.height })
-                if (showMiddle) middlePts.push({ x: centerX, y: pane.height - (point.middle - displayMin) / displayValueRange * pane.height })
-                if (showLower) lowerPts.push({ x: centerX, y: pane.height - (point.lower - displayMin) / displayValueRange * pane.height })
+                if (showUpper) upperPts.push({ x: centerX, y: toY(point.upper) })
+                if (showMiddle) middlePts.push({ x: centerX, y: toY(point.middle) })
+                if (showLower) lowerPts.push({ x: centerX, y: toY(point.lower) })
             }
 
             ctx.save()

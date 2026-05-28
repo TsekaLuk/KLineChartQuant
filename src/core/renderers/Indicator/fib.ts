@@ -16,7 +16,7 @@ const FIB_COLORS = {
 type Point = { x: number; y: number }
 
 export function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-    const { paneId = 'sub_Fib' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createFibStateKey(paneId)
     let pluginHost: PluginHost | null = null
     return {
@@ -33,11 +33,8 @@ export function createFibRendererPlugin(options: { paneId?: string } = {}): Rend
             const state = pluginHost?.getSharedState<FibRenderState>(STATE_KEY)
             if (!state || !state.params.showLevels || state.visibleMin > state.visibleMax) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
-            const toY = (v: number) => pane.height - (v - displayMin) / displayValueRange * pane.height
+            const { series } = state
+            const toY = (v: number) => pane.yAxis.priceToY(v)
 
             const collectors: Record<string, Point[]> = { high: [], low: [], l236: [], l382: [], l500: [], l618: [], l786: [] }
             const drawEnd = Math.min(range.end, series.length)

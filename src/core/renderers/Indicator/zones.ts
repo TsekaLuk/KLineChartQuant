@@ -9,7 +9,7 @@ const OB_BULL_FILL = 'rgba(34, 197, 94, 0.25)'
 const OB_BEAR_FILL = 'rgba(239, 68, 68, 0.25)'
 
 export function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-    const { paneId = 'sub_Zones' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createZonesStateKey(paneId)
     let pluginHost: PluginHost | null = null
     return {
@@ -28,10 +28,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
             const { showFVG, showOB, showFilledZones } = state.params
             if (!showFVG && !showOB) return
 
-            const displayRange = pane.yAxis.getDisplayRange()
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
-            const toY = (v: number) => pane.height - (v - displayMin) / displayValueRange * pane.height
+            const toY = (v: number) => pane.yAxis.priceToY(v)
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)

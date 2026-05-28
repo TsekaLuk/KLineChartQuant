@@ -13,7 +13,7 @@ export interface SARRendererOptions {
 }
 
 export function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub_SAR' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createSARStateKey(paneId)
     let pluginHost: PluginHost | null = null
 
@@ -39,10 +39,7 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
             const state = pluginHost?.getSharedState<SARRenderState>(STATE_KEY)
             if (!state || !state.params.showSAR || state.visibleMin > state.visibleMax) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
+            const { series } = state
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -53,7 +50,7 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
                 if (point === undefined) continue
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                const y = pane.height - (point.value - displayMin) / displayValueRange * pane.height
+                const y = pane.yAxis.priceToY(point.value)
                 ctx.fillStyle = point.trend === 'up' ? SAR_UP_COLOR : SAR_DOWN_COLOR
                 ctx.beginPath()
                 ctx.arc(centerX, y, DOT_RADIUS, 0, TAU)

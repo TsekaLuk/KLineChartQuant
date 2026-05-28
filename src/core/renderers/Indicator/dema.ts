@@ -10,7 +10,7 @@ export interface DEMARendererOptions {
 }
 
 export function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPluginWithHost {
-    const { paneId = 'sub_DEMA' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createDEMAStateKey(paneId)
     let pluginHost: PluginHost | null = null
 
@@ -36,10 +36,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
             const state = pluginHost?.getSharedState<DEMARenderState>(STATE_KEY)
             if (!state || !state.params.showDEMA || state.visibleMin > state.visibleMax) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
+            const { series } = state
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -55,7 +52,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
                 if (value === undefined) continue
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                const y = pane.height - (value - displayMin) / displayValueRange * pane.height
+                const y = pane.yAxis.priceToY(value)
                 if (!started) {
                     ctx.beginPath()
                     ctx.moveTo(centerX, y)

@@ -10,7 +10,7 @@ const S_COLOR = '#16a34a'
 type Point = { x: number; y: number }
 
 export function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
-    const { paneId = 'sub_Pivot' } = options
+    const { paneId = 'main' } = options
     const STATE_KEY = createPivotStateKey(paneId)
     let pluginHost: PluginHost | null = null
     return {
@@ -29,11 +29,8 @@ export function createPivotRendererPlugin(options: { paneId?: string } = {}): Re
             const p = state.params
             if (!(p.showPP || p.showR1 || p.showR2 || p.showR3 || p.showS1 || p.showS2 || p.showS3)) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
-            const toY = (v: number) => pane.height - (v - displayMin) / displayValueRange * pane.height
+            const { series } = state
+            const toY = (v: number) => pane.yAxis.priceToY(v)
 
             const drawEnd = Math.min(range.end, series.length)
             const ppPts: Point[] = []

@@ -56,6 +56,10 @@
     "preview:demo": "vite preview --config vite.demo.config.ts",
     "type-check": "vue-tsc --build",
     "test:unit": "vitest",
+    "test:packages": "pnpm -r test",
+    "size:packages": "pnpm -r --workspace-concurrency=4 size",
+    "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
+    "lint:types": "pnpm -r --workspace-concurrency=4 lint:types",
     "format": "prettier --write --experimental-cli src/",
     "prepublishOnly": "pnpm run build-only"
   },

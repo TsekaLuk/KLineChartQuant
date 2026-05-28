@@ -84,11 +84,12 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
     const originShiftRef = createSignal(policy.ref)
 
     let disposed = false
-    const guard = (): void => {
-        if (disposed) {
-            throw new Error('PriceScale: instance has been disposed')
-        }
-    }
+    /**
+     * Post-dispose: mutator calls become silent no-ops. See createTimeScale.ts
+     * for the rationale + API audit BLOCKER-004 reference. Returns `true` when
+     * the operation should proceed.
+     */
+    const guard = (): boolean => !disposed
 
     /**
      * Run `policy.maybeRebaseline` with the latest visible range and, if it
@@ -162,7 +163,7 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
         },
 
         setMode(next: ScaleMode): void {
-            guard()
+            if (!guard()) return
             if (next === 'log') {
                 const min = visibleMin.peek()
                 const max = visibleMax.peek()
@@ -176,7 +177,7 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
         },
 
         setVisibleRange(min: number, max: number): void {
-            guard()
+            if (!guard()) return
             if (!Number.isFinite(min) || !Number.isFinite(max)) {
                 throw new Error(
                     `PriceScale.setVisibleRange: both bounds must be finite, got min=${min}, max=${max}`,
@@ -198,7 +199,7 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
         },
 
         setHeight(h: number): void {
-            guard()
+            if (!guard()) return
             if (!(h > 0)) {
                 throw new Error(`PriceScale.setHeight: height must be > 0, got ${h}`)
             }

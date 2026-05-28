@@ -94,10 +94,14 @@ describe('createTimeScale', () => {
         expect(onBw).toHaveBeenCalledTimes(1)
         expect(onLp).toHaveBeenCalledTimes(1)
 
-        // dispose: subsequent writes must throw (read-side stays available).
+        // dispose: subsequent writes silently no-op (API audit BLOCKER-004
+        // harmonization — every controller in core now silences post-dispose).
         s.dispose()
-        expect(() => s.setFirstVisibleIndex(0)).toThrow(/disposed/)
-        expect(() => s.setBarWidth(8)).toThrow(/disposed/)
+        s.setFirstVisibleIndex(0)
+        s.setBarWidth(8)
+        // State frozen at pre-dispose values.
+        expect(s.firstVisibleIndex()).toBe(5)
+        expect(s.barWidth()).toBe(12)
         // Math still works after dispose — it's pure peek().
         // After the writes above: firstVisibleIndex=5, barWidth=12, leftPadding=30
         // → barIndexToX(0) = (0 - 5) * 12 + 30 = -30

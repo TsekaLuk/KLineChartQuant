@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
     describeVolumeProfileState,
-    describeAnchoredVwap,
-    describeFootprintLatestBar,
-    describeAlerts,
+    describeAnchoredVwapState,
+    describeFootprintState,
+    describeAlertsState,
 } from '../describeControllers'
 
 describe('describeVolumeProfileState', () => {
@@ -32,12 +32,12 @@ describe('describeVolumeProfileState', () => {
 
 describe('describeAnchoredVwap', () => {
     it('reports zero anchors', () => {
-        const d = describeAnchoredVwap([], 100)
+        const d = describeAnchoredVwapState([], 100)
         expect(d.facts.count).toBe(0)
     })
 
     it('flags overextension when price is above 1σ upper', () => {
-        const d = describeAnchoredVwap(
+        const d = describeAnchoredVwapState(
             [
                 {
                     label: 'Earnings Q1',
@@ -55,7 +55,7 @@ describe('describeAnchoredVwap', () => {
     })
 
     it('flags overextension below 1σ lower', () => {
-        const d = describeAnchoredVwap(
+        const d = describeAnchoredVwapState(
             [
                 {
                     label: 'Earnings Q1',
@@ -73,7 +73,7 @@ describe('describeAnchoredVwap', () => {
     })
 
     it('does NOT flag when price is inside the 1σ band', () => {
-        const d = describeAnchoredVwap(
+        const d = describeAnchoredVwapState(
             [
                 {
                     label: 'Earnings Q1',
@@ -93,12 +93,12 @@ describe('describeAnchoredVwap', () => {
 
 describe('describeFootprintLatestBar', () => {
     it('handles null bar', () => {
-        const d = describeFootprintLatestBar(null, 0)
+        const d = describeFootprintState(null, 0)
         expect(d.facts.ready).toBe(false)
     })
 
     it('labels buy-dominated bars', () => {
-        const d = describeFootprintLatestBar(
+        const d = describeFootprintState(
             {
                 barIndex: 42,
                 delta: 250,
@@ -112,7 +112,7 @@ describe('describeFootprintLatestBar', () => {
     })
 
     it('labels sell-dominated bars', () => {
-        const d = describeFootprintLatestBar(
+        const d = describeFootprintState(
             {
                 barIndex: 42,
                 delta: -250,
@@ -126,7 +126,7 @@ describe('describeFootprintLatestBar', () => {
     })
 
     it('summarises imbalances correctly', () => {
-        const d = describeFootprintLatestBar(
+        const d = describeFootprintState(
             {
                 barIndex: 42,
                 delta: 100,
@@ -143,12 +143,12 @@ describe('describeFootprintLatestBar', () => {
 
 describe('describeAlerts', () => {
     it('zero rules', () => {
-        const d = describeAlerts({ rulesEnabled: 0, rulesTotal: 0, recentEventsCount: 0 })
+        const d = describeAlertsState({ rulesEnabled: 0, rulesTotal: 0, recentEventsCount: 0 })
         expect(d.summary).toBe('No alert rules configured.')
     })
 
     it('counts enabled vs total', () => {
-        const d = describeAlerts({ rulesEnabled: 3, rulesTotal: 5, recentEventsCount: 2 })
+        const d = describeAlertsState({ rulesEnabled: 3, rulesTotal: 5, recentEventsCount: 2 })
         expect(d.summary).toMatch(/3 of 5 alert rules/)
         expect(d.facts.recentEventsCount).toBe(2)
     })

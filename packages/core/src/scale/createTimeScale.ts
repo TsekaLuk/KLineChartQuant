@@ -43,11 +43,19 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
     let calendar: { barTimestamps: ReadonlyArray<number> } | null = null
     let disposed = false
 
-    const guard = (): void => {
-        if (disposed) {
-            throw new Error('TimeScale: instance has been disposed')
-        }
-    }
+    /**
+     * Post-dispose: mutator calls become silent no-ops. This matches the
+     * convention used by every other controller in @klinechart-quant/core
+     * (IndicatorSelector, Toolbar, Drawing, Alerts, Replay, VolumeProfile,
+     * Footprint, OrderBookHeatmap, AnchoredVwap, MtfOverlay). Throwing on
+     * stale references — as the original implementation did — was the API
+     * audit BLOCKER-004 (docs/audit/API_REVIEW.md) divergence; harmonized
+     * to silent-no-op here.
+     *
+     * Returns `true` when the operation should proceed (controller live),
+     * `false` when it should be skipped (post-dispose).
+     */
+    const guard = (): boolean => !disposed
 
     const scale: TimeScale = {
         firstVisibleIndex,
@@ -71,12 +79,12 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
         },
 
         setFirstVisibleIndex(i: number): void {
-            guard()
+            if (!guard()) return
             firstVisibleIndex.set(i)
         },
 
         setBarWidth(w: number): void {
-            guard()
+            if (!guard()) return
             if (!(w > 0)) {
                 throw new Error(`TimeScale.setBarWidth: barWidth must be > 0, got ${w}`)
             }
@@ -84,12 +92,12 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
         },
 
         setLeftPadding(p: number): void {
-            guard()
+            if (!guard()) return
             leftPadding.set(p)
         },
 
         setCalendar(c) {
-            guard()
+            if (!guard()) return
             calendar = c
         },
 

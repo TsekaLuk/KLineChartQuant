@@ -75,7 +75,7 @@ export interface AnchoredVwapSeriesSnapshot {
     lower2: number
 }
 
-export function describeAnchoredVwap(
+export function describeAnchoredVwapState(
     activeAnchors: ReadonlyArray<AnchoredVwapSeriesSnapshot>,
     latestPrice: number | null,
 ): ControllerDescription {
@@ -123,7 +123,7 @@ export interface FootprintLatestBarSnapshot {
     maxImbalanceRatio: number
 }
 
-export function describeFootprintLatestBar(
+export function describeFootprintState(
     bar: FootprintLatestBarSnapshot | null,
     cumulativeDelta: number,
 ): ControllerDescription {
@@ -172,7 +172,7 @@ export interface AlertSnapshot {
     recentEventsCount: number
 }
 
-export function describeAlerts(state: AlertSnapshot): ControllerDescription {
+export function describeAlertsState(state: AlertSnapshot): ControllerDescription {
     return {
         controllerId: 'alerts',
         summary:

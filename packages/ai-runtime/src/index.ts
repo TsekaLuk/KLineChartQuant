@@ -27,9 +27,9 @@ export {
 
 export {
     describeVolumeProfileState,
-    describeAnchoredVwap,
-    describeFootprintLatestBar,
-    describeAlerts,
+    describeAnchoredVwapState,
+    describeFootprintState,
+    describeAlertsState,
     type VolumeProfileSnapshot,
     type AnchoredVwapSeriesSnapshot,
     type FootprintLatestBarSnapshot,

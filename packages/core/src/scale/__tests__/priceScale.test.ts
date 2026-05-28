@@ -197,13 +197,23 @@ describe('createPriceScale — validation & lifecycle', () => {
         expect(() => s.setHeight(-1)).toThrow(/> 0/)
     })
 
-    it('dispose silences subsequent writes (reads still work)', () => {
+    it('dispose silences subsequent writes (silent no-op, reads still work)', () => {
+        // API audit BLOCKER-004: harmonized to silent-no-op (matches the
+        // convention used by every other @klinechart-quant/core controller).
         const s = createPriceScale({ initialVisibleMin: 0, initialVisibleMax: 100, initialHeight: 400 })
+        const minBefore = s.visibleMin()
+        const heightBefore = s.height()
+        const modeBefore = s.mode()
         s.dispose()
-        expect(() => s.setVisibleRange(10, 110)).toThrow(/disposed/)
-        expect(() => s.setHeight(200)).toThrow(/disposed/)
-        expect(() => s.setMode('log')).toThrow(/disposed/)
-        // pure math still returns sensible numbers
+        // Mutators return undefined silently — no throw.
+        s.setVisibleRange(10, 110)
+        s.setHeight(200)
+        s.setMode('log')
+        // State frozen at pre-dispose values.
+        expect(s.visibleMin()).toBe(minBefore)
+        expect(s.height()).toBe(heightBefore)
+        expect(s.mode()).toBe(modeBefore)
+        // Pure math still returns sensible numbers.
         expect(s.priceToY(50)).toBeCloseTo(200, 10)
     })
 })

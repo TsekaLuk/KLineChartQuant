@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * createReplayController — framework-agnostic Bar Replay state machine.
  *
@@ -56,12 +57,14 @@ function clamp(value: number, lo: number, hi: number): number {
 
 function assertValidRange(start: number, end: number): void {
     if (!Number.isFinite(start) || !Number.isFinite(end)) {
-        throw new Error(
+        throw new KLineChartError(
+            'REPLAY_CONFIG_INVALID',
             `Replay range must be finite numbers: got start=${String(start)}, end=${String(end)}`,
         )
     }
     if (end < start) {
-        throw new Error(
+        throw new KLineChartError(
+            'REPLAY_CONFIG_INVALID',
             `Replay range end (${end}) must be >= start (${start})`,
         )
     }
@@ -71,7 +74,8 @@ function assertValidSpeed(speed: number): void {
     if (!Number.isFinite(speed) || speed <= 0) {
         // Reverse playback (negative speed) is deliberately rejected in v1.
         // See the header comment for the extension path.
-        throw new Error(
+        throw new KLineChartError(
+            'REPLAY_CONFIG_INVALID',
             `Replay speed must be a positive finite number; got ${String(speed)}`,
         )
     }
@@ -98,7 +102,8 @@ export function createReplayController(
 
     let barIntervalMs = init?.barIntervalMs ?? DEFAULT_BAR_INTERVAL_MS
     if (!Number.isFinite(barIntervalMs) || barIntervalMs <= 0) {
-        throw new Error(
+        throw new KLineChartError(
+            'REPLAY_CONFIG_INVALID',
             `barIntervalMs must be a positive finite number; got ${String(barIntervalMs)}`,
         )
     }

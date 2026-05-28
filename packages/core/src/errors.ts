@@ -54,6 +54,14 @@ export type KLineChartErrorCode =
     | 'INDICATOR_INVALID_PARAM'
     // orderBookHeatmap (controller + logColorScale + state + snapshotRing)
     | 'HEATMAP_CONFIG_INVALID'
+    // mtfOverlay (alignToBaseIndex + resampleBars + createMtfController)
+    | 'MTF_CONFIG_INVALID'
+    // alternative chart types (renko / rangeBars / pointAndFigure)
+    | 'CHART_TYPE_CONFIG_INVALID'
+    // replay controller
+    | 'REPLAY_CONFIG_INVALID'
+    // scene / chart-controller / framework adapter wiring
+    | 'CONTROLLER_CONFIG_INVALID'
     // serialization
     | 'SCHEMA_VERSION_MISMATCH'
     | 'INVALID_JSON'

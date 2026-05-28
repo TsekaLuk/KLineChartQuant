@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * Origin-shift policy — ROADMAP §2.5, refined per the upstream PR feedback
  * about *rebaseline drift*.
@@ -74,10 +75,10 @@ export function createOriginShiftPolicy(
     threshold: number = DEFAULT_THRESHOLD,
 ): OriginShiftPolicy {
     if (!Number.isFinite(initialRef)) {
-        throw new Error(`createOriginShiftPolicy: initialRef must be finite, got ${initialRef}`)
+        throw new KLineChartError('INVALID_PARAM', `createOriginShiftPolicy: initialRef must be finite, got ${initialRef}`)
     }
     if (!Number.isFinite(threshold) || threshold < 0) {
-        throw new Error(`createOriginShiftPolicy: threshold must be >= 0, got ${threshold}`)
+        throw new KLineChartError('INVALID_PARAM', `createOriginShiftPolicy: threshold must be >= 0, got ${threshold}`)
     }
 
     let ref = initialRef

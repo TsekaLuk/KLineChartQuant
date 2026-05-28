@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * Layer factory registry.
  *
@@ -67,7 +68,8 @@ export function createLayerRegistry(): LayerRegistry {
 
     const register = (factory: LayerFactory): void => {
         if (factories.has(factory.typeId)) {
-            throw new Error(
+            throw new KLineChartError(
+                'NOT_REGISTERED',
                 `LayerRegistry: typeId "${factory.typeId}" is already registered`,
             )
         }

@@ -9,6 +9,8 @@
  * because legacy users of `@363045841yyt/klinechart` consume it.
  */
 
+import { KLineChartError } from '@klinechart-quant/core'
+
 import {
     defineComponent,
     effectScope,
@@ -70,12 +72,14 @@ export function __setControllerFactory(
  */
 export function createChart(opts: ChartMountOptions): ChartController {
     if (opts.container == null) {
-        throw new Error(
+        throw new KLineChartError(
+            'CONTROLLER_CONFIG_INVALID',
             '[@klinechart-quant/vue] createChart: `container` is required and must be a non-null HTMLElement',
         )
     }
     if (controllerFactory === null) {
-        throw new Error(
+        throw new KLineChartError(
+            'CONTROLLER_CONFIG_INVALID',
             '[@klinechart-quant/vue] createChart: no ChartController factory registered. ' +
                 'Call __setControllerFactory(...) before mounting (the core package wires this in production).',
         )

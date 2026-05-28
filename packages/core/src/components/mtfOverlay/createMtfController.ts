@@ -1,3 +1,4 @@
+import { KLineChartError } from '../../errors'
 /**
  * Multi-Timeframe overlay controller.
  *
@@ -49,7 +50,8 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
         )
         const values = def.compute(resampled)
         if (values.length !== resampled.length) {
-            throw new Error(
+            throw new KLineChartError(
+                'MTF_CONFIG_INVALID',
                 `MtfController: compute fn for series "${def.id}" returned ` +
                     `${values.length} values for ${resampled.length} resampled bars; ` +
                     `length must match`,
@@ -76,10 +78,11 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
 
     const validateInterval = (targetMs: number): void => {
         if (!Number.isFinite(targetMs) || targetMs <= 0) {
-            throw new Error('MtfController: targetIntervalMs must be > 0')
+            throw new KLineChartError('MTF_CONFIG_INVALID', 'MtfController: targetIntervalMs must be > 0')
         }
         if (baseIntervalMs !== null && targetMs % baseIntervalMs !== 0) {
-            throw new Error(
+            throw new KLineChartError(
+                'MTF_CONFIG_INVALID',
                 `MtfController: targetIntervalMs (${targetMs}) must be an ` +
                     `integer multiple of baseIntervalMs (${baseIntervalMs})`,
             )
@@ -92,13 +95,14 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
         setBaseBars(bars, intervalMs): void {
             if (!guard()) return
             if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-                throw new Error('MtfController.setBaseBars: baseIntervalMs must be > 0')
+                throw new KLineChartError('MTF_CONFIG_INVALID', 'MtfController.setBaseBars: baseIntervalMs must be > 0')
             }
             // If any series has a target that no longer cleanly divides, throw
             // up front rather than letting resampleBars throw later.
             for (const def of definitions.values()) {
                 if (def.targetIntervalMs % intervalMs !== 0) {
-                    throw new Error(
+                    throw new KLineChartError(
+                        'MTF_CONFIG_INVALID',
                         `MtfController.setBaseBars: existing series "${def.id}" ` +
                             `targetIntervalMs (${def.targetIntervalMs}) does not cleanly ` +
                             `divide new baseIntervalMs (${intervalMs})`,
@@ -113,7 +117,7 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
         addSeries(def): string {
             if (!guard()) return def.id
             if (definitions.has(def.id)) {
-                throw new Error(`MtfController.addSeries: id "${def.id}" already in use`)
+                throw new KLineChartError('MTF_CONFIG_INVALID', `MtfController.addSeries: id "${def.id}" already in use`)
             }
             validateInterval(def.targetIntervalMs)
             definitions.set(def.id, def)

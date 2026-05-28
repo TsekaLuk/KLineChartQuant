@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * Point & Figure (P&F) — classic three-box-reversal column chart.
  *
@@ -247,10 +248,10 @@ export function createPointAndFigure(): ChartTypeTransform<PointAndFigureConfig>
             config: PointAndFigureConfig,
         ): ReadonlyArray<TransformedBar> {
             if (config.boxSize <= 0) {
-                throw new Error('createPointAndFigure: boxSize must be > 0')
+                throw new KLineChartError('CHART_TYPE_CONFIG_INVALID', 'createPointAndFigure: boxSize must be > 0')
             }
             if (config.reversal < 1 || !Number.isFinite(config.reversal)) {
-                throw new Error('createPointAndFigure: reversal must be >= 1')
+                throw new KLineChartError('CHART_TYPE_CONFIG_INVALID', 'createPointAndFigure: reversal must be >= 1')
             }
             activeConfig = config
             resetState()

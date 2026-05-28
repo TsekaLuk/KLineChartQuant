@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * Renko bricks — price-based bars that ignore time.
  *
@@ -284,10 +285,10 @@ export function createRenko(): ChartTypeTransform<RenkoConfig> {
         transform(input: ReadonlyArray<OHLCV>, config: RenkoConfig): ReadonlyArray<TransformedBar> {
             // Validate: at least one mode must be set with sane values.
             if (!config.useATR && (config.brickSize === undefined || config.brickSize <= 0)) {
-                throw new Error('createRenko: config requires brickSize > 0 or useATR { period }')
+                throw new KLineChartError('CHART_TYPE_CONFIG_INVALID', 'createRenko: config requires brickSize > 0 or useATR { period }')
             }
             if (config.useATR && config.useATR.period < 1) {
-                throw new Error('createRenko: useATR.period must be >= 1')
+                throw new KLineChartError('CHART_TYPE_CONFIG_INVALID', 'createRenko: useATR.period must be >= 1')
             }
             activeConfig = config
             resetState()

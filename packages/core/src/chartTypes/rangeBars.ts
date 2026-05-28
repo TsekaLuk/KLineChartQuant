@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * Range Bars — fixed-range price bars.
  *
@@ -263,7 +264,7 @@ export function createRangeBars(): ChartTypeTransform<RangeBarsConfig> {
 
         transform(input: ReadonlyArray<OHLCV>, config: RangeBarsConfig): ReadonlyArray<TransformedBar> {
             if (config.range <= 0 || !Number.isFinite(config.range)) {
-                throw new Error('createRangeBars: range must be > 0')
+                throw new KLineChartError('CHART_TYPE_CONFIG_INVALID', 'createRangeBars: range must be > 0')
             }
             activeConfig = config
             resetState()

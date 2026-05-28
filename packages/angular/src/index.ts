@@ -6,6 +6,8 @@
  * own `signal()` so OnPush components refresh when controllers mutate state.
  */
 
+import { KLineChartError } from '@klinechart-quant/core'
+
 import {
     AfterViewInit,
     ChangeDetectionStrategy,
@@ -133,7 +135,7 @@ export function createChart(
     opts: ChartMountOptions & { factory?: ChartControllerFactory },
 ): ChartController {
     if (opts.container === null || opts.container === undefined) {
-        throw new Error('createChart: container is required')
+        throw new KLineChartError('CONTROLLER_CONFIG_INVALID', 'createChart: container is required')
     }
     const factory: ChartControllerFactory = opts.factory ?? createChartController
     const { factory: _ignored, ...mountOpts } = opts
@@ -181,7 +183,8 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
             return
         }
         if (typeof this.factory !== 'function') {
-            throw new Error(
+            throw new KLineChartError(
+                'CONTROLLER_CONFIG_INVALID',
                 '<kline-chart>: no ChartControllerFactory registered. Add provideKLineChart({ factory }) at the application bootstrap.',
             )
         }

@@ -1,3 +1,4 @@
+import { KLineChartError } from '@klinechart-quant/core'
 /**
  * @klinechart-quant/react — public API surface.
  *
@@ -55,7 +56,8 @@ export function __setChartFactory(factory: ChartControllerFactory | null): void 
 
 function resolveFactory(): ChartControllerFactory {
     if (chartFactory === null) {
-        throw new Error(
+        throw new KLineChartError(
+            'CONTROLLER_CONFIG_INVALID',
             '[@klinechart-quant/react] No ChartControllerFactory registered. ' +
                 'Call __setChartFactory(factory) before mounting, or import the ' +
                 'production factory from @klinechart-quant/core/controllers.',
@@ -77,10 +79,11 @@ function resolveFactory(): ChartControllerFactory {
  */
 export function createChart(opts: ChartMountOptions): ChartController {
     if (opts === null || opts === undefined) {
-        throw new Error('[@klinechart-quant/react] createChart: opts is required')
+        throw new KLineChartError('CONTROLLER_CONFIG_INVALID', '[@klinechart-quant/react] createChart: opts is required')
     }
     if (opts.container === null || opts.container === undefined) {
-        throw new Error(
+        throw new KLineChartError(
+            'CONTROLLER_CONFIG_INVALID',
             '[@klinechart-quant/react] createChart: opts.container must be a non-null HTMLElement',
         )
     }

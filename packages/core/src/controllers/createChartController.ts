@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * createChartController — production ChartControllerFactory.
  *
@@ -145,7 +146,8 @@ interface MountedDom {
 function buildDom(container: HTMLElement): MountedDom {
     const ownerDoc = container.ownerDocument
     if (ownerDoc === null || ownerDoc === undefined) {
-        throw new Error(
+        throw new KLineChartError(
+            'CONTROLLER_CONFIG_INVALID',
             '[createChartController] container has no ownerDocument; cannot build DOM scaffold',
         )
     }
@@ -219,10 +221,11 @@ function buildDom(container: HTMLElement): MountedDom {
 
 export function createChartController(opts: ChartMountOptions): ChartController {
     if (opts === null || opts === undefined) {
-        throw new Error('[createChartController] opts is required')
+        throw new KLineChartError('CONTROLLER_CONFIG_INVALID', '[createChartController] opts is required')
     }
     if (opts.container === null || opts.container === undefined) {
-        throw new Error(
+        throw new KLineChartError(
+            'CONTROLLER_CONFIG_INVALID',
             '[createChartController] opts.container must be a non-null HTMLElement',
         )
     }

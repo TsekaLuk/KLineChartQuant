@@ -223,3 +223,34 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
         }
     }
 }
+
+// Re-export the 7 injection-context bindings from `./bindings.ts`. These
+// pair with the existing KLineChartComponent + coreSignalToAngular + the
+// provideKLineChart provider to give every public controller in
+// @klinechart-quant/core an idiomatic Angular 17+ binding.
+export {
+    injectAlerts,
+    injectReplay,
+    injectFootprint,
+    injectVolumeProfile,
+    injectAnchoredVwap,
+    injectOrderBookHeatmap,
+    injectMtfOverlay,
+} from './bindings'
+
+export type {
+    InjectAlertsOpts,
+    InjectAlertsResult,
+    InjectReplayOpts,
+    InjectReplayResult,
+    InjectFootprintOpts,
+    InjectFootprintResult,
+    InjectVolumeProfileOpts,
+    InjectVolumeProfileResult,
+    InjectAnchoredVwapOpts,
+    InjectAnchoredVwapResult,
+    InjectOrderBookHeatmapOpts,
+    InjectOrderBookHeatmapResult,
+    InjectMtfOverlayOpts,
+    InjectMtfOverlayResult,
+} from './bindings'

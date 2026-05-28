@@ -20,6 +20,50 @@
     "./controllers": {
       "types": "./dist/controllers/index.d.ts",
       "import": "./dist/controllers/index.js"
+    },
+    "./render": {
+      "types": "./dist/render/index.d.ts",
+      "import": "./dist/render/index.js"
+    },
+    "./scale": {
+      "types": "./dist/scale/index.d.ts",
+      "import": "./dist/scale/index.js"
+    },
+    "./scene": {
+      "types": "./dist/scene/index.d.ts",
+      "import": "./dist/scene/index.js"
+    },
+    "./replay": {
+      "types": "./dist/replay/index.d.ts",
+      "import": "./dist/replay/index.js"
+    },
+    "./alerts": {
+      "types": "./dist/alerts/index.d.ts",
+      "import": "./dist/alerts/index.js"
+    },
+    "./chartTypes": {
+      "types": "./dist/chartTypes/index.d.ts",
+      "import": "./dist/chartTypes/index.js"
+    },
+    "./components/volumeProfile": {
+      "types": "./dist/components/volumeProfile/index.d.ts",
+      "import": "./dist/components/volumeProfile/index.js"
+    },
+    "./components/orderBookHeatmap": {
+      "types": "./dist/components/orderBookHeatmap/index.d.ts",
+      "import": "./dist/components/orderBookHeatmap/index.js"
+    },
+    "./components/footprint": {
+      "types": "./dist/components/footprint/index.d.ts",
+      "import": "./dist/components/footprint/index.js"
+    },
+    "./components/anchoredVwap": {
+      "types": "./dist/components/anchoredVwap/index.d.ts",
+      "import": "./dist/components/anchoredVwap/index.js"
+    },
+    "./components/mtfOverlay": {
+      "types": "./dist/components/mtfOverlay/index.d.ts",
+      "import": "./dist/components/mtfOverlay/index.js"
     }
   },
   "files": [

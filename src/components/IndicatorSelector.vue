@@ -34,15 +34,15 @@
               >
                 <span class="btn-content">
                   {{ indicator.label }}
-                  <span v-if="indicator.params" class="param-hint">
-                    ({{ getParamDisplay(indicator) }})
-                  </span>
+<span v-if="indicator.params?.length" class="param-hint">
+  ({{ getParamDisplay(indicator) }})
+</span>
                 </span>
                 <!-- 悬浮操作层 -->
                 <Transition name="fade">
                   <div v-if="hoveredIndicator === indicator.id" class="hover-overlay">
                     <button
-                      v-if="indicator.params"
+                      v-if="indicator.params?.length"
                       class="action-btn settings-btn"
                       @click.stop="showParams(indicator.id)"
                       title="编辑参数"
@@ -53,7 +53,7 @@
                         />
                       </svg>
                     </button>
-                    <span v-if="indicator.params" class="divider"></span>
+                    <span v-if="indicator.params?.length" class="divider"></span>
                     <button
                       class="action-btn remove-btn"
                       @click.stop="removeIndicator(indicator.id)"
@@ -95,13 +95,28 @@
                   <span class="title-text">添加指标</span>
                   <span class="title-sub">{{ totalIndicatorsCount }} 个可用指标</span>
                 </div>
-                <button class="modal-close" @click="closeAddMenu" title="关闭">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <path
-                      d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                    />
-                  </svg>
-                </button>
+                <div class="header-actions">
+                  <button
+                    class="view-toggle-btn"
+                    :class="{ active: isCompactView }"
+                    @click="isCompactView = !isCompactView"
+                    title="简洁模式"
+                  >
+                    <svg v-if="!isCompactView" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                    </svg>
+                    <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h4v4H7V7zm0 6h4v4H7v-4zm6-6h4v4h-4V7zm0 6h4v4h-4v-4z"/>
+                    </svg>
+                  </button>
+                  <button class="modal-close" @click="closeAddMenu" title="关闭">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <path
+                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <!-- 弹窗主体 -->
@@ -112,27 +127,37 @@
                     <span class="section-title">主图指标</span>
                     <span class="section-count">{{ mainIndicators.length }}</span>
                   </div>
-                  <div class="indicator-grid">
+                  <div class="indicator-grid" :class="{ compact: isCompactView }">
                     <button
                       v-for="indicator in mainIndicators"
                       :key="indicator.id"
                       class="indicator-card"
-                      :class="{ disabled: isActive(indicator.id), active: isActive(indicator.id) }"
-                      :disabled="isActive(indicator.id)"
-                      @click="addIndicator(indicator.id)"
+                      :class="{ active: isActive(indicator.id), compact: isCompactView }"
+                      @click="isActive(indicator.id) ? removeIndicator(indicator.id) : addIndicator(indicator.id)"
                     >
-                      <div class="card-header">
+                      <template v-if="isCompactView">
                         <span class="card-label">{{ indicator.label }}</span>
-                        <span v-if="isActive(indicator.id)" class="card-badge active">
-                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                          </svg>
-                        </span>
-                      </div>
-                      <div class="card-name">{{ indicator.name }}</div>
-                      <div v-if="indicator.params" class="card-params">
-                        {{ indicator.params.length }} 个参数
-                      </div>
+                        <span class="card-tooltip">{{ indicator.name }}</span>
+                      </template>
+                      <template v-else>
+                        <div class="card-header">
+                          <span class="card-label">{{ indicator.label }}</span>
+                          <div class="card-header-actions">
+                            <button
+                              v-if="indicator.params?.length"
+                              class="card-settings-btn"
+                              @click.stop="showParams(indicator.id)"
+                              title="编辑参数"
+                            >
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                              </svg>
+                            </button>
+
+                          </div>
+                        </div>
+                        <div class="card-name">{{ indicator.name }}</div>
+                      </template>
                     </button>
                   </div>
                 </div>
@@ -146,27 +171,37 @@
                     <span class="section-title">副图指标</span>
                     <span class="section-count">{{ subIndicators.length }}</span>
                   </div>
-                  <div class="indicator-grid">
+                  <div class="indicator-grid" :class="{ compact: isCompactView }">
                     <button
                       v-for="indicator in subIndicators"
                       :key="indicator.id"
                       class="indicator-card"
-                      :class="{ disabled: isActive(indicator.id), active: isActive(indicator.id) }"
-                      :disabled="isActive(indicator.id)"
-                      @click="addIndicator(indicator.id)"
+                      :class="{ active: isActive(indicator.id), compact: isCompactView }"
+                      @click="isActive(indicator.id) ? removeIndicator(indicator.id) : addIndicator(indicator.id)"
                     >
-                      <div class="card-header">
+                      <template v-if="isCompactView">
                         <span class="card-label">{{ indicator.label }}</span>
-                        <span v-if="isActive(indicator.id)" class="card-badge active">
-                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                          </svg>
-                        </span>
-                      </div>
-                      <div class="card-name">{{ indicator.name }}</div>
-                      <div v-if="indicator.params" class="card-params">
-                        {{ indicator.params.length }} 个参数
-                      </div>
+                        <span class="card-tooltip">{{ indicator.name }}</span>
+                      </template>
+                      <template v-else>
+                        <div class="card-header">
+                          <span class="card-label">{{ indicator.label }}</span>
+                          <div class="card-header-actions">
+                            <button
+                              v-if="indicator.params?.length"
+                              class="card-settings-btn"
+                              @click.stop="showParams(indicator.id)"
+                              title="编辑参数"
+                            >
+                              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                              </svg>
+                            </button>
+
+                          </div>
+                        </div>
+                        <div class="card-name">{{ indicator.name }}</div>
+                      </template>
                     </button>
                   </div>
                 </div>
@@ -231,6 +266,7 @@ const hoveredIndicator = ref<string | null>(null)
 const showAddMenu = ref(false)
 const dragOverIndicatorId = ref<string | null>(null)
 const draggingIndicatorId = ref<string | null>(null)
+const isCompactView = ref(false)
 
 // Teleport target for fullscreen modal visibility
 const teleportTarget = useFullscreenTeleportTarget()
@@ -695,6 +731,39 @@ onUnmounted(() => {
   height: 14px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-toggle-btn {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #888;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.view-toggle-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+  border-color: #ccc;
+}
+
+.view-toggle-btn.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
 /* 弹窗主体 */
 .modal-body {
   padding: 20px;
@@ -739,6 +808,50 @@ onUnmounted(() => {
   gap: 10px;
 }
 
+/* 紧凑模式 - 标签形式 */
+.indicator-grid.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.indicator-grid.compact .indicator-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 16px;
+  min-height: 32px;
+  white-space: nowrap;
+  position: relative;
+}
+
+.indicator-grid.compact .indicator-card .card-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #333;
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.indicator-grid.compact .indicator-card:hover .card-tooltip {
+  opacity: 1;
+}
+
+.indicator-grid.compact .indicator-card .card-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* 指标卡片 */
 .indicator-card {
   display: flex;
@@ -760,12 +873,6 @@ onUnmounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.indicator-card.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: #f5f5f5;
-}
-
 .indicator-card.active {
   border-color: #1a1a1a;
   background: #f8f8f8;
@@ -784,20 +891,30 @@ onUnmounted(() => {
   color: #1a1a1a;
 }
 
-.card-badge {
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-settings-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #e8e8e8;
-  color: #666;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #bbb;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.card-badge.active {
-  background: #1a1a1a;
-  color: #fff;
+.card-settings-btn:hover {
+  background: #f0f0f0;
+  color: #555;
 }
 
 .card-name {

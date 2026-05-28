@@ -14,7 +14,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@klinechart-quant/core": ["../core/src"]
+      "@klinechart-quant/core": ["../core/src"],
+      "@klinechart-quant/core/reactivity": ["../core/src/reactivity"],
+      "@klinechart-quant/core/controllers": ["../core/src/controllers"]
     }
   },
   "include": ["src/**/*"],

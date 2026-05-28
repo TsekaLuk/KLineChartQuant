@@ -16,3 +16,8 @@ export type {
     ChartController,
     ChartControllerFactory,
 } from './types'
+
+export {
+    createIndicatorSelectorController,
+    type IndicatorSelectorInit,
+} from './createIndicatorSelectorController'

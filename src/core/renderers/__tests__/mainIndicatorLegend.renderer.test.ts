@@ -87,6 +87,10 @@ function createMockRenderContext(
 
   return {
     ctx,
+    // f5f5706 moved legend rendering to the overlay layer; renderer now reads
+    // `overlayCtx`. Mock both to the same spy canvas so the existing
+    // `vi.mocked(ctx.fillText).mock.calls` assertions continue to capture writes.
+    overlayCtx: ctx,
     data: defaultKLineData,
     range: { start: 0, end: 100 },
     visibleRange: { start: 0, end: 100 },

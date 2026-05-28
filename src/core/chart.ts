@@ -1252,8 +1252,13 @@ export class Chart {
 
     /** 更新 pane 布局配置
      * @param panes 新的 pane 配置数组
+     *
+     * 显式整盘替换：清空之前 user-resize 留下的 paneRatios 缓存，让 spec 中的 ratio
+     * 真正生效。`addPane`/`upsertPane`/`removePaneDefinition` 走 `applyPaneLayoutSpecs`
+     * 时仍保留 prev 值以记住用户拖拽过的高度——只有显式的 layout replacement 才重置。
      */
     updatePaneLayout(panes: PaneSpec[]): void {
+        this.paneRatios.clear()
         this.applyPaneLayoutSpecs(panes)
     }
 

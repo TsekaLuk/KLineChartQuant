@@ -47,6 +47,7 @@
  */
 
 import type { AVWAPBar, AVWAPPoint } from './types'
+import { KLineChartError } from '../../errors'
 
 /**
  * Compute the Anchored VWAP series for `bars`, anchored at
@@ -82,7 +83,8 @@ export function computeAnchoredVwap(
     if (bars.length === 0) return []
 
     if (anchorIndex < 0 || anchorIndex >= bars.length) {
-        throw new RangeError(
+        throw new KLineChartError(
+            'AVWAP_ANCHOR_OUT_OF_RANGE',
             `anchoredVwap: anchorIndex ${anchorIndex} is out of range ` +
                 `for bars of length ${bars.length}`,
         )

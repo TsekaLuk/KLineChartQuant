@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { computeAnchoredVwap } from '../computeAnchoredVwap'
+import { isKLineChartError } from '../../../errors'
 import type { AVWAPBar } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -54,15 +55,29 @@ describe('computeAnchoredVwap — edge cases', () => {
         expect(computeAnchoredVwap([], 999, true)).toEqual([])
     })
 
-    it('throws when anchorIndex is negative on a non-empty series', () => {
+    // Post-BLOCKER-005: out-of-range throws are KLineChartError with code
+    // `AVWAP_ANCHOR_OUT_OF_RANGE` (stronger contract than the previous
+    // built-in RangeError — instanceof KLineChartError + code narrowing).
+    it('throws KLineChartError(AVWAP_ANCHOR_OUT_OF_RANGE) when anchorIndex is negative', () => {
         const bars = [bar(100, 90, 95, 1000)]
-        expect(() => computeAnchoredVwap(bars, -1, true)).toThrow(RangeError)
+        try {
+            computeAnchoredVwap(bars, -1, true)
+            throw new Error('expected throw')
+        } catch (e) {
+            expect(isKLineChartError(e, 'AVWAP_ANCHOR_OUT_OF_RANGE')).toBe(true)
+        }
     })
 
-    it('throws when anchorIndex >= bars.length on a non-empty series', () => {
+    it('throws KLineChartError(AVWAP_ANCHOR_OUT_OF_RANGE) when anchorIndex >= bars.length', () => {
         const bars = [bar(100, 90, 95, 1000), bar(101, 91, 96, 1100)]
-        expect(() => computeAnchoredVwap(bars, 2, true)).toThrow(RangeError)
-        expect(() => computeAnchoredVwap(bars, 10, false)).toThrow(RangeError)
+        for (const idx of [2, 10]) {
+            try {
+                computeAnchoredVwap(bars, idx, idx === 2)
+                throw new Error('expected throw')
+            } catch (e) {
+                expect(isKLineChartError(e, 'AVWAP_ANCHOR_OUT_OF_RANGE')).toBe(true)
+            }
+        }
     })
 })
 

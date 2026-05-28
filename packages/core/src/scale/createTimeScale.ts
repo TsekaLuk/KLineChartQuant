@@ -16,6 +16,7 @@
  */
 
 import { createSignal } from '../reactivity/signal'
+import { KLineChartError } from '../errors'
 import type { TimeScale } from './types'
 
 export interface TimeScaleConfig {
@@ -33,7 +34,7 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
     const initialLeftPadding = config.initialLeftPadding ?? 0
 
     if (!(initialBarWidth > 0)) {
-        throw new Error(`createTimeScale: initialBarWidth must be > 0, got ${initialBarWidth}`)
+        throw new KLineChartError('SCALE_BAR_WIDTH_INVALID', `createTimeScale: initialBarWidth must be > 0, got ${initialBarWidth}`)
     }
 
     const firstVisibleIndex = createSignal(initialFirstVisibleIndex)
@@ -86,7 +87,7 @@ export function createTimeScale(config: TimeScaleConfig = {}): TimeScale {
         setBarWidth(w: number): void {
             if (!guard()) return
             if (!(w > 0)) {
-                throw new Error(`TimeScale.setBarWidth: barWidth must be > 0, got ${w}`)
+                throw new KLineChartError('SCALE_BAR_WIDTH_INVALID', `TimeScale.setBarWidth: barWidth must be > 0, got ${w}`)
             }
             barWidth.set(w)
         },

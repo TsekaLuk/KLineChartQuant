@@ -39,10 +39,10 @@
 
 | 维度 | 上轮 | 本轮 | 证据 | 缺口/目标 |
 |---|---|---|---|---|
-| 组件完整性 | 72 | **76** | **B-10 oscillator pack (commit b-10): 6 osc in `packages/core/src/indicators/` (StochRSI/AO/UO/DPO/Fisher/STC) + 13 tests**；PARITY_MATRIX 6 行 ⚠️→✅；earned-evidence 50.4%→55.7% (63/113) | tick 9 pivot 非组件完整性 axis (3 ticks 同维度 drift 风险) |
+| 组件完整性 | 72 | **76** | **B-10 oscillator pack (commit b-10): 6 osc in `packages/core/src/indicators/` (StochRSI/AO/UO/DPO/Fisher/STC) + 13 tests**；PARITY_MATRIX 6 行 ⚠️→✅；earned-evidence 50.4%→55.7% (63/113) | tick 9 pivoted (B-3) ✓；后续每隔 2 ticks 可再回来 |
 | UX | — | **45** | anchored zoom 误差 10⁻¹³ px (commit e913fa1)；origin-shift threshold rebaseline 3× 抑制；但无真实运行图表验证 | 真实 demo 渲染 + 交互保真清单 |
-| DX | — | **60** | 4 publishable packages + READMEs + LICENSEs + tsconfig.build × 5 + ai-runtime；DX audit 9 BLOCKER closed 6 (docs/audit/DX_RESPONSE.md) | npm install reality + 真 dist + 错误信息基础类 |
-| API | 58 | **62** | 5 包 contract test 绿；dispose silent no-op 统一；intake 动词全栈统一 (b-4 + b-4b)；**BLOCKER-002 export * 8 内部 helper @internal 标记 (commit b-6 partial)** — typedoc / api-extractor 现在隐藏；runtime 移除留 0.2.0 | canonical Bar、KLineChartError、return convention、runtime export 实际收口 |
+| DX | 60 | **62** | 4 publishable packages + READMEs + LICENSEs + tsconfig.build × 5 + ai-runtime；DX audit 9 BLOCKER closed 6；**+ KLineChartError 基础类落地 (commit b-3)** — 跨包 `instanceof` + `isKLineChartError(e, code)` 类型保护，14 throws 已迁移，剩余 40 sites 留 B-3b | npm install reality + 真 dist + 余下 throws 收口 |
+| API | 62 | **67** | 5 包 contract test 绿；dispose silent no-op 统一；intake 动词全栈统一 (b-4 + b-4b)；BLOCKER-002 export * 8 内部 helper @internal；**BLOCKER-005 KLineChartError 基础类落地 (commit b-3)** — 14 throw sites (PriceScale × 8 / TimeScale × 2 / Footprint × 3 / AVWAP × 1) 现在抛 `KLineChartError` 带 11 个 `KLineChartErrorCode` 之一，ChartSerializationError 改 extend 共享基类，跨包 `instanceof` 工作；test = `errors.test.ts` 11 个用例覆盖类型保护 / 代码窄化 / cause 保留 / 4 个迁移点 | canonical Bar、剩余 40 throws 收口 (B-3b)、return convention、runtime export 实际收口 |
 | 生态 | — | **65** | 21 个 framework binding (7×3) + sideEffects scope 修 + core 14 个 subpath exports + workspace:^ + LICENSE × 5 (commits c44f9a6, 291c4c4, 62d9dbb) | CHANGELOG/Changesets + 真 dist 验证 publint |
 | 性能 | 45 | **65** | bench 套件落地 (commit tick-1)：14 benchmarks across 4 files；real numbers — Signal 13-17 ns; VP typical-price 100k bars 5.59 ms; OB applyDelta 68 ns; snapshot 33 µs; anchored zoom 19.5 ns; origin-shift 9.3 ns. 6/7 自定 target 达标，1 接近 (VP 100k 5.59 vs <5 ms 目标) | 继续优化命中目标 + GPU compute path 落地后回归保护 |
 | 兼容性 | — | **50** | 5 包 peerDeps 合理（React 18/19, Vue 3.4+, Angular 17/18/19）；3 SSR 烟雾示例存在；examples 未跑过 | 浏览器矩阵 CI + SSR 实测 + WebGPU→WebGL fallback |
@@ -68,7 +68,7 @@
 |---|---|---|---|---|---|---|---|
 | B-1 | ~~建立 BENCH_CMD 套件~~ | — | — | — | — | **DONE** | 完成 tick 1, commit b-1 |
 | B-2 | **engine relocation** src/core/ → packages/core/src/engine/ | DX | 20 | 高（解锁 tsc --declaration + size-limit on dist） | L | HIGH | DX BLOCKER-009 close + pnpm -r build 成功 + dist 真实存在 |
-| B-3 | KLineChartError 错误基类 + 错误代码 + 迁移 54 处 throw | API | 35 | 中（错误生态长期收益） | M | MED | 所有 core throw 走 KLineChartError；error.code 枚举完整；测试覆盖 |
+| B-3 | ~~KLineChartError 基础类 + 14 throws + ai-runtime refactor~~ | — | — | — | — | **DONE (partial)** | tick 9 commit b-3 (errors.ts + 11 KLineChartErrorCode + 14 throw sites migrated + ChartSerializationError extends + isKLineChartError type-guard + 11 tests); B-3b queued for remaining ~40 throws |
 | B-4 | ~~5-动词 intake 统一~~ | — | — | — | — | **DONE** | 完成 tick 2, commit b-4 (5 controller 加 ingest/setData/append 别名 + @deprecated 老名) |
 | B-4b | ~~adapter 侧暴露 canonical verbs~~ | — | — | — | — | **DONE** | 完成 tick 3, commit b-4b (18 method additions × 4 binding shapes × 3 frameworks; 实际是 4 binding shapes 不是 7) |
 | B-5 | canonical Bar 类型（KLineData/OHLCV/BaseBar/AVWAPBar/VolumeProfileBar 统一） | API | 35 | 高（多处类型用到，对外稳定） | L | MED | 6 名字 → 1 (CanonicalBar) + 别名导出；Chinese stock domain 字段脱出 |
@@ -145,3 +145,4 @@
 | 6 | 2026-05-29 03:25 | B-8 TV parity matrix — docs/PARITY_MATRIX.md 252 行 / 51 ✅ / 47 ⚠️ / 15 ❌ / 6 🚫 / 8 PR packs; 组件完整性 55→68; **non-API axis 1/2 satisfied per T5 mandate**; tick 7 must continue non-API → B-7 demo or B-11 drawing pack | b-8 |
 | 7 | 2026-05-29 03:35 | B-9 MA family pack — 6 indicators (ALMA/T3/ZLEMA/LSMA/VIDYA/FRAMA) + 19 tests; 组件完整性 68→72; earned-evidence 45%→50.4%; **TRIBUNAL T5 mandate 2/2 satisfied**; tick 8 axis open | b-9 |
 | 8 | 2026-05-29 03:45 | B-10 oscillator pack — 6 oscillators (StochRSI/AO/UO/DPO/Fisher/STC) + 13 tests; 组件完整性 72→76; earned 50.4%→55.7%; **drift flag: tick 6/7/8 同 axis** — tick 9 must pivot (B-3 KLineChartError or B-7 demo) | b-10 |
+| 9 | 2026-05-29 03:55 | **B-3 partial** — KLineChartError base class + 11-code enum + 14 throw migrations (PriceScale × 8 / TimeScale × 2 / Footprint × 3 / AVWAP × 1) + ai-runtime ChartSerializationError extends KLineChartError + isKLineChartError type-guard + ai-runtime vitest aliases for source resolution + 11 new tests + 2 existing tests upgraded to assert stronger contract. All 575 tests green (+15) across 5 packages. **DX 60→62, API 62→67**. **PIVOT satisfied** (off 组件完整性 axis). Remaining ~40 throws queued as B-3b. | b-3 |

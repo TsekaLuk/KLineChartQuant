@@ -9,16 +9,28 @@
  * This is the safe-by-construction generative UI form §10.3 calls out.
  */
 
+import { KLineChartError, type KLineChartErrorCode } from '@klinechart-quant/core'
 import type { SerializedChartState } from './types'
 
 const SCHEMA_VERSION = 1 as const
 
-export class ChartSerializationError extends Error {
-    readonly code: string
-    constructor(code: string, message: string) {
-        super(message)
+/**
+ * Now an alias for the cross-package {@link KLineChartError} base
+ * (API audit BLOCKER-005). All codes used here
+ * (`INVALID_JSON` / `NOT_OBJECT` / `SCHEMA_VERSION_MISMATCH` /
+ * `INVALID_TIMESTAMP` / `MISSING_CONTROLLERS`) are part of
+ * {@link KLineChartErrorCode} and `instanceof KLineChartError` is true
+ * for instances thrown by `deserialize()`.
+ *
+ * Kept exported under the old name so existing consumers don't break;
+ * prefer `KLineChartError` going forward.
+ *
+ * @deprecated Use `KLineChartError` from `@klinechart-quant/core` instead.
+ */
+export class ChartSerializationError extends KLineChartError {
+    constructor(code: KLineChartErrorCode, message: string) {
+        super(code, message)
         this.name = 'ChartSerializationError'
-        this.code = code
     }
 }
 

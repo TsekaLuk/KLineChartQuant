@@ -26,6 +26,7 @@
  */
 
 import { createSignal, type Signal } from '../../reactivity'
+import { KLineChartError } from '../../errors'
 import {
     classifyExplicit,
     classifyLeeReady,
@@ -61,13 +62,13 @@ const DEFAULT_CONFIG: FootprintConfig = {
 
 function validateConfig(c: FootprintConfig): void {
     if (!(c.tickSize > 0)) {
-        throw new Error('FootprintController: tickSize must be > 0')
+        throw new KLineChartError('FOOTPRINT_TICKSIZE_INVALID', 'FootprintController: tickSize must be > 0')
     }
     if (!(c.barIntervalMs > 0) || !Number.isFinite(c.barIntervalMs)) {
-        throw new Error('FootprintController: barIntervalMs must be > 0')
+        throw new KLineChartError('FOOTPRINT_BAR_INTERVAL_INVALID', 'FootprintController: barIntervalMs must be > 0')
     }
     if (!(c.imbalanceRatio > 0)) {
-        throw new Error('FootprintController: imbalanceRatio must be > 0')
+        throw new KLineChartError('FOOTPRINT_RATIO_INVALID', 'FootprintController: imbalanceRatio must be > 0')
     }
 }
 

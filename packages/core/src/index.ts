@@ -12,3 +12,9 @@ export * from './components/footprint'
 export * from './components/anchoredVwap'
 export * from './components/mtfOverlay'
 export * from './indicators'
+export {
+    KLineChartError,
+    isKLineChartError,
+    type KLineChartErrorCode,
+    type KLineChartErrorOptions,
+} from './errors'

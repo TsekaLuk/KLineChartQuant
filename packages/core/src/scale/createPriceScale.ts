@@ -31,6 +31,7 @@
  */
 
 import { createSignal } from '../reactivity/signal'
+import { KLineChartError } from '../errors'
 import type { Signal } from '../reactivity/signal'
 import { createOriginShiftPolicy, type OriginShiftPolicy } from './originShift'
 import type { PriceScale, ScaleMode } from './types'
@@ -58,17 +59,19 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
     const initialHeight = config.initialHeight ?? 480
 
     if (!(initialVisibleMax >= initialVisibleMin)) {
-        throw new Error(
+        throw new KLineChartError(
+            'SCALE_RANGE_INVALID',
             `createPriceScale: initialVisibleMax (${initialVisibleMax}) must be >= initialVisibleMin (${initialVisibleMin})`,
         )
     }
     if (initialMode === 'log' && !(initialVisibleMin > 0)) {
-        throw new Error(
+        throw new KLineChartError(
+            'SCALE_LOG_REQUIRES_POSITIVE',
             `createPriceScale: log mode requires visibleMin > 0, got ${initialVisibleMin}`,
         )
     }
     if (!(initialHeight > 0)) {
-        throw new Error(`createPriceScale: initialHeight must be > 0, got ${initialHeight}`)
+        throw new KLineChartError('SCALE_HEIGHT_INVALID', `createPriceScale: initialHeight must be > 0, got ${initialHeight}`)
     }
 
     const mode = createSignal<ScaleMode>(initialMode)
@@ -168,7 +171,8 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
                 const min = visibleMin.peek()
                 const max = visibleMax.peek()
                 if (!(min > 0) || !(max > 0)) {
-                    throw new Error(
+                    throw new KLineChartError(
+                        'SCALE_LOG_REQUIRES_POSITIVE',
                         `PriceScale.setMode('log'): requires visibleMin > 0 and visibleMax > 0, got min=${min}, max=${max}`,
                     )
                 }
@@ -179,17 +183,20 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
         setVisibleRange(min: number, max: number): void {
             if (!guard()) return
             if (!Number.isFinite(min) || !Number.isFinite(max)) {
-                throw new Error(
+                throw new KLineChartError(
+                    'SCALE_RANGE_INVALID',
                     `PriceScale.setVisibleRange: both bounds must be finite, got min=${min}, max=${max}`,
                 )
             }
             if (max < min) {
-                throw new Error(
+                throw new KLineChartError(
+                    'SCALE_RANGE_INVALID',
                     `PriceScale.setVisibleRange: max (${max}) must be >= min (${min})`,
                 )
             }
             if (mode.peek() === 'log' && !(min > 0)) {
-                throw new Error(
+                throw new KLineChartError(
+                    'SCALE_LOG_REQUIRES_POSITIVE',
                     `PriceScale.setVisibleRange: log mode requires min > 0, got ${min}`,
                 )
             }
@@ -201,7 +208,7 @@ export function createPriceScale(config: PriceScaleConfig = {}): PriceScale {
         setHeight(h: number): void {
             if (!guard()) return
             if (!(h > 0)) {
-                throw new Error(`PriceScale.setHeight: height must be > 0, got ${h}`)
+                throw new KLineChartError('SCALE_HEIGHT_INVALID', `PriceScale.setHeight: height must be > 0, got ${h}`)
             }
             height.set(h)
         },

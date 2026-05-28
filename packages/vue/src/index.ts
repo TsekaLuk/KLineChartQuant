@@ -321,3 +321,17 @@ export const KMapPlugin = {
         app.component('KLineChart', KLineChart)
     },
 }
+
+// ---------------------------------------------------------------------------
+// Auto-register the production ChartControllerFactory
+//
+// Consumers don't need to call __setControllerFactory manually unless they
+// want to inject a custom backing (e.g. for testing). Contract tests
+// override via __setControllerFactory in their setup and reset to null in
+// afterEach, so this default registration is transparent to them.
+//
+// Importing the factory is side-effect-free at module load — the engine's
+// DOM access only happens when `createChart(opts)` is actually called.
+// ---------------------------------------------------------------------------
+import { createChartController } from '@klinechart-quant/core'
+__setControllerFactory(createChartController)

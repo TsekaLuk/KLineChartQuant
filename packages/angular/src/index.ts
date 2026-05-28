@@ -31,6 +31,7 @@ import type {
     KLineData,
     Signal as CoreSignal,
 } from '@klinechart-quant/core'
+import { createChartController } from '@klinechart-quant/core'
 
 export type { ChartController, ChartMountOptions, ChartControllerFactory } from '@klinechart-quant/core'
 
@@ -45,16 +46,18 @@ export const KLINE_CHART_THEME = new InjectionToken<'light' | 'dark'>(
 )
 
 /**
- * Factory used by `<kline-chart>` to produce a controller. Tests override
- * this with a mock factory; production wires it to the real chart engine
- * via `provideKLineChart({ factory })`.
+ * Factory used by `<kline-chart>` to produce a controller. Defaults to the
+ * production `createChartController` from `@klinechart-quant/core`, so
+ * consumers don't need to register it manually. Override per-application
+ * via `provideKLineChart({ factory })` — useful for tests that inject a
+ * mock factory.
  *
- * If unset, the component throws when mounted — matching the SSR-safe
- * "must not silently no-op" contract.
+ * The contract tests build their own Injector and supply the factory via
+ * `KLINE_CHART_FACTORY` directly, so this default is transparent to them.
  */
 export const KLINE_CHART_FACTORY = new InjectionToken<ChartControllerFactory | null>(
     'KLINE_CHART_FACTORY',
-    { providedIn: 'root', factory: () => null },
+    { providedIn: 'root', factory: (): ChartControllerFactory => createChartController },
 )
 
 // ---------------------------------------------------------------------------

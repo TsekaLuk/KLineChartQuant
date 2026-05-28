@@ -21,3 +21,15 @@ export {
     createIndicatorSelectorController,
     type IndicatorSelectorInit,
 } from './createIndicatorSelectorController'
+
+export {
+    createToolbarController,
+    type ToolbarInit,
+} from './createToolbarController'
+
+export {
+    createDrawingController,
+    type DrawingInit,
+} from './createDrawingController'
+
+export { createChartController } from './createChartController'

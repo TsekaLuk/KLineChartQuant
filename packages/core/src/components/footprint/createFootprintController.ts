@@ -325,6 +325,10 @@ export function createFootprintController(
         config,
         bars,
         cumulativeDelta,
+        // Canonical verb (API audit BLOCKER-001 harmonisation across
+        // VolumeProfile / OrderBookHeatmap / Footprint). Wired to the same
+        // implementation as `ingestTrade` so existing consumers keep working.
+        ingest: ingestTrade,
         ingestTrade,
         setConfig,
         reset,

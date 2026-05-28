@@ -338,13 +338,21 @@ export function createAnchoredVwapController(
         }) as T
     }
 
+    const guardedSetBars = guard(setBars, undefined as void)
+    const guardedAppendBar = guard(appendBar, undefined as void)
+
     return {
         anchors,
-        setBars: guard(setBars, undefined as void),
+        // Canonical verbs (API audit BLOCKER-001 harmonisation): `setData`
+        // for full replacement + `append` for single-item extension. Old
+        // names preserved as aliases for the deprecation window.
+        setData: guardedSetBars,
+        append: guardedAppendBar,
+        setBars: guardedSetBars,
         addAnchor: guard(addAnchor, null),
         removeAnchor: guard(removeAnchor, false),
         updateAnchor: guard(updateAnchor, false),
-        appendBar: guard(appendBar, undefined as void),
+        appendBar: guardedAppendBar,
         dispose,
     }
 }

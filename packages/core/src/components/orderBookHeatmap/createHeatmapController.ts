@@ -241,6 +241,9 @@ export function createHeatmapController(
 
     return {
         state,
+        // Canonical verb (API audit BLOCKER-001 harmonisation). Same impl
+        // as `ingestDelta` — existing consumers stay working.
+        ingest: ingestDelta,
         ingestDelta,
         forceSnapshot,
         replay,

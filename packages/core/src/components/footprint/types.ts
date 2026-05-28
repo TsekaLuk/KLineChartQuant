@@ -195,9 +195,21 @@ export interface FootprintController {
     readonly cumulativeDelta: Signal<ReadonlyArray<number>>
 
     /**
-     * Ingest one trade. `bid`/`ask` are optional and only consulted when
-     * the trade lacks an explicit flag AND the configured fallback is
-     * `lee-ready`.
+     * Ingest one trade — canonical method, aligned with the cross-controller
+     * `ingest()` convention (VolumeProfile, OrderBookHeatmap). `bid`/`ask` are
+     * optional and only consulted when the trade lacks an explicit
+     * `isBuyerMaker` flag AND the configured fallback is `lee-ready`.
+     *
+     * Closes API-audit BLOCKER-001 (5-verb intake proliferation) by
+     * harmonising on `ingest` as the stream-accumulator verb across
+     * `VolumeProfile`, `OrderBookHeatmap`, and `Footprint`.
+     */
+    ingest(trade: TradeWithFlag, bid?: number, ask?: number): void
+
+    /**
+     * @deprecated since 0.1.0-alpha.1 — use {@link FootprintController.ingest}.
+     * Kept as a non-removing alias for at least 6 months for migration. Will
+     * be removed in 0.2.0.
      */
     ingestTrade(trade: TradeWithFlag, bid?: number, ask?: number): void
 

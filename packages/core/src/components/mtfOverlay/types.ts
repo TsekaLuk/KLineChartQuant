@@ -97,8 +97,16 @@ export interface MtfController {
     readonly series: Signal<ReadonlyArray<ActiveMtfSeries>>
 
     /**
-     * Replace the base bar buffer in one shot and recompute every series.
+     * Replace the base bar buffer in one shot and recompute every series —
+     * canonical method, aligned with the cross-controller `setData()`
+     * convention (AnchoredVwapController). Closes API audit BLOCKER-001.
      * `baseIntervalMs` must evenly divide every series' `targetIntervalMs`.
+     */
+    setData(bars: ReadonlyArray<BaseBar>, baseIntervalMs: number): void
+
+    /**
+     * @deprecated since 0.1.0-alpha.1 — use {@link MtfController.setData}.
+     * Preserved as a non-removing alias for at least 6 months.
      */
     setBaseBars(bars: ReadonlyArray<BaseBar>, baseIntervalMs: number): void
 
@@ -122,9 +130,16 @@ export interface MtfController {
     ): boolean
 
     /**
-     * Append one base bar at the tail. Triggers a single per-series compute
-     * over the updated resampled bars — NOT a from-scratch recompute over the
-     * whole base buffer.
+     * Append one base bar at the tail — canonical method, aligned with the
+     * cross-controller `append()` convention (AnchoredVwapController).
+     * Triggers a single per-series compute over the updated resampled
+     * bars — NOT a from-scratch recompute over the whole base buffer.
+     */
+    append(bar: BaseBar): void
+
+    /**
+     * @deprecated since 0.1.0-alpha.1 — use {@link MtfController.append}.
+     * Preserved as a non-removing alias for at least 6 months.
      */
     appendBaseBar(bar: BaseBar): void
 

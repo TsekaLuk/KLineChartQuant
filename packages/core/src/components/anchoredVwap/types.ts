@@ -121,8 +121,15 @@ export interface AnchoredVwapController {
 
     /**
      * Replace the underlying bar series and recompute every active anchor
-     * from scratch. Call this when the chart loads a new symbol or zooms
-     * to a different time window.
+     * from scratch — canonical method, aligned with the cross-controller
+     * `setData()` convention (MtfController). Closes API audit BLOCKER-001
+     * (5-verb intake proliferation).
+     */
+    setData(bars: ReadonlyArray<AVWAPBar>): void
+
+    /**
+     * @deprecated since 0.1.0-alpha.1 — use {@link AnchoredVwapController.setData}.
+     * Preserved as a non-removing alias for at least 6 months.
      */
     setBars(bars: ReadonlyArray<AVWAPBar>): void
 
@@ -157,11 +164,18 @@ export interface AnchoredVwapController {
     ): boolean
 
     /**
-     * Append a single new bar to the end of the bar series. Each anchor's
+     * Append a single new bar — canonical method, aligned with the
+     * cross-controller `append()` convention (MtfController). Each anchor's
      * series is extended **incrementally** by one point — the running
      * cumulative sums make this O(1) per anchor per call. A full
      * `computeAnchoredVwap` after N appends produces the same result; see
      * the controller test that pins this equivalence.
+     */
+    append(bar: AVWAPBar): void
+
+    /**
+     * @deprecated since 0.1.0-alpha.1 — use {@link AnchoredVwapController.append}.
+     * Preserved as a non-removing alias for at least 6 months.
      */
     appendBar(bar: AVWAPBar): void
 

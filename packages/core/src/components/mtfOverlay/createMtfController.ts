@@ -86,7 +86,7 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
         }
     }
 
-    return {
+    const inner: MtfController = {
         series: seriesSignal,
 
         setBaseBars(bars, intervalMs): void {
@@ -155,5 +155,14 @@ export function createMtfController(init: CreateMtfControllerInit = {}): MtfCont
             disposed = true
             definitions.clear()
         },
+    }
+
+    // Canonical verbs (API audit BLOCKER-001): `setData` for full
+    // replacement, `append` for single-item extension. Old names
+    // preserved as aliases on the inner object for the deprecation window.
+    return {
+        ...inner,
+        setData: inner.setBaseBars,
+        append: inner.appendBaseBar,
     }
 }

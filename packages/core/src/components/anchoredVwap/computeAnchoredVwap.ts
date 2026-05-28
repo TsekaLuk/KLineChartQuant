@@ -66,6 +66,13 @@ import type { AVWAPBar, AVWAPPoint } from './types'
  *                    if `anchorIndex` would otherwise be invalid — this
  *                    mirrors the "no data, no work" convention used by
  *                    the volume-profile controller.
+ *
+ * @internal — building block used by the corresponding controller
+ *   factory. Reachable today via the top-level `@klinechart-quant/core`
+ *   barrel but **NOT part of the supported public API**. typedoc / api-
+ *   extractor hide it from generated docs. Prefer the controller
+ *   factory (e.g. `createVolumeProfileController`) for stable user code.
+ *   Closes API audit BLOCKER-002 (export * leakage taxonomy).
  */
 export function computeAnchoredVwap(
     bars: ReadonlyArray<AVWAPBar>,

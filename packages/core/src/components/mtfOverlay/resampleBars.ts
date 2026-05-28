@@ -28,6 +28,13 @@
 
 import type { BaseBar, ResampledBar } from './types'
 
+/**
+ * @internal — building block used by `createMtfController`. Reachable today
+ *   via the top-level `@klinechart-quant/core` barrel but **NOT
+ *   part of the supported public API**. typedoc / api-extractor
+ *   hide it from generated docs. Prefer the controller factory
+ *   for stable user code. Closes API audit BLOCKER-002.
+ */
 export function resampleBars(
     bars: ReadonlyArray<BaseBar>,
     baseIntervalMs: number,

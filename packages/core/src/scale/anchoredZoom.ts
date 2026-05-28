@@ -59,6 +59,13 @@ export interface AnchoredZoomResult {
 const DEFAULT_MIN_BAR_WIDTH = 0.5
 const DEFAULT_MAX_BAR_WIDTH = 200
 
+/**
+ * @internal — building block used by `createTimeScale / interaction handlers`. Reachable today
+ *   via the top-level `@klinechart-quant/core` barrel but **NOT
+ *   part of the supported public API**. typedoc / api-extractor
+ *   hide it from generated docs. Prefer the controller factory
+ *   for stable user code. Closes API audit BLOCKER-002.
+ */
 export function computeAnchoredZoom(opts: AnchoredZoomOptions): AnchoredZoomResult {
     const {
         mouseX,

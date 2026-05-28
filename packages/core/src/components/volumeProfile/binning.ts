@@ -44,6 +44,13 @@ import type { BinningMode, VolumeProfileBar } from './types'
  * @param binSize   Price width of one bucket.
  * @param binCount  Number of buckets (must equal `buckets.length`).
  * @param mode      `typical-price` (fast) or `proportional` (accurate).
+ *
+ * @internal — building block used by the corresponding controller
+ *   factory. Reachable today via the top-level `@klinechart-quant/core`
+ *   barrel but **NOT part of the supported public API**. typedoc / api-
+ *   extractor hide it from generated docs. Prefer the controller
+ *   factory (e.g. `createVolumeProfileController`) for stable user code.
+ *   Closes API audit BLOCKER-002 (export * leakage taxonomy).
  */
 export function binBarToBuckets(
     bar: VolumeProfileBar,

@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * FRAMA — Fractal Adaptive Moving Average (John Ehlers, 2005).
  *
@@ -40,7 +41,7 @@ function rangeMaxMin(arr: ReadonlyArray<number>, start: number, end: number): {
 export function computeFRAMA(prices: ReadonlyArray<number>, opts: FramaOptions): Float64Array {
     const { period } = opts
     if (period < 4 || period % 2 !== 0 || !Number.isFinite(period)) {
-        throw new Error('computeFRAMA: period must be even and >= 4')
+        throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeFRAMA: period must be even and >= 4')
     }
 
     const n = prices.length

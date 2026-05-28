@@ -17,6 +17,7 @@
  */
 
 import type { LogColorScale } from './types'
+import { KLineChartError } from '../../errors'
 
 export function createLogColorScale(
     sizeMin: number,
@@ -65,12 +66,12 @@ export function createLogColorScale(
 
 function validate(lo: number, hi: number): void {
     if (!(lo > 0) || !Number.isFinite(lo)) {
-        throw new Error('createLogColorScale: sizeMin must be a positive finite number')
+        throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'createLogColorScale: sizeMin must be a positive finite number')
     }
     if (!(hi > 0) || !Number.isFinite(hi)) {
-        throw new Error('createLogColorScale: sizeMax must be a positive finite number')
+        throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'createLogColorScale: sizeMax must be a positive finite number')
     }
     if (hi < lo) {
-        throw new Error('createLogColorScale: sizeMax must be ≥ sizeMin')
+        throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'createLogColorScale: sizeMax must be ≥ sizeMin')
     }
 }

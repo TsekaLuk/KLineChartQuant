@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * ZLEMA — Zero-Lag Exponential Moving Average (Ehlers).
  *
@@ -16,7 +17,7 @@ export interface ZlemaOptions {
 
 export function computeZLEMA(prices: ReadonlyArray<number>, opts: ZlemaOptions): Float64Array {
     const { period } = opts
-    if (period < 2 || !Number.isFinite(period)) throw new Error('computeZLEMA: period must be >= 2')
+    if (period < 2 || !Number.isFinite(period)) throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeZLEMA: period must be >= 2')
 
     const out = new Float64Array(prices.length)
     const lag = Math.floor((period - 1) / 2)

@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * Fisher Transform — John Ehlers (2002).
  *
@@ -24,7 +25,7 @@ export function computeFisherTransform(
 ): { fisher: Float64Array; trigger: Float64Array } {
     const { period } = opts
     if (period < 2 || !Number.isFinite(period)) {
-        throw new Error('computeFisherTransform: period must be >= 2')
+        throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeFisherTransform: period must be >= 2')
     }
     const n = bars.length
     const fisher = new Float64Array(n)

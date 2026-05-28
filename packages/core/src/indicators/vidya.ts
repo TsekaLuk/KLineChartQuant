@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * VIDYA — Variable Index Dynamic Average (Tushar Chande).
  *
@@ -25,9 +26,9 @@ export interface VidyaOptions {
 export function computeVIDYA(prices: ReadonlyArray<number>, opts: VidyaOptions): Float64Array {
     const { period } = opts
     const cmoPeriod = opts.cmoPeriod ?? 9
-    if (period < 2 || !Number.isFinite(period)) throw new Error('computeVIDYA: period must be >= 2')
+    if (period < 2 || !Number.isFinite(period)) throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeVIDYA: period must be >= 2')
     if (cmoPeriod < 1 || !Number.isFinite(cmoPeriod)) {
-        throw new Error('computeVIDYA: cmoPeriod must be >= 1')
+        throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeVIDYA: cmoPeriod must be >= 1')
     }
 
     const n = prices.length

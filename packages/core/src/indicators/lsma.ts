@@ -1,3 +1,4 @@
+import { KLineChartError } from '../errors'
 /**
  * LSMA — Least-Squares (Linear Regression) Moving Average.
  *
@@ -21,7 +22,7 @@ export interface LsmaOptions {
 
 export function computeLSMA(prices: ReadonlyArray<number>, opts: LsmaOptions): Float64Array {
     const { period } = opts
-    if (period < 2 || !Number.isFinite(period)) throw new Error('computeLSMA: period must be >= 2')
+    if (period < 2 || !Number.isFinite(period)) throw new KLineChartError('INDICATOR_INVALID_PARAM', 'computeLSMA: period must be >= 2')
 
     const out = new Float64Array(prices.length)
     const xbar = (period - 1) / 2

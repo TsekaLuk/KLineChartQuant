@@ -20,6 +20,7 @@ import type {
     OrderBookState,
     OrderBookStateOptions,
 } from './types'
+import { KLineChartError } from '../../errors'
 
 const EMPTY: ReadonlyArray<readonly [number, number]> = []
 
@@ -27,7 +28,7 @@ export function createOrderBookState(
     opts: OrderBookStateOptions,
 ): OrderBookState {
     if (!(opts.tickSize > 0) || !Number.isFinite(opts.tickSize)) {
-        throw new Error('createOrderBookState: tickSize must be a positive finite number')
+        throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'createOrderBookState: tickSize must be a positive finite number')
     }
     const tickSize = opts.tickSize
     const maxLevels =

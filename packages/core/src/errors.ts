@@ -50,6 +50,10 @@ export type KLineChartErrorCode =
     | 'FOOTPRINT_RATIO_INVALID'
     // anchoredVwap
     | 'AVWAP_ANCHOR_OUT_OF_RANGE'
+    // indicators (shared — every indicator validates inputs the same way)
+    | 'INDICATOR_INVALID_PARAM'
+    // orderBookHeatmap (controller + logColorScale + state + snapshotRing)
+    | 'HEATMAP_CONFIG_INVALID'
     // serialization
     | 'SCHEMA_VERSION_MISMATCH'
     | 'INVALID_JSON'

@@ -13,10 +13,11 @@
  */
 
 import type { BookSnapshot, SnapshotRing } from './types'
+import { KLineChartError } from '../../errors'
 
 export function createSnapshotRing(capacity: number): SnapshotRing {
     if (!Number.isInteger(capacity) || capacity <= 0) {
-        throw new Error('createSnapshotRing: capacity must be a positive integer')
+        throw new KLineChartError('HEATMAP_CONFIG_INVALID', 'createSnapshotRing: capacity must be a positive integer')
     }
     const cap = capacity
     const slots: Array<BookSnapshot | null> = new Array(cap).fill(null)

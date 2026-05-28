@@ -378,3 +378,43 @@ P1 阶段，作者做 WebGPU renderer、compute shader、环形 buffer、origin-
 ---
 
 *本文档是 v0 之后的工程蓝图，P1 是紧接的下一步，也是最硬的一块。建议以 P1 的 WebGPU renderer 接口设计与三个差异化组件的数据模型作为第一个迭代周期的目标。*
+
+---
+
+## 10. 下一阶段战略指令（2026-05-29 加入）
+
+**目标定调**：「**复刻 + 超越 TradingView，以 AI Native 体验作为决定性差异化**」。
+
+### 10.1 TV 反向工程
+
+把 TradingView 全量公开 docs（官方 docs、Help Center、Pine Script reference、UDF/Datafeed 规范、Charting Library JS API、Mobile/Desktop quick-references、release notes、Trader 教育内容）系统性下载与归档到 `docs/tradingview-archive/`，并产出三类衍生物：
+
+1. **Feature inventory**: 每个 TV 功能逐项映射到我们的实现状态（`SUPERSEDED / GAP-easy / GAP-hard / OUT-OF-SCOPE`），扩展 `docs/COMPETITIVE_ANALYSIS.md` 的初版列表。
+2. **UX behavior trace**: 关键交互（缩放、十字光标、绘图、抽屉、弹层、模板、保存/加载、副图组合、对齐）的"逐步 keystroke 记录" — 不是描述"是什么"，而是描述"做这一步用户感知到了什么"。这层是 TV 真正的护城河，比 feature list 重要。
+3. **Visual + microcopy lexicon**: 文案、icon、tooltip、错误信息、空状态、加载态 — 一份"可复用的体验词典"，让我们的 UI 不在用词层面输给 TV。
+
+### 10.2 复刻 UX 的边界
+
+「复刻」≠ 抄袭。我们 follow TV 已被市场反复验证的交互（鼠标手势、键盘快捷键、面板组合、绘图模板的存储语义），但 **绝不抄文案、icon、配色、视觉资产**。每一个 UX 决策都要在 `docs/UX_DECISIONS.md` 留下三行记录：TV 是怎么做的、我们这么做的理由、我们与 TV 的差异点。
+
+### 10.3 AI Native 体验全面超越
+
+这是 P4 的承诺、P5 的爆发点。在 TV 已有的所有 UX 之上，加一个 **持续在线的对话与代理能力层**：
+
+- **Co-pilot mode**: 任何 UI 操作可被自然语言代理（命令式 API + MCP tool schema 已在 P4 落地）
+- **解读层**: 给任意指标/形态/订单流状态附一个 `describe()` 输出，LLM 读它生成解读
+- **预案层**: 用户可保存 "AI 看图模板"（基于状态序列化），LLM 加载后给出多空 setup 建议
+- **教学层**: 新手开图，AI 把当前画面的形态、指标含义、入场逻辑用 1 段话讲清楚（this is 真的 surpass TV 的 differentiator —— 用户教学成本砍 10x）
+- **协作层**: 多个 LLM/Agent 可在同一张图上协同（社交交易的雏形）
+
+所有这些 **绝不写入 core 渲染** — core 只负责命令式 API + 状态序列化 + describe；AI 编排在独立 `@klinechart-quant/ai-runtime` 包里 sit on top。这样 AI 能力的失败永远不影响图本身的稳定性。
+
+### 10.4 执行节奏
+
+1. **Phase 10-1**（接下来 1-2 周）：TV docs 全量抓取 + 归档 + 初版 inventory（10.1 §1 + §2 起步）
+2. **Phase 10-2**：UX_DECISIONS.md 用前 20 项关键交互填表（10.2）
+3. **Phase 10-3**：P4 命令式 API + MCP tool schema + describe + state serialization 落地（已经在 ROADMAP §6 里）
+4. **Phase 10-4**：`@klinechart-quant/ai-runtime` 第一版 — co-pilot mode 最小可用形态（10.3 §1 + §2）
+5. **Phase 10-5**：教学层 demo（10.3 §4）— 用一个真实币种的真实形态做 case study，证明 AI 教学比看 TV 文档省 80% 时间
+
+每一个 Phase 都有可验证的产出物。停止条件：Phase 10-5 demo 视频在交易员社区被传播超过一定阈值（市场拉力达到，进入 P5）。

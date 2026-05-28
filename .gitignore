@@ -40,3 +40,8 @@ docs/TradingView级别像素对齐技术.md
 
 # Memory bank
 .memorybank/
+
+# TradingView reverse-engineering archive (research material, NOT source)
+# Generated locally by deep-scrape agents; never committed.
+docs/tradingview-archive/
+docs/UX_DECISIONS.md

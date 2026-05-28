@@ -39,7 +39,7 @@
 
 | 维度 | 上轮 | 本轮 | 证据 | 缺口/目标 |
 |---|---|---|---|---|
-| 组件完整性 | 68 | **72** | **B-9 MA family pack (commit b-9): 6 indicators in `packages/core/src/indicators/` (ALMA/T3/ZLEMA/LSMA/VIDYA/FRAMA) + 19 tests**；PARITY_MATRIX 6 行 ⚠️→✅；earned-evidence 45% → 50.4% (57/113) | B-10 oscillator pack / B-11 drawing pack |
+| 组件完整性 | 72 | **76** | **B-10 oscillator pack (commit b-10): 6 osc in `packages/core/src/indicators/` (StochRSI/AO/UO/DPO/Fisher/STC) + 13 tests**；PARITY_MATRIX 6 行 ⚠️→✅；earned-evidence 50.4%→55.7% (63/113) | tick 9 pivot 非组件完整性 axis (3 ticks 同维度 drift 风险) |
 | UX | — | **45** | anchored zoom 误差 10⁻¹³ px (commit e913fa1)；origin-shift threshold rebaseline 3× 抑制；但无真实运行图表验证 | 真实 demo 渲染 + 交互保真清单 |
 | DX | — | **60** | 4 publishable packages + READMEs + LICENSEs + tsconfig.build × 5 + ai-runtime；DX audit 9 BLOCKER closed 6 (docs/audit/DX_RESPONSE.md) | npm install reality + 真 dist + 错误信息基础类 |
 | API | 58 | **62** | 5 包 contract test 绿；dispose silent no-op 统一；intake 动词全栈统一 (b-4 + b-4b)；**BLOCKER-002 export * 8 内部 helper @internal 标记 (commit b-6 partial)** — typedoc / api-extractor 现在隐藏；runtime 移除留 0.2.0 | canonical Bar、KLineChartError、return convention、runtime export 实际收口 |
@@ -77,7 +77,7 @@
 | B-7 | Demo / playground app（next-app 真实接入数据 + 渲染图表） | UX/美学 | 35/50 | 高（解锁 UX + 美学 + 视觉回归） | L | MED | examples/next-app 跑 binance ws → 真实 K 线 + 1 个指标 + crosshair |
 | B-8 | ~~TV feature parity 矩阵~~ | — | — | — | — | **DONE** | tick 6, commit b-8 (252 行 / 113 in-scope / 8 pack 排好) |
 | B-9 | ~~MA family completion pack~~ | — | — | — | — | **DONE** | tick 7 commit b-9 (6 indicators in `packages/core/src/indicators/` + 19 tests; close-input FRAMA variant) |
-| B-10 | Oscillator completion pack (StochRSI/AO/UO/DPO/Fisher/Schaff) | 组件完整性 | 12 | 中 | M | LOW | 6 indicators + tests |
+| B-10 | ~~Oscillator completion pack~~ | — | — | — | — | **DONE** | tick 8 commit b-10 (6 oscillators + 13 tests + mixed input signatures documented) |
 | B-11 | Drawing primary lines pack (line/ray/extended/parallel/rect/text) | 组件完整性 | 12 | 高 (drawing 现 12 个, 加 7 个 +58%) | M | MED | 7 drawing tools + tests + hit-test |
 | B-9 | Indicator pack #1（MA 全家 + 振荡器 5 个）补齐 | 组件完整性 | 25 | 中 | M | LOW | 至少 10 个 indicator 实现 + test 覆盖 |
 | B-10 | Visual regression baseline（playwright + percy 替代） | 美学 | 50 | 中 | M | LOW | 5 个基线快照 |
@@ -144,3 +144,4 @@
 | 5 | 2026-05-29 03:15 | **TRIBUNAL** — T1 full sweep ✓ (517+1 + 589); T2 bench replay ✓ (14/14 stable or better); T3 DONE_LOG sample ✓ (11/11) persisted as _tribunal.test.ts; T4 score audit no inflation; **T5 mission drift CAUGHT** — 4/5 ticks API-heavy → next 2 ticks must non-API (B-8 + B-7) | tribunal |
 | 6 | 2026-05-29 03:25 | B-8 TV parity matrix — docs/PARITY_MATRIX.md 252 行 / 51 ✅ / 47 ⚠️ / 15 ❌ / 6 🚫 / 8 PR packs; 组件完整性 55→68; **non-API axis 1/2 satisfied per T5 mandate**; tick 7 must continue non-API → B-7 demo or B-11 drawing pack | b-8 |
 | 7 | 2026-05-29 03:35 | B-9 MA family pack — 6 indicators (ALMA/T3/ZLEMA/LSMA/VIDYA/FRAMA) + 19 tests; 组件完整性 68→72; earned-evidence 45%→50.4%; **TRIBUNAL T5 mandate 2/2 satisfied**; tick 8 axis open | b-9 |
+| 8 | 2026-05-29 03:45 | B-10 oscillator pack — 6 oscillators (StochRSI/AO/UO/DPO/Fisher/STC) + 13 tests; 组件完整性 72→76; earned 50.4%→55.7%; **drift flag: tick 6/7/8 同 axis** — tick 9 must pivot (B-3 KLineChartError or B-7 demo) | b-10 |

@@ -41,19 +41,19 @@
 |---|---|---|---|
 | RSI | yes | ✅ SUPERSEDED | `src/core/indicators/rsiState.ts` |
 | Stochastic | yes | ✅ SUPERSEDED | `src/core/indicators/stochState.ts` |
-| Stoch RSI | yes | ⚠️ GAP-easy | new — composes Stoch + RSI |
+| Stoch RSI | yes | ✅ SUPERSEDED | `packages/core/src/indicators/stochRSI.ts` (tick 8 b-10) |
 | MACD | yes | ✅ SUPERSEDED | `src/core/indicators/macdState.ts` |
 | CCI | yes | ✅ SUPERSEDED | `src/core/indicators/cciState.ts` |
 | Williams %R | yes | ✅ SUPERSEDED | `src/core/indicators/wmsrState.ts` |
-| Awesome Oscillator | yes | ⚠️ GAP-easy | new |
+| Awesome Oscillator | yes | ✅ SUPERSEDED | `packages/core/src/indicators/awesomeOscillator.ts` (tick 8 b-10) |
 | ROC | yes | ✅ SUPERSEDED | `src/core/indicators/rocState.ts` |
 | MOM | yes | ✅ SUPERSEDED | `src/core/indicators/momState.ts` |
 | TRIX | yes | ✅ SUPERSEDED | `src/core/indicators/trixState.ts` |
 | KST | yes | ✅ SUPERSEDED | `src/core/indicators/kstState.ts` |
-| Ultimate Oscillator | yes | ⚠️ GAP-easy | new |
-| DPO | yes | ⚠️ GAP-easy | new |
-| Fisher Transform | yes | ⚠️ GAP-easy | new |
-| Schaff Trend Cycle | yes | ⚠️ GAP-easy | new |
+| Ultimate Oscillator | yes | ✅ SUPERSEDED | `packages/core/src/indicators/ultimateOscillator.ts` (tick 8 b-10) |
+| DPO | yes | ✅ SUPERSEDED | `packages/core/src/indicators/dpo.ts` (tick 8 b-10) |
+| Fisher Transform | yes | ✅ SUPERSEDED | `packages/core/src/indicators/fisherTransform.ts` (tick 8 b-10) |
+| Schaff Trend Cycle | yes | ✅ SUPERSEDED | `packages/core/src/indicators/schaffTrendCycle.ts` (tick 8 b-10) |
 
 ### 1.3 Volatility
 

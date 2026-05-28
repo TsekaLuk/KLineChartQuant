@@ -138,3 +138,4 @@
 | 2 | 2026-05-29 02:50 | B-4 unify intake verbs (ingest/setData/append) — 5 controllers, additive aliases, 老名 @deprecated; API 45→52; B-4b adapter exposure next | b-4 |
 | 3 | 2026-05-29 03:00 | B-4b adapter canonical verb exposure — 18 method additions × 3 frameworks (React/Vue/Angular); API 52→58; B-6 export * 收口 next | b-4b |
 | 4 | 2026-05-29 03:10 | B-6 partial — 8 internal helpers tagged @internal (typedoc/api-extractor docs surface fix); API 58→62; runtime removal queued as B-6b at 0.2.0; B-8 TV parity matrix next | b-6 |
+| 5 | 2026-05-29 03:15 | **TRIBUNAL** — T1 full sweep ✓ (517+1 + 589); T2 bench replay ✓ (14/14 stable or better); T3 DONE_LOG sample ✓ (11/11) persisted as _tribunal.test.ts; T4 score audit no inflation; **T5 mission drift CAUGHT** — 4/5 ticks API-heavy → next 2 ticks must non-API (B-8 + B-7) | tribunal |

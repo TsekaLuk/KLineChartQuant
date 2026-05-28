@@ -51,6 +51,8 @@ import type {
     OBVSchedulerConfig,
     PVTSchedulerConfig,
     VWAPSchedulerConfig,
+    CMFSchedulerConfig,
+    MFISchedulerConfig,
     IndicatorConfigSnapshot,
     IndicatorSeriesBundle,
 } from './workerProtocol'
@@ -135,6 +137,10 @@ import type { PVTRenderState } from './pvtState'
 import { createPVTStateKey } from './pvtState'
 import type { VWAPRenderState } from './vwapState'
 import { createVWAPStateKey, DEFAULT_VWAP_SESSION_GAP_MS } from './vwapState'
+import type { CMFRenderState } from './cmfState'
+import { createCMFStateKey, DEFAULT_CMF_PERIOD } from './cmfState'
+import type { MFIRenderState } from './mfiState'
+import { createMFIStateKey, DEFAULT_MFI_PERIOD } from './mfiState'
 
 /**
  * 可见范围
@@ -173,6 +179,8 @@ type VisibleSubIndicatorMask = {
     obv: boolean
     pvt: boolean
     vwap: boolean
+    cmf: boolean
+    mfi: boolean
 }
 
 // 重新导出配置类型（保持向后兼容）
@@ -208,6 +216,8 @@ export type {
     OBVSchedulerConfig,
     PVTSchedulerConfig,
     VWAPSchedulerConfig,
+    CMFSchedulerConfig,
+    MFISchedulerConfig,
 }
 
 /**
@@ -396,6 +406,8 @@ export class IndicatorScheduler {
             obv: { showOBV: true },
             pvt: { showPVT: true },
             vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
+            cmf: { period: DEFAULT_CMF_PERIOD, showCMF: true },
+            mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
             rsiPaneId: 'sub_RSI',
             cciPaneId: 'sub_CCI',
             stochPaneId: 'sub_STOCH',
@@ -424,6 +436,8 @@ export class IndicatorScheduler {
             obvPaneId: 'sub_OBV',
             pvtPaneId: 'sub_PVT',
             vwapPaneId: 'sub_VWAP',
+            cmfPaneId: 'sub_CMF',
+            mfiPaneId: 'sub_MFI',
         }
     }
 
@@ -746,6 +760,18 @@ export class IndicatorScheduler {
             const vwapKey = createVWAPStateKey(this.configSnapshot.vwapPaneId)
             this.pluginHost.setSharedState<VWAPRenderState>(vwapKey, states.vwap, 'indicator_scheduler')
         }
+
+        // CMF
+        if (changed.has('cmf')) {
+            const cmfKey = createCMFStateKey(this.configSnapshot.cmfPaneId)
+            this.pluginHost.setSharedState<CMFRenderState>(cmfKey, states.cmf, 'indicator_scheduler')
+        }
+
+        // MFI
+        if (changed.has('mfi')) {
+            const mfiKey = createMFIStateKey(this.configSnapshot.mfiPaneId)
+            this.pluginHost.setSharedState<MFIRenderState>(mfiKey, states.mfi, 'indicator_scheduler')
+        }
     }
 
     private updateVisibleStatesOnly(): void {
@@ -867,6 +893,14 @@ export class IndicatorScheduler {
         // VWAP
         const vwapKey = createVWAPStateKey(this.configSnapshot.vwapPaneId)
         this.pluginHost.setSharedState<VWAPRenderState>(vwapKey, states.vwap, 'indicator_scheduler')
+
+        // CMF
+        const cmfKey = createCMFStateKey(this.configSnapshot.cmfPaneId)
+        this.pluginHost.setSharedState<CMFRenderState>(cmfKey, states.cmf, 'indicator_scheduler')
+
+        // MFI
+        const mfiKey = createMFIStateKey(this.configSnapshot.mfiPaneId)
+        this.pluginHost.setSharedState<MFIRenderState>(mfiKey, states.mfi, 'indicator_scheduler')
     }
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
@@ -900,6 +934,8 @@ export class IndicatorScheduler {
             obv: activeIds.includes(this.configSnapshot.obvPaneId),
             pvt: activeIds.includes(this.configSnapshot.pvtPaneId),
             vwap: activeIds.includes(this.configSnapshot.vwapPaneId),
+            cmf: activeIds.includes(this.configSnapshot.cmfPaneId),
+            mfi: activeIds.includes(this.configSnapshot.mfiPaneId),
         }
     }
 
@@ -909,7 +945,7 @@ export class IndicatorScheduler {
         if (activeIds.length === 0) return { ...this.configSnapshot }
 
         const cfg: Record<string, unknown> = { ...this.configSnapshot }
-        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap'] as const
+        const subKeys = ['rsi', 'cci', 'stoch', 'mom', 'wmsr', 'kst', 'fastk', 'macd', 'atr', 'wma', 'dema', 'tema', 'hma', 'kama', 'sar', 'supertrend', 'keltner', 'donchian', 'ichimoku', 'roc', 'trix', 'hv', 'parkinson', 'chaikinVol', 'vma', 'obv', 'pvt', 'vwap', 'cmf', 'mfi'] as const
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
@@ -1300,6 +1336,22 @@ export class IndicatorScheduler {
     updateVWAPConfig(config: Partial<VWAPSchedulerConfig>, paneId?: string): void {
         if (paneId !== undefined) this.configSnapshot.vwapPaneId = paneId
         this.configSnapshot.vwap = { ...this.configSnapshot.vwap, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** CMF 配置变更 */
+    updateCMFConfig(config: Partial<CMFSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.cmfPaneId = paneId
+        this.configSnapshot.cmf = { ...this.configSnapshot.cmf, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** MFI 配置变更 */
+    updateMFIConfig(config: Partial<MFISchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.mfiPaneId = paneId
+        this.configSnapshot.mfi = { ...this.configSnapshot.mfi, ...config }
         this.configVersion++
         this.triggerRecompute()
     }

@@ -335,3 +335,45 @@ export const KMapPlugin = {
 // ---------------------------------------------------------------------------
 import { createChartController } from '@klinechart-quant/core'
 __setControllerFactory(createChartController)
+
+// Re-export the 7 controller-level composables from `./composables/`.
+// Pair with the existing useChart + useIndicatorSelector to give every
+// public controller in @klinechart-quant/core an idiomatic Vue 3 binding.
+export {
+    useAlerts,
+    useReplay,
+    useFootprint,
+    useVolumeProfile,
+    useAnchoredVwap,
+    useOrderBookHeatmap,
+    useMtfOverlay,
+} from './composables'
+
+export type {
+    UseAlertsOpts,
+    UseAlertsResult,
+} from './composables/useAlerts'
+export type {
+    UseReplayOpts,
+    UseReplayResult,
+} from './composables/useReplay'
+export type {
+    UseFootprintOpts,
+    UseFootprintResult,
+} from './composables/useFootprint'
+export type {
+    UseVolumeProfileOpts,
+    UseVolumeProfileResult,
+} from './composables/useVolumeProfile'
+export type {
+    UseAnchoredVwapOpts,
+    UseAnchoredVwapResult,
+} from './composables/useAnchoredVwap'
+export type {
+    UseOrderBookHeatmapOpts,
+    UseOrderBookHeatmapResult,
+} from './composables/useOrderBookHeatmap'
+export type {
+    UseMtfOverlayOpts,
+    UseMtfOverlayResult,
+} from './composables/useMtfOverlay'

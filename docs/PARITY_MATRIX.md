@@ -27,12 +27,12 @@
 | TEMA | yes | ✅ SUPERSEDED | `src/core/indicators/temaState.ts` |
 | HMA | yes | ✅ SUPERSEDED | `src/core/indicators/hmaState.ts` |
 | KAMA | yes | ✅ SUPERSEDED | `src/core/indicators/kamaState.ts` |
-| ALMA | yes | ⚠️ GAP-easy | new — `src/core/indicators/almaState.ts` |
-| T3 | yes | ⚠️ GAP-easy | new — `src/core/indicators/t3State.ts` |
-| ZLEMA | yes | ⚠️ GAP-easy | new — `src/core/indicators/zlemaState.ts` |
-| VIDYA | yes | ⚠️ GAP-easy | new — `src/core/indicators/vidyaState.ts` |
-| FRAMA | yes | ⚠️ GAP-easy | new |
-| LSMA (linreg) | yes | ⚠️ GAP-easy | new |
+| ALMA | yes | ✅ SUPERSEDED | `packages/core/src/indicators/alma.ts` (tick 7 b-9) |
+| T3 | yes | ✅ SUPERSEDED | `packages/core/src/indicators/t3.ts` (tick 7 b-9) |
+| ZLEMA | yes | ✅ SUPERSEDED | `packages/core/src/indicators/zlema.ts` (tick 7 b-9) |
+| VIDYA | yes | ✅ SUPERSEDED | `packages/core/src/indicators/vidya.ts` (tick 7 b-9) |
+| FRAMA | yes | ✅ SUPERSEDED (close-input variant — documented divergence vs H/L) | `packages/core/src/indicators/frama.ts` (tick 7 b-9) |
+| LSMA (linreg) | yes | ✅ SUPERSEDED | `packages/core/src/indicators/lsma.ts` (tick 7 b-9) |
 | Anchored MA | no | ❌ GAP-hard — sit on top of our `AnchoredVwapController` pattern; new component | new package or extension to `anchoredVwap/` |
 
 ### 1.2 Oscillators

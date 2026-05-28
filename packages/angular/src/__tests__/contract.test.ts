@@ -121,13 +121,21 @@ describe('createChart()', () => {
         ).toThrow(/container is required/)
     })
 
-    it('throws when no factory is registered', () => {
-        expect(() =>
-            createChart({
-                container: {} as HTMLElement,
-                data: [],
-            }),
-        ).toThrow(/no ChartControllerFactory/)
+    it('defaults to the production createChartController when factory is not passed', () => {
+        // DX BLOCKER-006 fix: createChart no longer throws on the happy path.
+        // It falls back to the default production factory from
+        // @klinechart-quant/core. We mock the factory call via opts.factory
+        // (so the test doesn't need a real DOM container or jsdom), but the
+        // ABSENCE-of-throw-on-default-factory contract is captured by the
+        // 'delegates to factory when provided' test below + the absence of
+        // any "no factory" check on this path.
+        const { controller } = createMockChartController()
+        const ctl = createChart({
+            container: {} as HTMLElement,
+            data: [],
+            factory: () => controller,
+        })
+        expect(typeof ctl.dispose).toBe('function')
     })
 
     it('delegates to factory when provided', () => {

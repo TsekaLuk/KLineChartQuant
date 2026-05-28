@@ -118,12 +118,16 @@ export function coreSignalToAngular<T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Imperative escape hatch. Mirrors React/Vue. Throws if container is null
- * (we never half-mount). If no factory is registered via
- * `provideKLineChart({ factory })`, throws so callers cannot silently no-op.
+ * Imperative escape hatch. Mirrors React/Vue.
  *
- * For pure imperative usage (outside an Angular DI context), callers can
- * pass `opts.factory` directly.
+ * Defaults to the production `createChartController` from
+ * `@klinechart-quant/core` — the same factory the standalone component uses
+ * when no DI override is provided. Callers can pass `opts.factory` to
+ * substitute (e.g. mock in tests, or wire a custom backing engine).
+ *
+ * Throws only when `container` is null/undefined (the one truly unrecoverable
+ * pre-condition). Closes DX BLOCKER-006: no spurious factory-not-registered
+ * error on the happy path.
  */
 export function createChart(
     opts: ChartMountOptions & { factory?: ChartControllerFactory },
@@ -131,12 +135,9 @@ export function createChart(
     if (opts.container === null || opts.container === undefined) {
         throw new Error('createChart: container is required')
     }
-    if (typeof opts.factory !== 'function') {
-        throw new Error(
-            'createChart: no ChartControllerFactory provided. Pass `factory` in opts or register one via provideKLineChart({ factory }).',
-        )
-    }
-    const { factory, ...mountOpts } = opts
+    const factory: ChartControllerFactory = opts.factory ?? createChartController
+    const { factory: _ignored, ...mountOpts } = opts
+    void _ignored
     return factory(mountOpts)
 }
 

@@ -23,7 +23,7 @@
         "test": "vitest run"
     },
     "peerDependencies": {
-        "@klinechart-quant/core": "workspace:*"
+        "@klinechart-quant/core": "workspace:^"
     },
     "devDependencies": {
         "typescript": "~5.6.0",

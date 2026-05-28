@@ -4,9 +4,12 @@
  * React 18/19 bindings that bridge zero-dep core signals to React rendering
  * via `useSyncExternalStore`. SSR-safe: no DOM access at module scope.
  *
- * Pluggable factory: tests inject a mock controller via `__setChartFactory`.
- * Production builds will register the real factory from
- * `@klinechart-quant/core/controllers/createChartController` (Phase 1 deliverable).
+ * **Production users do NOT need to register a factory.** The production
+ * `createChartController` from `@klinechart-quant/core` is auto-registered
+ * at the bottom of this module — `useChart` / `<KLineChart>` work out of
+ * the box. The `__setChartFactory` export exists ONLY so tests can inject a
+ * mock controller in `beforeEach` and reset in `afterEach`; the double
+ * underscore is the universal "internal but not literally private" signal.
  */
 
 import {
@@ -252,3 +255,45 @@ export const KLineChart: FC<KLineChartProps> = ({
 // ---------------------------------------------------------------------------
 import { createChartController } from '@klinechart-quant/core'
 __setChartFactory(createChartController)
+
+// Re-export the 7 controller-level hooks from `./hooks/`. These pair with
+// the existing useChart + useIndicatorSelector to give every public
+// controller in @klinechart-quant/core an idiomatic React binding.
+export {
+    useAlerts,
+    useReplay,
+    useFootprint,
+    useVolumeProfile,
+    useAnchoredVwap,
+    useOrderBookHeatmap,
+    useMtfOverlay,
+} from './hooks'
+
+export type {
+    UseAlertsOpts,
+    UseAlertsResult,
+} from './hooks/useAlerts'
+export type {
+    UseReplayOpts,
+    UseReplayResult,
+} from './hooks/useReplay'
+export type {
+    UseFootprintOpts,
+    UseFootprintResult,
+} from './hooks/useFootprint'
+export type {
+    UseVolumeProfileOpts,
+    UseVolumeProfileResult,
+} from './hooks/useVolumeProfile'
+export type {
+    UseAnchoredVwapOpts,
+    UseAnchoredVwapResult,
+} from './hooks/useAnchoredVwap'
+export type {
+    UseOrderBookHeatmapOpts,
+    UseOrderBookHeatmapResult,
+} from './hooks/useOrderBookHeatmap'
+export type {
+    UseMtfOverlayOpts,
+    UseMtfOverlayResult,
+} from './hooks/useMtfOverlay'

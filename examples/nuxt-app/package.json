@@ -1,0 +1,21 @@
+{
+    "name": "@klinechart-quant-examples/nuxt-app",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Nuxt 3 SSR smoke test for @klinechart-quant/vue.",
+    "type": "module",
+    "scripts": {
+        "dev": "nuxt dev",
+        "build": "nuxt build",
+        "generate": "nuxt generate",
+        "preview": "nuxt preview"
+    },
+    "dependencies": {
+        "@klinechart-quant/vue": "workspace:*",
+        "vue": "^3.5.0"
+    },
+    "devDependencies": {
+        "nuxt": "^3.14.0",
+        "typescript": "~5.6.0"
+    }
+}

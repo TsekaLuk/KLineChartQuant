@@ -13,6 +13,7 @@ export * from './components/anchoredVwap'
 export * from './components/mtfOverlay'
 export * from './indicators'
 export * from './tokens'
+export * from './input'
 export {
     KLineChartError,
     isKLineChartError,

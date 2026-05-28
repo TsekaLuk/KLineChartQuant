@@ -1,6 +1,6 @@
 {
   "name": "@klinechart-quant/react",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "React bindings for @klinechart-quant/core. Idiomatic hooks, SSR-safe, tree-shakable.",
   "license": "MIT",
   "type": "module",

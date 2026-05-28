@@ -1,6 +1,6 @@
 {
   "name": "@klinechart-quant/angular",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Angular bindings for @klinechart-quant/core. Standalone components, signals, DI.",
   "license": "MIT",
   "type": "module",

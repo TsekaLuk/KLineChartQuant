@@ -1,6 +1,6 @@
 {
   "name": "@klinechart-quant/vue",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Vue 3 bindings for @klinechart-quant/core. Idiomatic composables, SFC components.",
   "license": "MIT",
   "type": "module",

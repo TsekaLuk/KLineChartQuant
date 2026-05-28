@@ -1,6 +1,6 @@
 {
     "name": "@klinechart-quant/ai-runtime",
-    "version": "0.0.0",
+    "version": "0.1.0-alpha.0",
     "description": "AI Native runtime for @klinechart-quant — MCP tool schemas, controller describe() output, state serialization. The differentiator layer ROADMAP §10.3 calls for.",
     "license": "MIT",
     "type": "module",

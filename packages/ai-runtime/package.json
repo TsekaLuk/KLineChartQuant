@@ -1,0 +1,36 @@
+{
+    "name": "@klinechart-quant/ai-runtime",
+    "version": "0.0.0",
+    "description": "AI Native runtime for @klinechart-quant — MCP tool schemas, controller describe() output, state serialization. The differentiator layer ROADMAP §10.3 calls for.",
+    "license": "MIT",
+    "type": "module",
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "test": "vitest run"
+    },
+    "peerDependencies": {
+        "@klinechart-quant/core": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "~5.6.0",
+        "vitest": "^4.1.5"
+    },
+    "publishConfig": {
+        "provenance": true,
+        "access": "public"
+    }
+}

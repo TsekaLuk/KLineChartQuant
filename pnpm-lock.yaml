@@ -79,7 +79,7 @@ importers:
   packages/ai-runtime:
     dependencies:
       '@klinechart-quant/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       typescript:
@@ -92,7 +92,7 @@ importers:
   packages/angular:
     dependencies:
       '@klinechart-quant/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@angular/common':
@@ -153,7 +153,7 @@ importers:
   packages/react:
     dependencies:
       '@klinechart-quant/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@arethetypeswrong/cli':
@@ -205,7 +205,7 @@ importers:
   packages/vue:
     dependencies:
       '@klinechart-quant/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@arethetypeswrong/cli':

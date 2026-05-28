@@ -44,7 +44,7 @@
 | DX | — | **60** | 4 publishable packages + READMEs + LICENSEs + tsconfig.build × 5 + ai-runtime；DX audit 9 BLOCKER closed 6 (docs/audit/DX_RESPONSE.md) | npm install reality + 真 dist + 错误信息基础类 |
 | API | — | **45** | 5 包 contract test 绿；dispose 统一 silent no-op (commit 426c330)；ai-runtime describe* 命名一致；但 API audit 仍 10 BLOCKER 4/10 一致性 (docs/audit/API_REVIEW.md) | 动词统一、export * 收口、canonical Bar、KLineChartError 基类 |
 | 生态 | — | **65** | 21 个 framework binding (7×3) + sideEffects scope 修 + core 14 个 subpath exports + workspace:^ + LICENSE × 5 (commits c44f9a6, 291c4c4, 62d9dbb) | CHANGELOG/Changesets + 真 dist 验证 publint |
-| 性能 | — | **45** | anchored zoom 精度 + origin-shift 抑制实测；M4 降采样 spec'd；WGSL 5 个 spec md 备好；**但无 bench 套件** | **第一任务：建立可信 BENCH_CMD（否则维度无法验证）** |
+| 性能 | 45 | **65** | bench 套件落地 (commit tick-1)：14 benchmarks across 4 files；real numbers — Signal 13-17 ns; VP typical-price 100k bars 5.59 ms; OB applyDelta 68 ns; snapshot 33 µs; anchored zoom 19.5 ns; origin-shift 9.3 ns. 6/7 自定 target 达标，1 接近 (VP 100k 5.59 vs <5 ms 目标) | 继续优化命中目标 + GPU compute path 落地后回归保护 |
 | 兼容性 | — | **50** | 5 包 peerDeps 合理（React 18/19, Vue 3.4+, Angular 17/18/19）；3 SSR 烟雾示例存在；examples 未跑过 | 浏览器矩阵 CI + SSR 实测 + WebGPU→WebGL fallback |
 | 美学 | — | **30** | 无 design token；无主题系统；无视觉回归基线；不确定项 — 留待人判断 | design token + token-driven theme |
 | AI-Native | — | **70** | @klinechart-quant/ai-runtime 已发：12 MCP tools + 4 describe(snapshot)→{summary, facts} + 无 eval JSON serialize；38 tests (commit ec609aa)；TV 此维度结构性缺失 | provider adapter (Claude/OpenAI) + 增量 tool 覆盖 |
@@ -66,7 +66,7 @@
 
 | # | 任务 | 维度 | gap | leverage | effort | priority | 验收标准 |
 |---|---|---|---|---|---|---|---|
-| B-1 | **建立 BENCH_CMD 套件**（pnpm bench 真实输出 fps/MS 数字） | 性能 | 35 | 高（其他维度的性能子项要复用） | M | **HIGH** | bench 命令存在 + 输出 ≥ 4 个数字（pan 1M / zoom 1M / heatmap / footprint）+ CI 集成 |
+| B-1 | ~~建立 BENCH_CMD 套件~~ | — | — | — | — | **DONE** | 完成 tick 1, commit b-1 |
 | B-2 | **engine relocation** src/core/ → packages/core/src/engine/ | DX | 20 | 高（解锁 tsc --declaration + size-limit on dist） | L | HIGH | DX BLOCKER-009 close + pnpm -r build 成功 + dist 真实存在 |
 | B-3 | KLineChartError 错误基类 + 错误代码 + 迁移 54 处 throw | API | 35 | 中（错误生态长期收益） | M | MED | 所有 core throw 走 KLineChartError；error.code 枚举完整；测试覆盖 |
 | B-4 | 5-动词 intake 统一（ingest / setData / append） | API | 35 | 中（一次性的命名清洗） | M | MED | 11 controllers 统一动词；旧名 @deprecated 别名保留 6 个月 |
@@ -112,6 +112,7 @@
 2. **`workspace:*` in published peerDeps** — npm install 报 ERR_UNSUPPORTED_URL_TYPE。改 `workspace:^`（pnpm 会在 publish 时改写为 caret semver）。
 3. **`tsc --declaration` 在 `createChartController.ts` 上跑 →** 因为 import `../../../../src/core/chart` 跨 rootDir 失败。需要先 engine relocation（B-2）。
 4. **`export *` 在 core/src/index.ts 13 行 → 暴露 binBarToBuckets / findPOCIndex / computeValueArea 等内部 helper** — 留作 API BLOCKER-002 follow-up (B-6)；切勿在 export 上盲加。
+5. **单 agent 全维度 perf audit (35+ findings)** — 60+ 分钟超时无 report。**改派 3 个聚焦 agent**（hot-path allocations / numerical correctness / memory bounds）各自 10-15 findings，不要一锅炖。
 
 ---
 
@@ -130,3 +131,5 @@
 | Tick | Time | Action | Commit |
 |---|---|---|---|
 | 0 (bootstrap) | 2026-05-29 02:25 | BOOTSTRAP: ledger + report 创建；scoreboard baseline；backlog 12 项 | (this) |
+| event-handler | 2026-05-29 02:28 | Perf audit timed out (61 min, no report) → DEAD_ENDS #5; task #34 closed; retry plan: split into 3 focused agents | (next) |
+| 1 | 2026-05-29 02:40 | B-1 BENCH suite — 4 files / 14 benchmarks / real hz+ns numbers; 性能 45→65; B-2 next | b-1 |

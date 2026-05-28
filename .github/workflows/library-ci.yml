@@ -20,6 +20,16 @@ concurrency:
   group: library-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Locale-dependent tests in src/utils/__tests__/dateFormat.spec.ts assume
+  # CST (UTC+8) — they were written by the upstream maintainer against
+  # local time. CI's default UTC causes off-by-one-day failures around the
+  # year boundary. Pin TZ here so the legacy suite matches the maintainer's
+  # original calibration. Long-term fix: rewrite dateFormat helpers + tests
+  # in UTC-explicit terms (tracked as a follow-up; needs maintainer review
+  # because it changes user-visible date strings).
+  TZ: 'Asia/Shanghai'
+
 jobs:
   test:
     name: test (node ${{ matrix.node }})

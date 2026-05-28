@@ -14,6 +14,7 @@ export * from './components/mtfOverlay'
 export * from './indicators'
 export * from './tokens'
 export * from './input'
+export * from './renderer-tier'
 export {
     KLineChartError,
     isKLineChartError,

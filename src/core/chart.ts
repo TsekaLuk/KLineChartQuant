@@ -47,7 +47,7 @@ import { createStructureRendererPlugin } from '@/core/renderers/Indicator/struct
 import { createZonesRendererPlugin } from '@/core/renderers/Indicator/zones'
 import { createMainIndicatorLegendRendererPlugin } from '@/core/renderers/Indicator/mainIndicatorLegend'
 import { DrawingStore } from '@/core/drawing'
-import { createDrawingRendererPlugin } from '@/core/drawing/plugin'
+import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '@/core/drawing/plugin'
 import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from '@/core/indicators/scheduler'
 
 // 重新导出以保持向后兼容
@@ -695,7 +695,11 @@ export class Chart {
         )
 
         this.initPanes()
+        // 注册绘图主插件（负责绘制 shape，layer: 'main'）
         this.useRenderer(createDrawingRendererPlugin({ store: this.drawingStore }))
+        // 注册绘图标签插件（负责推送选中绘图的轴标签，layer: 'overlay'）
+        // 注意：此插件依赖 overlay 更新级别，若将来添加 Main 级别需调整
+        this.useRenderer(createDrawingLabelOverlayPlugin({ store: this.drawingStore }))
         this.initResizeObserver()
     }
 

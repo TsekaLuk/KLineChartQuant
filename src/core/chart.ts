@@ -31,10 +31,24 @@ import { createMARendererPlugin } from '@/core/renderers/Indicator/ma'
 import { createBOLLRendererPlugin } from '@/core/renderers/Indicator/boll'
 import { createEXPMARendererPlugin } from '@/core/renderers/Indicator/expma'
 import { createENERendererPlugin } from '@/core/renderers/Indicator/ene'
+import { createWMARendererPlugin } from '@/core/renderers/Indicator/wma'
+import { createDEMARendererPlugin } from '@/core/renderers/Indicator/dema'
+import { createTEMARendererPlugin } from '@/core/renderers/Indicator/tema'
+import { createHMARendererPlugin } from '@/core/renderers/Indicator/hma'
+import { createKAMARendererPlugin } from '@/core/renderers/Indicator/kama'
+import { createSARRendererPlugin } from '@/core/renderers/Indicator/sar'
+import { createSuperTrendRendererPlugin } from '@/core/renderers/Indicator/supertrend'
+import { createKeltnerRendererPlugin } from '@/core/renderers/Indicator/keltner'
+import { createDonchianRendererPlugin } from '@/core/renderers/Indicator/donchian'
+import { createIchimokuRendererPlugin } from '@/core/renderers/Indicator/ichimoku'
+import { createPivotRendererPlugin } from '@/core/renderers/Indicator/pivot'
+import { createFibRendererPlugin } from '@/core/renderers/Indicator/fib'
+import { createStructureRendererPlugin } from '@/core/renderers/Indicator/structure'
+import { createZonesRendererPlugin } from '@/core/renderers/Indicator/zones'
 import { createMainIndicatorLegendRendererPlugin } from '@/core/renderers/Indicator/mainIndicatorLegend'
 import { DrawingStore } from '@/core/drawing'
 import { createDrawingRendererPlugin } from '@/core/drawing/plugin'
-import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig } from '@/core/indicators/scheduler'
+import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from '@/core/indicators/scheduler'
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig, calcKWidthPx }
@@ -235,17 +249,31 @@ export class Chart {
         BOLL: { period: 20, multiplier: 2, showUpper: true, showMiddle: true, showLower: true, showBand: true },
         EXPMA: { fastPeriod: 12, slowPeriod: 50 },
         ENE: { period: 10, deviation: 11 },
+        WMA: { period: 10, showWMA: true },
+        DEMA: { period: 14, showDEMA: true },
+        TEMA: { period: 14, showTEMA: true },
+        HMA: { period: 14, showHMA: true },
+        KAMA: { period: 10, fastPeriod: 2, slowPeriod: 30, showKAMA: true },
+        SAR: { step: 0.02, maxStep: 0.2, showSAR: true },
+        SUPERTREND: { atrPeriod: 10, multiplier: 3, showSuperTrend: true },
+        KELTNER: { emaPeriod: 20, atrPeriod: 10, multiplier: 2, showUpper: true, showMiddle: true, showLower: true },
+        DONCHIAN: { period: 20, showUpper: true, showMiddle: true, showLower: true },
+        ICHIMOKU: { tenkanPeriod: 9, kijunPeriod: 26, spanBPeriod: 52, displacement: 26, showTenkan: true, showKijun: true, showSpanA: true, showSpanB: true, showChikou: true, showCloud: true },
+        PIVOT: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
+        FIB: { period: 50, showLevels: true },
+        STRUCTURE: { leftWindow: 2, rightWindow: 2, breakoutSource: 'close', showSwingLabels: true, showBOS: true, showCHOCH: true, showProvisional: false },
+        ZONES: { showFVG: true, showOB: true, showFilledZones: false, obLookback: 5 },
     }
 
     /**
      * 启用主图指标
-     * @param indicatorId 指标ID: 'MA' | 'BOLL' | 'EXPMA' | 'ENE'
+     * @param indicatorId 指标ID
      * @param params 可选的指标参数
      * @returns 是否成功启用
      */
     enableMainIndicator(indicatorId: string, params?: Record<string, number | boolean>): boolean {
         const id = indicatorId.toUpperCase()
-        if (!['MA', 'BOLL', 'EXPMA', 'ENE'].includes(id)) {
+        if (!['MA', 'BOLL', 'EXPMA', 'ENE', 'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA', 'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB', 'STRUCTURE', 'ZONES'].includes(id)) {
             console.warn(`[Chart] 未知的主图指标: ${indicatorId}`)
             return false
         }
@@ -398,6 +426,90 @@ export class Chart {
                 }
                 this.setRendererEnabled('ene', true)
             },
+            'WMA': () => {
+                if (!this.getRenderer('wma_main')) {
+                    this.useRenderer(createWMARendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('wma_main', true)
+            },
+            'DEMA': () => {
+                if (!this.getRenderer('dema_main')) {
+                    this.useRenderer(createDEMARendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('dema_main', true)
+            },
+            'TEMA': () => {
+                if (!this.getRenderer('tema_main')) {
+                    this.useRenderer(createTEMARendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('tema_main', true)
+            },
+            'HMA': () => {
+                if (!this.getRenderer('hma_main')) {
+                    this.useRenderer(createHMARendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('hma_main', true)
+            },
+            'KAMA': () => {
+                if (!this.getRenderer('kama_main')) {
+                    this.useRenderer(createKAMARendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('kama_main', true)
+            },
+            'SAR': () => {
+                if (!this.getRenderer('sar_main')) {
+                    this.useRenderer(createSARRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('sar_main', true)
+            },
+            'SUPERTREND': () => {
+                if (!this.getRenderer('supertrend_main')) {
+                    this.useRenderer(createSuperTrendRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('supertrend_main', true)
+            },
+            'KELTNER': () => {
+                if (!this.getRenderer('keltner_main')) {
+                    this.useRenderer(createKeltnerRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('keltner_main', true)
+            },
+            'DONCHIAN': () => {
+                if (!this.getRenderer('donchian_main')) {
+                    this.useRenderer(createDonchianRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('donchian_main', true)
+            },
+            'ICHIMOKU': () => {
+                if (!this.getRenderer('ichimoku_main')) {
+                    this.useRenderer(createIchimokuRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('ichimoku_main', true)
+            },
+            'PIVOT': () => {
+                if (!this.getRenderer('pivot_main')) {
+                    this.useRenderer(createPivotRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('pivot_main', true)
+            },
+            'FIB': () => {
+                if (!this.getRenderer('fib_main')) {
+                    this.useRenderer(createFibRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('fib_main', true)
+            },
+            'STRUCTURE': () => {
+                if (!this.getRenderer('structure_main')) {
+                    this.useRenderer(createStructureRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('structure_main', true)
+            },
+            'ZONES': () => {
+                if (!this.getRenderer('zones_main')) {
+                    this.useRenderer(createZonesRendererPlugin({ paneId: 'main' }))
+                }
+                this.setRendererEnabled('zones_main', true)
+            },
         }
 
         const fn = rendererMap[indicatorId]
@@ -418,6 +530,20 @@ export class Chart {
             'BOLL': 'boll',
             'EXPMA': 'expma',
             'ENE': 'ene',
+            'WMA': 'wma_main',
+            'DEMA': 'dema_main',
+            'TEMA': 'tema_main',
+            'HMA': 'hma_main',
+            'KAMA': 'kama_main',
+            'SAR': 'sar_main',
+            'SUPERTREND': 'supertrend_main',
+            'KELTNER': 'keltner_main',
+            'DONCHIAN': 'donchian_main',
+            'ICHIMOKU': 'ichimoku_main',
+            'PIVOT': 'pivot_main',
+            'FIB': 'fib_main',
+            'STRUCTURE': 'structure_main',
+            'ZONES': 'zones_main',
         }
 
         const rendererName = rendererMap[indicatorId]
@@ -431,7 +557,7 @@ export class Chart {
      */
     private updateIndicatorSchedulerConfig(indicatorId: string): void {
         const isActive = this.activeMainIndicators.has(indicatorId)
-        const params = this.mainIndicatorParams[indicatorId]
+        const params = this.mainIndicatorParams[indicatorId] || {}
 
         switch (indicatorId) {
             case 'MA':
@@ -459,6 +585,48 @@ export class Chart {
                 if (isActive) {
                     this.indicatorScheduler.updateENEConfig(params as unknown as ENESchedulerConfig)
                 }
+                break
+            case 'WMA':
+                this.indicatorScheduler.updateWMAConfig({ ...params, showWMA: isActive } as unknown as WMASchedulerConfig, 'main')
+                break
+            case 'DEMA':
+                this.indicatorScheduler.updateDEMAConfig({ ...params, showDEMA: isActive } as unknown as DEMASchedulerConfig, 'main')
+                break
+            case 'TEMA':
+                this.indicatorScheduler.updateTEMAConfig({ ...params, showTEMA: isActive } as unknown as TEMASchedulerConfig, 'main')
+                break
+            case 'HMA':
+                this.indicatorScheduler.updateHMAConfig({ ...params, showHMA: isActive } as unknown as HMASchedulerConfig, 'main')
+                break
+            case 'KAMA':
+                this.indicatorScheduler.updateKAMAConfig({ ...params, showKAMA: isActive } as unknown as KAMASchedulerConfig, 'main')
+                break
+            case 'SAR':
+                this.indicatorScheduler.updateSARConfig({ ...params, showSAR: isActive } as unknown as SARSchedulerConfig, 'main')
+                break
+            case 'SUPERTREND':
+                this.indicatorScheduler.updateSuperTrendConfig({ ...params, showSuperTrend: isActive } as unknown as SuperTrendSchedulerConfig, 'main')
+                break
+            case 'KELTNER':
+                this.indicatorScheduler.updateKeltnerConfig({ ...params, showUpper: isActive, showMiddle: isActive, showLower: isActive } as unknown as KeltnerSchedulerConfig, 'main')
+                break
+            case 'DONCHIAN':
+                this.indicatorScheduler.updateDonchianConfig({ ...params, showUpper: isActive, showMiddle: isActive, showLower: isActive } as unknown as DonchianSchedulerConfig, 'main')
+                break
+            case 'ICHIMOKU':
+                this.indicatorScheduler.updateIchimokuConfig({ ...params, showTenkan: isActive, showKijun: isActive, showSpanA: isActive, showSpanB: isActive, showChikou: isActive, showCloud: isActive } as unknown as IchimokuSchedulerConfig, 'main')
+                break
+            case 'PIVOT':
+                this.indicatorScheduler.updatePivotConfig({ ...params, showPP: isActive, showR1: isActive, showR2: isActive, showR3: isActive, showS1: isActive, showS2: isActive, showS3: isActive } as unknown as PivotSchedulerConfig, 'main')
+                break
+            case 'FIB':
+                this.indicatorScheduler.updateFibConfig({ ...params, showLevels: isActive } as unknown as FibSchedulerConfig, 'main')
+                break
+            case 'STRUCTURE':
+                this.indicatorScheduler.updateStructureConfig({ ...params, showSwingLabels: isActive, showBOS: isActive, showCHOCH: isActive } as unknown as StructureSchedulerConfig, 'main')
+                break
+            case 'ZONES':
+                this.indicatorScheduler.updateZonesConfig({ ...params, showFVG: isActive, showOB: isActive, showFilledZones: isActive } as unknown as ZonesSchedulerConfig, 'main')
                 break
         }
     }
@@ -1414,6 +1582,32 @@ export class Chart {
             KST: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9, showKST: true, showSignal: true },
             FASTK: { period: 9, showFASTK: true },
             ATR: { period: 14, showATR: true },
+            WMA: { period: 10, showWMA: true },
+            DEMA: { period: 14, showDEMA: true },
+            TEMA: { period: 14, showTEMA: true },
+            HMA: { period: 14, showHMA: true },
+            KAMA: { period: 10, fastPeriod: 2, slowPeriod: 30, showKAMA: true },
+            SAR: { step: 0.02, maxStep: 0.2, showSAR: true },
+            SUPERTREND: { atrPeriod: 10, multiplier: 3, showSuperTrend: true },
+            KELTNER: { emaPeriod: 20, atrPeriod: 10, multiplier: 2, showUpper: true, showMiddle: true, showLower: true },
+            DONCHIAN: { period: 20, showUpper: true, showMiddle: true, showLower: true },
+            ICHIMOKU: { tenkanPeriod: 9, kijunPeriod: 26, spanBPeriod: 52, displacement: 26, showTenkan: true, showKijun: true, showSpanA: true, showSpanB: true, showChikou: true, showCloud: true },
+            ROC: { period: 12, showROC: true },
+            TRIX: { period: 15, signalPeriod: 9, showTRIX: true, showSignal: true },
+            HV: { period: 20, annualizationFactor: 252, showHV: true },
+            PARKINSON: { period: 20, annualizationFactor: 252, showParkinson: true },
+            CHAIKIN_VOL: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
+            VMA: { period: 5, showVMA: true },
+            OBV: { showOBV: true },
+            PVT: { showPVT: true },
+            VWAP: { sessionResetGapMs: 0, showVWAP: true },
+            CMF: { period: 20, showCMF: true },
+            MFI: { period: 14, showMFI: true },
+            PIVOT: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
+            FIB: { period: 50, showLevels: true },
+            STRUCTURE: { leftWindow: 2, rightWindow: 2, breakoutSource: 'close', showSwingLabels: true, showBOS: true, showCHOCH: true, showProvisional: false },
+        ZONES: { showFVG: true, showOB: true, showFilledZones: true, obLookback: 5 },
+            VOLUME_PROFILE: { bins: 24, lookback: 0, valueAreaPercent: 0.7, showVolumeProfile: true },
         }
         return { ...defaults[indicatorId] }
     }

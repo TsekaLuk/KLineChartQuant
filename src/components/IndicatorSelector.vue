@@ -83,58 +83,104 @@
       </div>
     </div>
 
-    <!-- 添加指标菜单（使用 Teleport 解决层级问题） -->
+    <!-- 添加指标弹窗 -->
     <Teleport :to="teleportTarget">
-      <Transition name="slide">
-        <div
-          v-if="showAddMenu"
-          class="add-menu"
-          :class="{ 'use-anchor': useAnchorPositioning }"
-          ref="addMenuRef"
-          :style="useAnchorPositioning ? undefined : menuStyle"
-        >
-          <div class="menu-section">
-            <div class="menu-title">主图指标</div>
-            <div class="menu-items">
-              <button
-                v-for="indicator in mainIndicators"
-                :key="indicator.id"
-                class="menu-item"
-                :class="{ disabled: isActive(indicator.id) }"
-                :disabled="isActive(indicator.id)"
-                @click="addIndicator(indicator.id)"
-              >
-                {{ indicator.label }}
-                <span class="param-hint"> ({{ indicator.name }}) </span>
-                <span v-if="isActive(indicator.id)" class="active-tag">
+      <Transition name="overlay">
+        <div v-if="showAddMenu" class="selector-overlay" @click="closeAddMenu">
+          <Transition name="modal">
+            <div v-if="showAddMenu" class="selector-modal" @click.stop>
+              <!-- 弹窗头部 -->
+              <div class="modal-header">
+                <div class="header-title">
+                  <span class="title-text">添加指标</span>
+                  <span class="title-sub">{{ totalIndicatorsCount }} 个可用指标</span>
+                </div>
+                <button class="modal-close" @click="closeAddMenu" title="关闭">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    <path
+                      d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                    />
                   </svg>
-                </span>
-              </button>
+                </button>
+              </div>
+
+              <!-- 弹窗主体 -->
+              <div class="modal-body">
+                <!-- 主图指标区域 -->
+                <div class="indicator-section">
+                  <div class="section-header">
+                    <span class="section-title">主图指标</span>
+                    <span class="section-count">{{ mainIndicators.length }}</span>
+                  </div>
+                  <div class="indicator-grid">
+                    <button
+                      v-for="indicator in mainIndicators"
+                      :key="indicator.id"
+                      class="indicator-card"
+                      :class="{ disabled: isActive(indicator.id), active: isActive(indicator.id) }"
+                      :disabled="isActive(indicator.id)"
+                      @click="addIndicator(indicator.id)"
+                    >
+                      <div class="card-header">
+                        <span class="card-label">{{ indicator.label }}</span>
+                        <span v-if="isActive(indicator.id)" class="card-badge active">
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                          </svg>
+                        </span>
+                      </div>
+                      <div class="card-name">{{ indicator.name }}</div>
+                      <div v-if="indicator.params" class="card-params">
+                        {{ indicator.params.length }} 个参数
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 分隔线 -->
+                <div class="section-divider"></div>
+
+                <!-- 副图指标区域 -->
+                <div class="indicator-section">
+                  <div class="section-header">
+                    <span class="section-title">副图指标</span>
+                    <span class="section-count">{{ subIndicators.length }}</span>
+                  </div>
+                  <div class="indicator-grid">
+                    <button
+                      v-for="indicator in subIndicators"
+                      :key="indicator.id"
+                      class="indicator-card"
+                      :class="{ disabled: isActive(indicator.id), active: isActive(indicator.id) }"
+                      :disabled="isActive(indicator.id)"
+                      @click="addIndicator(indicator.id)"
+                    >
+                      <div class="card-header">
+                        <span class="card-label">{{ indicator.label }}</span>
+                        <span v-if="isActive(indicator.id)" class="card-badge active">
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                          </svg>
+                        </span>
+                      </div>
+                      <div class="card-name">{{ indicator.name }}</div>
+                      <div v-if="indicator.params" class="card-params">
+                        {{ indicator.params.length }} 个参数
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 弹窗底部 -->
+              <div class="modal-footer">
+                <div class="footer-info">
+                  <span class="info-text">已激活 {{ activeCount }} 个指标</span>
+                </div>
+                <button class="btn btn-confirm" @click="closeAddMenu">完成</button>
+              </div>
             </div>
-          </div>
-          <div class="menu-section">
-            <div class="menu-title">副图指标</div>
-            <div class="menu-items">
-              <button
-                v-for="indicator in subIndicators"
-                :key="indicator.id"
-                class="menu-item"
-                :class="{ disabled: isActive(indicator.id) }"
-                :disabled="isActive(indicator.id)"
-                @click="addIndicator(indicator.id)"
-              >
-                {{ indicator.label }}
-                <span class="param-hint"> ({{ indicator.name }}) </span>
-                <span v-if="isActive(indicator.id)" class="active-tag">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                  </svg>
-                </span>
-              </button>
-            </div>
-          </div>
+          </Transition>
         </div>
       </Transition>
     </Teleport>
@@ -179,13 +225,10 @@ const emit = defineEmits<{
 // 响应式状态
 // ─────────────────────────────────────────────────────────────────
 const addBtnRef = ref<HTMLButtonElement | null>(null)
-const addMenuRef = ref<HTMLDivElement | null>(null)
 const paramsVisible = ref(false)
 const currentIndicatorId = ref<string | null>(null)
 const hoveredIndicator = ref<string | null>(null)
 const showAddMenu = ref(false)
-const menuStyle = ref<{ left: string; bottom: string }>({ left: '0', bottom: '0' })
-const useAnchorPositioning = ref(false)
 const dragOverIndicatorId = ref<string | null>(null)
 const draggingIndicatorId = ref<string | null>(null)
 
@@ -197,14 +240,12 @@ const teleportTarget = useFullscreenTeleportTarget()
 // ─────────────────────────────────────────────────────────────────
 const activeIndicatorsList = computed(() => {
   if (!props.activeIndicators?.length) return []
-  // 保持用户添加的顺序，而不是 allIndicators 的原始顺序
   return props.activeIndicators
     .map((id) => findIndicator(id))
     .filter((i): i is Indicator => i !== undefined)
     .sort((a, b) => {
-      if (a.pane === b.pane)
-        return 0 // 同类保持原始顺序
-      else return a.pane === 'main' ? -1 : 1
+      if (a.pane === b.pane) return 0
+      return a.pane === 'main' ? -1 : 1
     })
 })
 
@@ -219,6 +260,10 @@ const currentIndicator = computed(() => {
   if (!currentIndicatorId.value) return null
   return findIndicator(currentIndicatorId.value)
 })
+
+const totalIndicatorsCount = computed(() => mainIndicators.length + subIndicators.length)
+
+const activeCount = computed(() => props.activeIndicators?.length ?? 0)
 
 // ─────────────────────────────────────────────────────────────────
 // 方法
@@ -241,7 +286,7 @@ function addIndicator(indicatorId: string) {
   }
 
   emit('toggle', indicatorId, true)
-  showAddMenu.value = false
+  // 不自动关闭弹窗，让用户可以继续添加
 }
 
 function removeIndicator(indicatorId: string) {
@@ -251,6 +296,10 @@ function removeIndicator(indicatorId: string) {
 function showParams(indicatorId: string) {
   currentIndicatorId.value = indicatorId
   paramsVisible.value = true
+}
+
+function closeAddMenu() {
+  showAddMenu.value = false
 }
 
 /**
@@ -358,43 +407,12 @@ function onDragEnd() {
 
 // 切换菜单显示
 function toggleAddMenu() {
-  if (!showAddMenu.value && addBtnRef.value && !useAnchorPositioning.value) {
-    const btnRect = addBtnRef.value.getBoundingClientRect()
-    const viewportWidth = window.innerWidth
-
-    let left = btnRect.left + btnRect.width / 2
-
-    const estimatedMenuWidth = 320
-    const halfMenuWidth = estimatedMenuWidth / 2
-
-    if (left + halfMenuWidth > viewportWidth - 8) {
-      left = viewportWidth - halfMenuWidth - 8
-    }
-    if (left - halfMenuWidth < 8) {
-      left = halfMenuWidth + 8
-    }
-
-    menuStyle.value = {
-      left: `${left}px`,
-      bottom: `${window.innerHeight - btnRect.top + 8}px`,
-    }
-  }
   showAddMenu.value = !showAddMenu.value
 }
 
-// 点击外部关闭菜单
-function handleClickOutside(event: MouseEvent) {
-  const clickedOutsideMenu = addMenuRef.value && !addMenuRef.value.contains(event.target as Node)
-  const clickedOutsideBtn = addBtnRef.value && !addBtnRef.value.contains(event.target as Node)
-
-  if (clickedOutsideMenu && clickedOutsideBtn) {
-    showAddMenu.value = false
-  }
-}
-
-// 窗口大小变化时关闭菜单
-function handleResize() {
-  if (showAddMenu.value) {
+// ESC 键关闭
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && showAddMenu.value) {
     showAddMenu.value = false
   }
 }
@@ -403,17 +421,11 @@ function handleResize() {
 // 生命周期
 // ─────────────────────────────────────────────────────────────────
 onMounted(() => {
-  useAnchorPositioning.value =
-    typeof CSS !== 'undefined' &&
-    CSS.supports('anchor-name: --kmap-anchor') &&
-    CSS.supports('position-anchor: --kmap-anchor')
-  document.addEventListener('click', handleClickOutside)
-  window.addEventListener('resize', handleResize)
+  document.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  window.removeEventListener('resize', handleResize)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -577,7 +589,6 @@ onUnmounted(() => {
 
 /* 添加按钮 */
 .add-btn {
-  anchor-name: --indicator-add-btn;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
@@ -599,87 +610,261 @@ onUnmounted(() => {
   background: rgba(26, 26, 26, 0.04);
 }
 
-/* 添加菜单 */
-.add-menu {
+/* ─────────────────────────────────────────────────────────────────
+   弹窗样式 - 与其他弹窗保持一致
+   ───────────────────────────────────────────────────────────────── */
+
+/* 遮罩层 */
+.selector-overlay {
   position: fixed;
-  transform: translateX(-50%);
-  background: #fff;
-  border-radius: 8px;
-  box-shadow:
-    0 6px 16px 0 rgba(0, 0, 0, 0.08),
-    0 3px 6px -4px rgba(0, 0, 0, 0.12),
-    0 9px 28px 8px rgba(0, 0, 0, 0.05);
-  padding: 8px 0;
-  white-space: nowrap;
-  z-index: 9999;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
-@supports (anchor-name: --kmap-anchor) and (position-anchor: --kmap-anchor) {
-  .add-menu.use-anchor {
-    position: fixed;
-    position-anchor: --indicator-add-btn;
-    left: anchor(center);
-    top: anchor(top);
-    transform: translate(-50%, calc(-100% - 8px));
-    max-width: calc(100vw - 16px);
-  }
+/* 弹窗容器 */
+.selector-modal {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  width: 90vw;
+  max-width: 860px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.menu-section {
-  padding: 4px 0;
+/* 弹窗头部 */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e8e8e8;
+  flex-shrink: 0;
 }
 
-.menu-section:not(:last-child) {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.menu-title {
-  padding: 4px 16px;
-  font-size: 12px;
-  color: #999;
-  font-weight: 500;
-}
-
-.menu-items {
+.header-title {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.menu-item {
-  width: 100%;
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  text-align: left;
-  font-size: 13px;
-  color: #333;
+.title-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.2px;
+}
+
+.title-sub {
+  font-size: 11px;
+  color: #999;
+}
+
+.modal-close {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: background 0.2s;
+  color: #888;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+  border-color: #ccc;
+}
+
+.modal-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 弹窗主体 */
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 指标区域 */
+.indicator-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.menu-item:hover:not(.disabled) {
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.section-count {
+  font-size: 11px;
+  color: #999;
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* 自适应列数网格 */
+.indicator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 10px;
+}
+
+/* 指标卡片 */
+.indicator-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.indicator-card:hover:not(.disabled) {
+  border-color: #1a1a1a;
+  background: #fafafa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.indicator-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
   background: #f5f5f5;
 }
 
-.menu-item.disabled {
-  color: #999;
-  cursor: not-allowed;
+.indicator-card.active {
+  border-color: #1a1a1a;
+  background: #f8f8f8;
 }
 
-.menu-item .param-hint {
-  font-size: 11px;
-  color: #999;
-}
-
-.active-tag {
-  margin-left: auto;
-  color: #1a1a1a;
+.card-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.card-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e8e8e8;
+  color: #666;
+}
+
+.card-badge.active {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.card-name {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.card-params {
+  font-size: 10px;
+  color: #999;
+  margin-top: 2px;
+}
+
+/* 区域分隔线 */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+  margin: 4px 0;
+}
+
+/* 弹窗底部 */
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #f8f8f8;
+  border-top: 1px solid #e8e8e8;
+  flex-shrink: 0;
+}
+
+.footer-info {
+  font-size: 12px;
+  color: #666;
+}
+
+.info-text {
+  color: #999;
+}
+
+/* 按钮样式 */
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.btn-confirm {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.btn-confirm:hover {
+  background: #333;
+  border-color: #333;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 /* 过渡动画 */
@@ -693,14 +878,49 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-.slide-enter-active,
-.slide-leave-active {
-  transition: all 0.2s ease;
+/* 遮罩层动画 */
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.2s ease;
 }
 
-.slide-enter-from,
-.slide-leave-to {
+.overlay-enter-from,
+.overlay-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(8px);
+}
+
+/* 弹窗动画 */
+.modal-enter-active {
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-leave-active {
+  transition: all 0.16s ease-in;
+}
+
+.modal-enter-from {
+  opacity: 0;
+  transform: scale(0.88) translateY(-16px);
+}
+
+.modal-leave-to {
+  opacity: 0;
+  transform: scale(0.94) translateY(8px);
+}
+
+/* 响应式适配 */
+@media (max-width: 640px) {
+  .selector-modal {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .indicator-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
 }
 </style>

@@ -855,12 +855,8 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
   if (!chart) return
 
   // 主图指标处理 - 直接调用Chart API
-  if (
-    indicatorId === 'MA' ||
-    indicatorId === 'BOLL' ||
-    indicatorId === 'EXPMA' ||
-    indicatorId === 'ENE'
-  ) {
+  const mainIndicatorIds = ['MA', 'BOLL', 'EXPMA', 'ENE', 'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA', 'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB', 'STRUCTURE', 'ZONES']
+  if (mainIndicatorIds.includes(indicatorId)) {
     chart.toggleMainIndicator(indicatorId, active)
     // 同步本地状态用于UI展示
     if (active) {

@@ -11,6 +11,7 @@ import { createWmsrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/
 import { createKstScaleRendererPlugin } from '@/core/renderers/Indicator/scale/kst_scale'
 import { createFastkScaleRendererPlugin } from '@/core/renderers/Indicator/scale/fastk_scale'
 import { createAtrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/atr_scale'
+import { createIndicatorScaleRendererPlugin } from '@/core/renderers/Indicator/scale/indicator_scale'
 import type {
     RSISchedulerConfig,
     CCISchedulerConfig,
@@ -20,6 +21,32 @@ import type {
     KSTSchedulerConfig,
     FASTKSchedulerConfig,
     ATRSchedulerConfig,
+    WMASchedulerConfig,
+    DEMASchedulerConfig,
+    TEMASchedulerConfig,
+    HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
+    SuperTrendSchedulerConfig,
+    KeltnerSchedulerConfig,
+    DonchianSchedulerConfig,
+    IchimokuSchedulerConfig,
+    ROCSchedulerConfig,
+    TRIXSchedulerConfig,
+    HVSchedulerConfig,
+    ParkinsonSchedulerConfig,
+    ChaikinVolSchedulerConfig,
+    VMASchedulerConfig,
+    OBVSchedulerConfig,
+    PVTSchedulerConfig,
+    VWAPSchedulerConfig,
+    CMFSchedulerConfig,
+    MFISchedulerConfig,
+    PivotSchedulerConfig,
+    FibSchedulerConfig,
+    StructureSchedulerConfig,
+    ZonesSchedulerConfig,
+    VolumeProfileSchedulerConfig,
 } from '@/core/indicators/scheduler'
 import type { MACDSchedulerConfig } from '@/core/indicators/macdState'
 
@@ -180,6 +207,84 @@ export class SubPaneManager {
                 console.log(`[ATR-SubPane] syncSchedulerConfig: paneId=${paneId} params=${JSON.stringify(params)}`)
                 scheduler.updateATRConfig(params as Partial<ATRSchedulerConfig>, paneId)
                 break
+            case 'WMA':
+                scheduler.updateWMAConfig(params as Partial<WMASchedulerConfig>, paneId)
+                break
+            case 'DEMA':
+                scheduler.updateDEMAConfig(params as Partial<DEMASchedulerConfig>, paneId)
+                break
+            case 'TEMA':
+                scheduler.updateTEMAConfig(params as Partial<TEMASchedulerConfig>, paneId)
+                break
+            case 'HMA':
+                scheduler.updateHMAConfig(params as Partial<HMASchedulerConfig>, paneId)
+                break
+            case 'KAMA':
+                scheduler.updateKAMAConfig(params as Partial<KAMASchedulerConfig>, paneId)
+                break
+            case 'SAR':
+                scheduler.updateSARConfig(params as Partial<SARSchedulerConfig>, paneId)
+                break
+            case 'SUPERTREND':
+                scheduler.updateSuperTrendConfig(params as Partial<SuperTrendSchedulerConfig>, paneId)
+                break
+            case 'KELTNER':
+                scheduler.updateKeltnerConfig(params as Partial<KeltnerSchedulerConfig>, paneId)
+                break
+            case 'DONCHIAN':
+                scheduler.updateDonchianConfig(params as Partial<DonchianSchedulerConfig>, paneId)
+                break
+            case 'ICHIMOKU':
+                scheduler.updateIchimokuConfig(params as Partial<IchimokuSchedulerConfig>, paneId)
+                break
+            case 'ROC':
+                scheduler.updateROCConfig(params as Partial<ROCSchedulerConfig>, paneId)
+                break
+            case 'TRIX':
+                scheduler.updateTRIXConfig(params as Partial<TRIXSchedulerConfig>, paneId)
+                break
+            case 'HV':
+                scheduler.updateHVConfig(params as Partial<HVSchedulerConfig>, paneId)
+                break
+            case 'PARKINSON':
+                scheduler.updateParkinsonConfig(params as Partial<ParkinsonSchedulerConfig>, paneId)
+                break
+            case 'CHAIKIN_VOL':
+                scheduler.updateChaikinVolConfig(params as Partial<ChaikinVolSchedulerConfig>, paneId)
+                break
+            case 'VMA':
+                scheduler.updateVMAConfig(params as Partial<VMASchedulerConfig>, paneId)
+                break
+            case 'OBV':
+                scheduler.updateOBVConfig(params as Partial<OBVSchedulerConfig>, paneId)
+                break
+            case 'PVT':
+                scheduler.updatePVTConfig(params as Partial<PVTSchedulerConfig>, paneId)
+                break
+            case 'VWAP':
+                scheduler.updateVWAPConfig(params as Partial<VWAPSchedulerConfig>, paneId)
+                break
+            case 'CMF':
+                scheduler.updateCMFConfig(params as Partial<CMFSchedulerConfig>, paneId)
+                break
+            case 'MFI':
+                scheduler.updateMFIConfig(params as Partial<MFISchedulerConfig>, paneId)
+                break
+            case 'PIVOT':
+                scheduler.updatePivotConfig(params as Partial<PivotSchedulerConfig>, paneId)
+                break
+            case 'FIB':
+                scheduler.updateFibConfig(params as Partial<FibSchedulerConfig>, paneId)
+                break
+            case 'STRUCTURE':
+                scheduler.updateStructureConfig(params as Partial<StructureSchedulerConfig>, paneId)
+                break
+            case 'ZONES':
+                scheduler.updateZonesConfig(params as Partial<ZonesSchedulerConfig>, paneId)
+                break
+            case 'VOLUME_PROFILE':
+                scheduler.updateVolumeProfileConfig(params as Partial<VolumeProfileSchedulerConfig>, paneId)
+                break
             case 'VOLUME':
                 break
         }
@@ -234,6 +339,84 @@ export class SubPaneManager {
                 break
             case 'ATR':
                 renderer = createAtrScaleRendererPlugin(opts)
+                break
+            case 'WMA':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'wma', label: 'WMA', decimals: 2 })
+                break
+            case 'DEMA':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'dema', label: 'DEMA', decimals: 2 })
+                break
+            case 'TEMA':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'tema', label: 'TEMA', decimals: 2 })
+                break
+            case 'HMA':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'hma', label: 'HMA', decimals: 2 })
+                break
+            case 'KAMA':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'kama', label: 'KAMA', decimals: 2 })
+                break
+            case 'SAR':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'sar', label: 'SAR', decimals: 4 })
+                break
+            case 'SUPERTREND':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'supertrend', label: 'SuperTrend', decimals: 2 })
+                break
+            case 'KELTNER':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'keltner', label: 'Keltner', decimals: 2 })
+                break
+            case 'DONCHIAN':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'donchian', label: 'Donchian', decimals: 2 })
+                break
+            case 'ICHIMOKU':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 })
+                break
+            case 'ROC':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'roc', label: 'ROC', decimals: 2 })
+                break
+            case 'TRIX':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'trix', label: 'TRIX', decimals: 6 })
+                break
+            case 'HV':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'hv', label: 'HV', decimals: 2 })
+                break
+            case 'PARKINSON':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 })
+                break
+            case 'CHAIKIN_VOL':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 })
+                break
+            case 'VMA':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'vma', label: 'VMA', decimals: 0 })
+                break
+            case 'OBV':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'obv', label: 'OBV', decimals: 0 })
+                break
+            case 'PVT':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'pvt', label: 'PVT', decimals: 0 })
+                break
+            case 'VWAP':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'vwap', label: 'VWAP', decimals: 2 })
+                break
+            case 'CMF':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'cmf', label: 'CMF', decimals: 4 })
+                break
+            case 'MFI':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'mfi', label: 'MFI', decimals: 2 })
+                break
+            case 'PIVOT':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'pivot', label: 'Pivot', decimals: 2 })
+                break
+            case 'FIB':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'fib', label: 'Fib', decimals: 4 })
+                break
+            case 'STRUCTURE':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'structure', label: 'Structure', decimals: 2 })
+                break
+            case 'ZONES':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'zones', label: 'Zones', decimals: 2 })
+                break
+            case 'VOLUME_PROFILE':
+                renderer = createIndicatorScaleRendererPlugin({ ...opts, indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 })
                 break
             default:
                 return

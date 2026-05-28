@@ -1014,6 +1014,7 @@ export class IndicatorScheduler {
 
     private buildActiveSubIndicatorMask(): VisibleSubIndicatorMask {
         const activeIds = this.getActiveSubPaneIds?.() ?? []
+        const isOnMain = (id: string) => id === 'main'
         return {
             rsi: activeIds.includes(this.configSnapshot.rsiPaneId),
             cci: activeIds.includes(this.configSnapshot.cciPaneId),
@@ -1024,16 +1025,16 @@ export class IndicatorScheduler {
             fastk: activeIds.includes(this.configSnapshot.fastkPaneId),
             macd: activeIds.includes(this.configSnapshot.macdPaneId),
             atr: activeIds.includes(this.configSnapshot.atrPaneId),
-            wma: activeIds.includes(this.configSnapshot.wmaPaneId),
-            dema: activeIds.includes(this.configSnapshot.demaPaneId),
-            tema: activeIds.includes(this.configSnapshot.temaPaneId),
-            hma: activeIds.includes(this.configSnapshot.hmaPaneId),
-            kama: activeIds.includes(this.configSnapshot.kamaPaneId),
-            sar: activeIds.includes(this.configSnapshot.sarPaneId),
-            supertrend: activeIds.includes(this.configSnapshot.supertrendPaneId),
-            keltner: activeIds.includes(this.configSnapshot.keltnerPaneId),
-            donchian: activeIds.includes(this.configSnapshot.donchianPaneId),
-            ichimoku: activeIds.includes(this.configSnapshot.ichimokuPaneId),
+            wma: activeIds.includes(this.configSnapshot.wmaPaneId) || isOnMain(this.configSnapshot.wmaPaneId),
+            dema: activeIds.includes(this.configSnapshot.demaPaneId) || isOnMain(this.configSnapshot.demaPaneId),
+            tema: activeIds.includes(this.configSnapshot.temaPaneId) || isOnMain(this.configSnapshot.temaPaneId),
+            hma: activeIds.includes(this.configSnapshot.hmaPaneId) || isOnMain(this.configSnapshot.hmaPaneId),
+            kama: activeIds.includes(this.configSnapshot.kamaPaneId) || isOnMain(this.configSnapshot.kamaPaneId),
+            sar: activeIds.includes(this.configSnapshot.sarPaneId) || isOnMain(this.configSnapshot.sarPaneId),
+            supertrend: activeIds.includes(this.configSnapshot.supertrendPaneId) || isOnMain(this.configSnapshot.supertrendPaneId),
+            keltner: activeIds.includes(this.configSnapshot.keltnerPaneId) || isOnMain(this.configSnapshot.keltnerPaneId),
+            donchian: activeIds.includes(this.configSnapshot.donchianPaneId) || isOnMain(this.configSnapshot.donchianPaneId),
+            ichimoku: activeIds.includes(this.configSnapshot.ichimokuPaneId) || isOnMain(this.configSnapshot.ichimokuPaneId),
             roc: activeIds.includes(this.configSnapshot.rocPaneId),
             trix: activeIds.includes(this.configSnapshot.trixPaneId),
             hv: activeIds.includes(this.configSnapshot.hvPaneId),
@@ -1045,10 +1046,10 @@ export class IndicatorScheduler {
             vwap: activeIds.includes(this.configSnapshot.vwapPaneId),
             cmf: activeIds.includes(this.configSnapshot.cmfPaneId),
             mfi: activeIds.includes(this.configSnapshot.mfiPaneId),
-            pivot: activeIds.includes(this.configSnapshot.pivotPaneId),
-            fib: activeIds.includes(this.configSnapshot.fibPaneId),
-            structure: activeIds.includes(this.configSnapshot.structurePaneId),
-            zones: activeIds.includes(this.configSnapshot.zonesPaneId),
+            pivot: activeIds.includes(this.configSnapshot.pivotPaneId) || isOnMain(this.configSnapshot.pivotPaneId),
+            fib: activeIds.includes(this.configSnapshot.fibPaneId) || isOnMain(this.configSnapshot.fibPaneId),
+            structure: activeIds.includes(this.configSnapshot.structurePaneId) || isOnMain(this.configSnapshot.structurePaneId),
+            zones: activeIds.includes(this.configSnapshot.zonesPaneId) || isOnMain(this.configSnapshot.zonesPaneId),
             volumeProfile: activeIds.includes(this.configSnapshot.volumeProfilePaneId),
         }
     }
@@ -1063,7 +1064,7 @@ export class IndicatorScheduler {
         for (const key of subKeys) {
             const paneIdKey = `${key}PaneId`
             const paneId = cfg[paneIdKey] as string
-            if (!activeIds.includes(paneId)) {
+            if (!activeIds.includes(paneId) && paneId !== 'main') {
                 const subCfg = { ...(cfg[key] as Record<string, unknown>) }
                 for (const k of Object.keys(subCfg)) {
                     if (k.startsWith('show')) {

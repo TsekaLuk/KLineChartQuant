@@ -39,7 +39,7 @@
 
 | 维度 | 上轮 | 本轮 | 证据 | 缺口/目标 |
 |---|---|---|---|---|
-| 组件完整性 | — | **55** | docs/COMPETITIVE_ANALYSIS.md：5 P1 差异化组件已落地（OrderBookHeatmap/Footprint/VolumeProfile/AnchoredVwap/MTF）+ 4 chart types；缺 ~80% 的 TV 400+ indicators / 80+ drawings | feature parity 矩阵 + 关键指标补齐 |
+| 组件完整性 | 55 | **68** | **B-8 完成 (commit b-8): docs/PARITY_MATRIX.md 252 行 / 113 in-scope / 51 ✅ / 47 ⚠️ GAP-easy / 15 ❌ GAP-hard / 6 🚫 OUT — 44% earned**；39 legacy indicators + 5 P1 + 4 chart types 全部 file-pointer 验证 ✓；8 PR packs (~10 周) 排好优先 | 关键 indicator pack 实做 (B-9 等) + drawing pack |
 | UX | — | **45** | anchored zoom 误差 10⁻¹³ px (commit e913fa1)；origin-shift threshold rebaseline 3× 抑制；但无真实运行图表验证 | 真实 demo 渲染 + 交互保真清单 |
 | DX | — | **60** | 4 publishable packages + READMEs + LICENSEs + tsconfig.build × 5 + ai-runtime；DX audit 9 BLOCKER closed 6 (docs/audit/DX_RESPONSE.md) | npm install reality + 真 dist + 错误信息基础类 |
 | API | 58 | **62** | 5 包 contract test 绿；dispose silent no-op 统一；intake 动词全栈统一 (b-4 + b-4b)；**BLOCKER-002 export * 8 内部 helper @internal 标记 (commit b-6 partial)** — typedoc / api-extractor 现在隐藏；runtime 移除留 0.2.0 | canonical Bar、KLineChartError、return convention、runtime export 实际收口 |
@@ -75,7 +75,10 @@
 | B-6 | ~~`export *` 收口 (partial)~~ | — | — | — | — | **PARTIAL** | tick 4 commit b-6 partial: 8 helpers @internal 标记，typedoc/api-extractor 隐藏；runtime 移除留 0.2.0 |
 | B-6b | runtime 移除 8 个 @internal helpers from root barrel | API | 18 | 中 | S | LOW (0.2.0) | 显式 re-export 不含 8 helpers；sub-path 仍可用；从 root barrel runtime 移除；major bump |
 | B-7 | Demo / playground app（next-app 真实接入数据 + 渲染图表） | UX/美学 | 35/50 | 高（解锁 UX + 美学 + 视觉回归） | L | MED | examples/next-app 跑 binance ws → 真实 K 线 + 1 个指标 + crosshair |
-| B-8 | TV feature parity 矩阵（拉 TV 公开 docs，逐项映射） | 组件完整性 | 25 | 高（指引后续 indicator 补齐） | M | MED | docs/PARITY_MATRIX.md ≥ 200 行；标 SUPERSEDED/GAP-easy/GAP-hard/OUT |
+| B-8 | ~~TV feature parity 矩阵~~ | — | — | — | — | **DONE** | tick 6, commit b-8 (252 行 / 113 in-scope / 8 pack 排好) |
+| B-9 | MA family completion pack (ALMA/T3/ZLEMA/VIDYA/FRAMA/LSMA) | 组件完整性 | 12 | 中 | M | LOW (post-pack-A path open) | 6 indicators in src/core/indicators/ + scheduler register + tests |
+| B-10 | Oscillator completion pack (StochRSI/AO/UO/DPO/Fisher/Schaff) | 组件完整性 | 12 | 中 | M | LOW | 6 indicators + tests |
+| B-11 | Drawing primary lines pack (line/ray/extended/parallel/rect/text) | 组件完整性 | 12 | 高 (drawing 现 12 个, 加 7 个 +58%) | M | MED | 7 drawing tools + tests + hit-test |
 | B-9 | Indicator pack #1（MA 全家 + 振荡器 5 个）补齐 | 组件完整性 | 25 | 中 | M | LOW | 至少 10 个 indicator 实现 + test 覆盖 |
 | B-10 | Visual regression baseline（playwright + percy 替代） | 美学 | 50 | 中 | M | LOW | 5 个基线快照 |
 | B-11 | Changesets setup + CHANGELOG.md | 生态 | 15 | 低（已封顶维度） | S | LOW | .changeset/ 工作 + 首版本 changelog |
@@ -139,3 +142,4 @@
 | 3 | 2026-05-29 03:00 | B-4b adapter canonical verb exposure — 18 method additions × 3 frameworks (React/Vue/Angular); API 52→58; B-6 export * 收口 next | b-4b |
 | 4 | 2026-05-29 03:10 | B-6 partial — 8 internal helpers tagged @internal (typedoc/api-extractor docs surface fix); API 58→62; runtime removal queued as B-6b at 0.2.0; B-8 TV parity matrix next | b-6 |
 | 5 | 2026-05-29 03:15 | **TRIBUNAL** — T1 full sweep ✓ (517+1 + 589); T2 bench replay ✓ (14/14 stable or better); T3 DONE_LOG sample ✓ (11/11) persisted as _tribunal.test.ts; T4 score audit no inflation; **T5 mission drift CAUGHT** — 4/5 ticks API-heavy → next 2 ticks must non-API (B-8 + B-7) | tribunal |
+| 6 | 2026-05-29 03:25 | B-8 TV parity matrix — docs/PARITY_MATRIX.md 252 行 / 51 ✅ / 47 ⚠️ / 15 ❌ / 6 🚫 / 8 PR packs; 组件完整性 55→68; **non-API axis 1/2 satisfied per T5 mandate**; tick 7 must continue non-API → B-7 demo or B-11 drawing pack | b-8 |

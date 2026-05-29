@@ -53,10 +53,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
             const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
             if (!state || !state.params.showSuperTrend || state.visibleMin > state.visibleMax) return
 
-            const { valueMin, valueMax, series } = state
-            const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
+            const { series } = state
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
@@ -74,7 +71,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
                 if (point === undefined) continue
                 const centerX = kLineCenters[i - range.start]
                 if (centerX === undefined) continue
-                const y = pane.height - (point.value - displayMin) / displayValueRange * pane.height
+                const y = pane.yAxis.priceToY(point.value)
 
                 if (prevX !== null && prevTrend === point.trend) {
                     ctx.strokeStyle = point.trend === 'up' ? ST_UP_COLOR : ST_DOWN_COLOR

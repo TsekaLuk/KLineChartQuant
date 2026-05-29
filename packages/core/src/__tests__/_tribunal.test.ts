@@ -105,14 +105,15 @@ describe('TRIBUNAL — DONE_LOG re-verification', () => {
     })
 
     describe('SAMPLE 4: b-1 — bench files + script wired', () => {
-        it('packages/core has 4 bench files', async () => {
+        it('packages/core has the expected bench file set', async () => {
             const benchDir = path.resolve(__dirname, '..', '__bench__')
             const entries = await fs.readdir(benchDir)
             const benches = entries.filter((f) => f.endsWith('.bench.ts'))
-            expect(benches.length).toBe(4)
-            // Must include the four named ones per LEDGER.
+            // Initial set landed in b-1; `indicators.bench.ts` added in b-28
+            // to lock per-indicator throughput numbers (LEDGER tick 32).
             expect(benches.sort()).toEqual(
                 [
+                    'indicators.bench.ts',
                     'orderBookHeatmap.bench.ts',
                     'scale.bench.ts',
                     'signal.bench.ts',

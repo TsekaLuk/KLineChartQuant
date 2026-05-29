@@ -23,3 +23,8 @@ export {
     type KLineChartErrorCode,
     type KLineChartErrorOptions,
 } from './errors'
+export {
+    getRecoveryHint,
+    formatKLineChartError,
+    type FormatErrorOptions,
+} from './errors-help'

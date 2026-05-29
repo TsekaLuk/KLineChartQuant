@@ -8,9 +8,14 @@ import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Components from 'unplugin-vue-components/vite'
 
+// Scoped to the legacy app `src/` only. The pattern previously matched
+// ANY path containing `/src/`, which pulled the babel decorator transform
+// into every monorepo package's tests (packages/<name>/src/...) and broke
+// vitest's TypeScript transform there. The negative-lookahead keeps the
+// transform off the monorepo packages.
 const decoratorTransform = babel({
-  include: [/\/src\/.*\.tsx?$/],
-  exclude: [/node_modules/],
+  include: [/^(?!.*\/packages\/).*\/src\/.*\.tsx?$/],
+  exclude: [/node_modules/, /\/packages\//],
   babelConfig: {
     babelrc: false,
     configFile: false,

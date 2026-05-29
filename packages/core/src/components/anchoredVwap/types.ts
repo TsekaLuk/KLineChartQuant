@@ -30,12 +30,17 @@ import type { Signal } from '../../reactivity'
  * do NOT require `open` or `timestamp` so callers can stream from any
  * source.
  */
-export interface AVWAPBar {
-    high: number
-    low: number
-    close: number
-    volume: number
-}
+// AVWAP consumes a narrower shape than the canonical {@link Bar} —
+// no `open`, no `timestamp`. Exported as `AnchoredBar` from
+// `packages/core/src/types/bar.ts`; `AVWAPBar` is kept as an alias
+// for backward compatibility.
+import type { AnchoredBar } from '../../types/bar'
+
+/**
+ * @deprecated Prefer the canonical {@link AnchoredBar} type for new code.
+ * Kept exported so existing imports do not break.
+ */
+export type AVWAPBar = AnchoredBar
 
 /**
  * A single point of an Anchored VWAP series — one entry per bar from the

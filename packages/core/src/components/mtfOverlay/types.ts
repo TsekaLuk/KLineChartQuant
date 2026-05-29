@@ -27,14 +27,17 @@ import type { Signal } from '../../reactivity'
  * `timestamp` is the bar's OPEN, expected to be aligned to `baseIntervalMs`.
  * The module does not enforce alignment — it trusts the caller's stream.
  */
-export interface BaseBar {
-    timestamp: number
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-}
+// `BaseBar` is now an alias of the canonical {@link Bar} type defined
+// in `packages/core/src/types/bar.ts`. The original interface declaration
+// was structurally identical; the alias keeps every downstream import
+// (`import { BaseBar } from '@klinechart-quant/core'`) working.
+import type { Bar } from '../../types/bar'
+
+/**
+ * @deprecated Prefer the canonical {@link Bar} type for new code.
+ * Kept exported so existing imports do not break.
+ */
+export type BaseBar = Bar
 
 /**
  * A bar produced by aggregating `[sourceStart, sourceEnd]` (inclusive

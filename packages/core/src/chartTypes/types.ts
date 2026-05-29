@@ -36,15 +36,19 @@
  * trigger).
  */
 
-/** Standard OHLCV row. Timestamps are epoch milliseconds. */
-export interface OHLCV {
-    timestamp: number
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-}
+// `OHLCV` is now an alias of the canonical {@link Bar} type defined in
+// `packages/core/src/types/bar.ts`. The original interface declaration
+// was structurally identical; the alias keeps every downstream import
+// (`import { OHLCV } from '@klinechart-quant/core'`) working.
+import type { Bar } from '../types/bar'
+
+/**
+ * Standard OHLCV row. Timestamps are epoch milliseconds.
+ *
+ * @deprecated Prefer the canonical {@link Bar} type for new code.
+ * Kept exported so existing imports do not break.
+ */
+export type OHLCV = Bar
 
 /**
  * One output bar from a chart-type transform. Extends `OHLCV` so it can flow

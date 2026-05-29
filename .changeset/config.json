@@ -1,0 +1,21 @@
+{
+    "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+    "changelog": "@changesets/cli/changelog",
+    "commit": false,
+    "fixed": [],
+    "linked": [
+        [
+            "@klinechart-quant/core",
+            "@klinechart-quant/ai-runtime",
+            "@klinechart-quant/react",
+            "@klinechart-quant/vue",
+            "@klinechart-quant/angular"
+        ]
+    ],
+    "access": "public",
+    "baseBranch": "main",
+    "updateInternalDependencies": "patch",
+    "ignore": [
+        "@klinechart-quant/ui-schema"
+    ]
+}

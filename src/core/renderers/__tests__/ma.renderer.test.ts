@@ -46,6 +46,21 @@ function createMockPluginHost(state?: MARenderState): PluginHost {
       return undefined
     }),
     clearByOwner: vi.fn(),
+    registerService: vi.fn(),
+    getService: vi.fn(<T>(name: string) => {
+      if (name === 'indicatorScheduler') {
+        return {
+          getIndicatorMetadata: (indicatorName: string) => {
+            if (indicatorName === 'ma') {
+              return { name: 'ma', stateKey: MA_STATE_KEY }
+            }
+            return undefined
+          },
+          getAllIndicators: () => [],
+        } as T
+      }
+      return undefined
+    }),
     getCanvas: vi.fn(),
     getMainPane: vi.fn(),
     getSubPane: vi.fn(),
@@ -131,6 +146,7 @@ describe('createMARendererPlugin', () => {
 
   it('should declare MA_STATE_KEY namespace', () => {
     const plugin = createMARendererPlugin()
+    plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([MA_STATE_KEY])
   })
 
@@ -374,6 +390,21 @@ describe('MA renderer stateless design verification', () => {
       setSharedState: vi.fn(),
       getSharedState: mockGetSharedState,
       clearByOwner: vi.fn(),
+      registerService: vi.fn(),
+      getService: vi.fn(<T>(name: string) => {
+        if (name === 'indicatorScheduler') {
+          return {
+            getIndicatorMetadata: (indicatorName: string) => {
+              if (indicatorName === 'ma') {
+                return { name: 'ma', stateKey: MA_STATE_KEY }
+              }
+              return undefined
+            },
+            getAllIndicators: () => [],
+          } as T
+        }
+        return undefined
+      }),
     } as unknown as PluginHost
 
     mockGetSharedState.mockReturnValue(createTestMARenderState())

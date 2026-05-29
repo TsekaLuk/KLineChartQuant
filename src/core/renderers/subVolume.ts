@@ -3,6 +3,7 @@ import { RENDERER_PRIORITY } from '@/plugin'
 import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import type { KLineData } from '@/types/price'
 import { VOLUME_COLORS } from '@/core/theme/colors'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 
 export interface VolumeRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
@@ -196,4 +197,15 @@ function judgeColor(dayData: KLineData) {
     } else {
         return VOLUME_COLORS.NEUTRAL
     }
+}
+
+@Indicator({
+    name: 'volume',
+    displayName: 'VOL',
+    category: 'volume',
+    stateKey: 'indicator:volume',
+    defaultPaneId: 'sub',
+})
+class VolumeIndicatorDefinition {
+    static rendererFactory = createVolumeRendererPlugin
 }

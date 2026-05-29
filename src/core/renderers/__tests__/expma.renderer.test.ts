@@ -40,6 +40,21 @@ function createMockPluginHost(state?: EXPMARenderState): PluginHost {
       return undefined
     }),
     clearByOwner: vi.fn(),
+    registerService: vi.fn(),
+    getService: vi.fn(<T>(name: string) => {
+      if (name === 'indicatorScheduler') {
+        return {
+          getIndicatorMetadata: (indicatorName: string) => {
+            if (indicatorName === 'expma') {
+              return { name: 'expma', stateKey: EXPMA_STATE_KEY }
+            }
+            return undefined
+          },
+          getAllIndicators: () => [],
+        } as T
+      }
+      return undefined
+    }),
     getCanvas: vi.fn(),
     getMainPane: vi.fn(),
     getSubPane: vi.fn(),
@@ -128,6 +143,7 @@ describe('createEXPMARendererPlugin', () => {
 
   it('should declare EXPMA_STATE_KEY namespace', () => {
     const plugin = createEXPMARendererPlugin()
+    plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([EXPMA_STATE_KEY])
   })
 })

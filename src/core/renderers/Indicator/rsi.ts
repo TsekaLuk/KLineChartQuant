@@ -3,7 +3,8 @@ import { RENDERER_PRIORITY } from '@/plugin'
 import { RSI_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { RSIRenderState } from '@/core/indicators/rsiState'
-import { createRSIStateKey } from '@/core/indicators/rsiState'
+import { createRSIStateKey, RSI_STATE_KEY } from '@/core/indicators/rsiState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 
 type LinePoint = { x: number; y: number }
 
@@ -342,4 +343,15 @@ export function getRSITitleInfo(
         params: [period1, period2, period3],
         values,
     }
+}
+
+@Indicator({
+    name: 'rsi',
+    displayName: 'RSI',
+    category: 'oscillator',
+    stateKey: RSI_STATE_KEY,
+    defaultPaneId: 'sub_RSI',
+})
+class RSIIndicatorDefinition {
+    static rendererFactory = createRSIRendererPlugin
 }

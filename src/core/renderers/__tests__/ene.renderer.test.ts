@@ -43,6 +43,21 @@ function createMockPluginHost(state?: ENERenderState): PluginHost {
       return undefined
     }),
     clearByOwner: vi.fn(),
+    registerService: vi.fn(),
+    getService: vi.fn(<T>(name: string) => {
+      if (name === 'indicatorScheduler') {
+        return {
+          getIndicatorMetadata: (indicatorName: string) => {
+            if (indicatorName === 'ene') {
+              return { name: 'ene', stateKey: ENE_STATE_KEY }
+            }
+            return undefined
+          },
+          getAllIndicators: () => [],
+        } as T
+      }
+      return undefined
+    }),
     getCanvas: vi.fn(),
     getMainPane: vi.fn(),
     getSubPane: vi.fn(),
@@ -128,6 +143,7 @@ describe('createENERendererPlugin', () => {
 
   it('should declare ENE_STATE_KEY namespace', () => {
     const plugin = createENERendererPlugin()
+    plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([ENE_STATE_KEY])
   })
 })

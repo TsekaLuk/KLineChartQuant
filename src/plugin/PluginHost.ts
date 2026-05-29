@@ -14,6 +14,7 @@ export class PluginHostImpl implements PluginHost {
   private hookSystem: HookSystem
   private configManager: ConfigManager
   private stateStore: StateStore
+  private services = new Map<string, unknown>()
   private isDestroyed = false
   private logger: PluginLogger
 
@@ -99,6 +100,14 @@ export class PluginHostImpl implements PluginHost {
 
   clearByOwner(ownerId: string): void {
     this.stateStore.clearByOwner(ownerId)
+  }
+
+  registerService(name: string, service: unknown): void {
+    this.services.set(name, service)
+  }
+
+  getService<T = unknown>(name: string): T | undefined {
+    return this.services.get(name) as T | undefined
   }
 
   /**
@@ -215,6 +224,7 @@ export class PluginHostImpl implements PluginHost {
     this.hookSystem.clear()
     this.configManager.clear()
     this.stateStore.clear()
+    this.services.clear()
 
     this.isDestroyed = true
     this.log('info', 'PluginHost destroyed')

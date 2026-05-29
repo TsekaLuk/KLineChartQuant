@@ -1,14 +1,29 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import babel from 'vite-plugin-babel'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import dts from 'vite-plugin-dts'
 import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Components from 'unplugin-vue-components/vite'
 
+const decoratorTransform = babel({
+  include: [/\/src\/.*\.tsx?$/],
+  exclude: [/node_modules/],
+  babelConfig: {
+    babelrc: false,
+    configFile: false,
+    plugins: [
+      ['@babel/plugin-proposal-decorators', { version: '2023-11' }],
+      ['@babel/plugin-transform-typescript', { allowDeclareFields: true }],
+    ],
+  },
+})
+
 export default defineConfig({
   plugins: [
+    decoratorTransform,
     vue(),
     vueDevTools(),
     dts({
@@ -30,16 +45,13 @@ export default defineConfig({
   },
 
   // 让手机/局域网设备可以访问本机 dev server
-  // 同时通过 Vite proxy 转发 /api -> AKTools(本机 8080)，避免浏览器 CORS 问题
   server: {
     host: '0.0.0.0',
     proxy: {
-      // baostock 数据源 (端口 8000)
       '/api/stock': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
-      // 东财等 AKTools 数据源 (端口 8080)
       '/api/public': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
@@ -48,6 +60,7 @@ export default defineConfig({
   },
 
   build: {
+    target: 'esnext',
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       name: 'klinechart',
@@ -61,5 +74,4 @@ export default defineConfig({
       },
     },
   },
-  // publicDir 默认为 'public'，不要禁用，mock 数据需要从 public/ 提供
 })

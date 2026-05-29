@@ -118,6 +118,12 @@ export interface PluginHost {
 
   /** 按拥有者清除状态 */
   clearByOwner(ownerId: string): void
+
+  /** 注册服务 */
+  registerService(name: string, service: unknown): void
+
+  /** 获取已注册的服务 */
+  getService<T = unknown>(name: string): T | undefined
 }
 
 // ============ 渲染器插件类型 ============

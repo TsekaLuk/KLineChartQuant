@@ -4,9 +4,10 @@ import type { KLineData } from '@/types/price'
 import { MACD_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { MACDRenderState } from '@/core/indicators/macdState'
-import { createMACDStateKey } from '@/core/indicators/macdState'
+import { createMACDStateKey, MACD_STATE_KEY } from '@/core/indicators/macdState'
 import type { MACDPoint } from '@/core/indicators/calculators'
 import { calcMACDData } from '@/core/indicators/calculators'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 
 type LinePoint = { x: number; y: number }
 
@@ -427,4 +428,15 @@ export function getMACDTitleInfo(
       { label: 'MACD', value: point.macd, color: point.macd >= 0 ? MACD_COLORS.BAR_UP : MACD_COLORS.BAR_DOWN },
     ],
   }
+}
+
+@Indicator({
+  name: 'macd',
+  displayName: 'MACD',
+  category: 'oscillator',
+  stateKey: MACD_STATE_KEY,
+  defaultPaneId: 'sub_MACD',
+})
+class MACDIndicatorDefinition {
+  static rendererFactory = createMACDRendererPlugin
 }

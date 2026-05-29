@@ -36,6 +36,8 @@ function createMockPluginHost(): PluginHost {
       return stateStore.get(key) as T | undefined
     }),
     clearByOwner: vi.fn(),
+    registerService: vi.fn(),
+    getService: vi.fn(),
     getCanvas: vi.fn(),
     getMainPane: vi.fn(),
     getSubPane: vi.fn(),

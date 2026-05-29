@@ -1,6 +1,9 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { MA_COLORS } from '@/core/theme/colors'
 
@@ -39,6 +42,31 @@ function buildMACacheKey(
     ].join('|')
 }
 
+function getMAStateKey(host: PluginHost | null): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[MARenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('ma')
+    if (!meta) {
+        console.warn('[MARenderer] Indicator metadata for \'ma\' not found, skip rendering')
+        return null
+    }
+    return resolveStateKey(meta.stateKey)
+}
+
+@Indicator({
+    name: 'ma',
+    displayName: 'MA',
+    category: 'main',
+    stateKey: MA_STATE_KEY,
+    defaultPaneId: 'main',
+})
+class MADefinition {
+    static rendererFactory = createMARendererPlugin
+}
+
 export function createMARendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
     let cachedKey = ''
@@ -47,6 +75,10 @@ export function createMARendererPlugin(): RendererPluginWithHost {
     function clearCache() {
         cachedKey = ''
         cachedLines = new Map()
+    }
+
+    function resolveKey(): string | null {
+        return getMAStateKey(pluginHost)
     }
 
     return {
@@ -62,12 +94,15 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         },
 
         getDeclaredNamespaces(): string[] {
-            return [MA_STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<MARenderState>(stateKey)
 
             if (!state || state.visibleMin > state.visibleMax) {
                 clearCache()
@@ -150,7 +185,9 @@ export function createMARendererPlugin(): RendererPluginWithHost {
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<MARenderState>(MA_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<MARenderState>(stateKey)
             const config: Record<string, boolean> = {}
             state?.enabledPeriods.forEach(period => {
                 config[`ma${period}`] = true

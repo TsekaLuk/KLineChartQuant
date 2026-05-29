@@ -3,7 +3,9 @@ import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { EXPMA_COLORS } from '@/core/theme/colors'
-import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/expmaState'
+import type { EXPMARenderState } from '@/core/indicators/expmaState'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -27,6 +29,20 @@ function buildEXPMACacheKey(
     ].join('|')
 }
 
+function getEXPMAStateKey(host: PluginHost | null): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[EXPMARenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('expma')
+    if (!meta) {
+        console.warn('[EXPMARenderer] Indicator metadata for \'expma\' not found, skip rendering')
+        return null
+    }
+    return resolveStateKey(meta.stateKey)
+}
+
 export function createEXPMARendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
     let cachedKey = ''
@@ -37,6 +53,10 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         cachedKey = ''
         cachedFastPoints = []
         cachedSlowPoints = []
+    }
+
+    function resolveKey(): string | null {
+        return getEXPMAStateKey(pluginHost)
     }
 
     return {
@@ -52,13 +72,16 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         },
 
         getDeclaredNamespaces(): string[] {
-            return [EXPMA_STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
             const klineData = data as KLineData[]
-            const state = pluginHost?.getSharedState<EXPMARenderState>(EXPMA_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
 
             if (!state || state.visibleMin > state.visibleMax) {
                 clearCache()
@@ -144,7 +167,9 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<EXPMARenderState>(EXPMA_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
             return state ? { ...state.params } : {}
         },
 

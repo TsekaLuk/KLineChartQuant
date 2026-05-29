@@ -9,6 +9,7 @@ import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from '@/core/utils/klineConfig'
 import { computeContentWidth } from '@/core/chart-store'
 import { IndicatorScheduler } from '@/core/indicators/scheduler'
+import { getRegisteredIndicatorDefinitions } from '@/core/indicators/indicatorDefinitionRegistry'
 import { SubPaneManager, type SubPaneEntry } from '@/core/subPaneManager'
 
 import {
@@ -685,6 +686,9 @@ export class Chart {
         // 初始化指标调度器
         this.indicatorScheduler = new IndicatorScheduler()
         this.indicatorScheduler.setPluginHost(this.pluginHost)
+        for (const definition of getRegisteredIndicatorDefinitions()) {
+            this.indicatorScheduler.registerIndicator(definition)
+        }
         this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
         
         // 初始化副图管理器

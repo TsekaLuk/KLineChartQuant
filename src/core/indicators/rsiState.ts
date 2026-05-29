@@ -31,6 +31,11 @@ export interface RSIRenderState extends BaseIndicatorState {
 }
 
 /**
+ * RSI 状态的基础 StateStore 键名
+ */
+export const RSI_STATE_KEY = 'indicator:rsi'
+
+/**
  * 创建 RSI 状态的 StateStore 键名
  * 格式：indicator:rsi:{paneId}
  */

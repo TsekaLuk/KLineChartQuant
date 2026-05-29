@@ -43,6 +43,21 @@ function createMockPluginHost(state?: BOLLRenderState): PluginHost {
       return undefined
     }),
     clearByOwner: vi.fn(),
+    registerService: vi.fn(),
+    getService: vi.fn(<T>(name: string) => {
+      if (name === 'indicatorScheduler') {
+        return {
+          getIndicatorMetadata: (indicatorName: string) => {
+            if (indicatorName === 'boll') {
+              return { name: 'boll', stateKey: BOLL_STATE_KEY }
+            }
+            return undefined
+          },
+          getAllIndicators: () => [],
+        } as T
+      }
+      return undefined
+    }),
     getCanvas: vi.fn(),
     getMainPane: vi.fn(),
     getSubPane: vi.fn(),
@@ -137,6 +152,7 @@ describe('createBOLLRendererPlugin', () => {
 
   it('should declare BOLL_STATE_KEY namespace', () => {
     const plugin = createBOLLRendererPlugin()
+    plugin.onInstall(createMockPluginHost())
     expect(plugin.getDeclaredNamespaces()).toEqual([BOLL_STATE_KEY])
   })
 })

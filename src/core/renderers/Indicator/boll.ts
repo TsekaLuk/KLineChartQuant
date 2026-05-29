@@ -4,6 +4,9 @@ import type { KLineData } from '@/types/price'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { BOLL_COLORS } from '@/core/theme/colors'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -104,6 +107,31 @@ function buildPriceCacheKey(
     return `${range.start}|${range.end}|${dataLength}|${lastTimestamp}|${period}`
 }
 
+function getBOLLStateKey(host: PluginHost | null): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[BOLLRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('boll')
+    if (!meta) {
+        console.warn('[BOLLRenderer] Indicator metadata for \'boll\' not found, skip rendering')
+        return null
+    }
+    return resolveStateKey(meta.stateKey)
+}
+
+@Indicator({
+    name: 'boll',
+    displayName: 'BOLL',
+    category: 'main',
+    stateKey: BOLL_STATE_KEY,
+    defaultPaneId: 'main',
+})
+class BOLLDefinition {
+    static rendererFactory = createBOLLRendererPlugin
+}
+
 export function createBOLLRendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
 
@@ -127,6 +155,10 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         _poolSize = size
     }
 
+    function resolveKey(): string | null {
+        return getBOLLStateKey(pluginHost)
+    }
+
     return {
         name: 'boll',
         version: '2.2.0',
@@ -140,14 +172,17 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         },
 
         getDeclaredNamespaces(): string[] {
-            return [BOLL_STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
 
-            const state = pluginHost?.getSharedState<BOLLRenderState>(BOLL_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<BOLLRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax || state.series.length === 0) {
                 return
             }
@@ -264,7 +299,9 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<BOLLRenderState>(BOLL_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<BOLLRenderState>(stateKey)
             return state ? { ...state.params } : {}
         },
 

@@ -3,7 +3,9 @@ import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import { ENE_COLORS } from '@/core/theme/colors'
-import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/eneState'
+import type { ENERenderState } from '@/core/indicators/eneState'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -88,8 +90,26 @@ function drawENEWithWebGL(
  * 3. 配置变更通过外部 IndicatorScheduler 处理
  * 4. 纯绘制函数，无副作用
  */
+function getENEStateKey(host: PluginHost | null): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[ENERenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('ene')
+    if (!meta) {
+        console.warn('[ENERenderer] Indicator metadata for \'ene\' not found, skip rendering')
+        return null
+    }
+    return resolveStateKey(meta.stateKey)
+}
+
 export function createENERendererPlugin(): RendererPluginWithHost {
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getENEStateKey(pluginHost)
+    }
 
     return {
         name: 'ene',
@@ -110,7 +130,8 @@ export function createENERendererPlugin(): RendererPluginWithHost {
          * 声明使用的 StateStore 命名空间
          */
         getDeclaredNamespaces(): string[] {
-            return [ENE_STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         /**
@@ -121,8 +142,10 @@ export function createENERendererPlugin(): RendererPluginWithHost {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters } = context
             const klineData = data as KLineData[]
 
+            const stateKey = resolveKey()
+            if (!stateKey) return
             // 从 StateStore 读取 ENE 状态
-            const state = pluginHost?.getSharedState<ENERenderState>(ENE_STATE_KEY)
+            const state = pluginHost?.getSharedState<ENERenderState>(stateKey)
 
             // 无有效数据时提前返回
             if (!state || state.visibleMin > state.visibleMax) return
@@ -211,7 +234,9 @@ export function createENERendererPlugin(): RendererPluginWithHost {
          * 从 StateStore 读取实际配置
          */
         getConfig() {
-            const state = pluginHost?.getSharedState<ENERenderState>(ENE_STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<ENERenderState>(stateKey)
             return state ? { ...state.params } : {}
         },
 

@@ -1,13 +1,28 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import babel from 'vite-plugin-babel'
 import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Components from 'unplugin-vue-components/vite'
 
+const decoratorTransform = babel({
+  include: [/\/src\/.*\.tsx?$/],
+  exclude: [/node_modules/],
+  babelConfig: {
+    babelrc: false,
+    configFile: false,
+    plugins: [
+      ['@babel/plugin-proposal-decorators', { version: '2023-11' }],
+      ['@babel/plugin-transform-typescript', { allowDeclareFields: true }],
+    ],
+  },
+})
+
 // 演示应用构建配置
 export default defineConfig({
   plugins: [
+    decoratorTransform,
     vue(),
     Components({
       resolvers: [IconsResolver()],

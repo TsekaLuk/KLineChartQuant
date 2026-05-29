@@ -14,6 +14,14 @@ export {
     isTierAtLeast,
 } from './detectRendererTier'
 export {
+    selectBackend,
+    selectBackendOrThrow,
+    type BackendFactory,
+    type BackendRegistry,
+    type BackendSelection,
+    type SelectBackendOptions,
+} from './selectBackend'
+export {
     RENDERER_TIER_RANK,
     type RendererTier,
     type RendererTierResult,

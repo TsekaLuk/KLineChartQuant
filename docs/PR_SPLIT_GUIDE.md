@@ -1,16 +1,24 @@
 # PR split guide — autonomous-loop output
 
 PR #24 ("foundation drop") grew to 50 commits and +33,882 / −45 lines
-during ticks 0–24. Reviewing it commit-by-commit is impractical;
-splitting it retroactively is risky because of cross-axis
-dependencies on `errors.ts` and the indicator files.
+during ticks 0–24.
 
-This guide documents (a) **the natural seams that would have been
-separate PRs** if the loop had run that way from the start, and (b)
-**the workflow from tick 25 onwards** — every code-producing tick
-opens its own small PR targeting `feat/renderer-interface` (the
-current `#24` branch). Once `#24` merges, stacked PRs auto-rebase
-to `main`.
+**Decision (2026-05-29, after PR-strategy review with maintainer):**
+land `#23 + #24` as the foundation drop and stop trying to split
+`#24` retroactively. The fundamental constraint:
+
+- `main` is the historical fork point and **does not have
+  `packages/core/`** at all. Any "themed PR off main" must carry
+  `#23`'s ~7 k-line monorepo scaffold, which makes it not actually
+  small.
+- Stacking themed PRs on `#23` produces "stacked PR-of-PR" review
+  burden without enough payoff per slice.
+
+This guide documents (a) **the natural seams** at commit-level —
+useful as a reading map while reviewing `#24`, AND useful retroactively
+if a future maintainer ever wants to cherry-pick a single subsystem
+out of the merged commit history; and (b) **the post-merge workflow**
+that every autonomous-loop tick from tick 26 onwards follows.
 
 ---
 
@@ -47,27 +55,43 @@ effect and would not appear in split PRs; they'd live on a
 
 ---
 
-## From tick 25 onwards — small-PR workflow
+## Workflow from tick 26 onwards
+
+Two phases, gated on whether `#23 + #24` have landed.
+
+### Phase A — pre-merge (until #24 merges to main)
+
+Tick work continues on `feat/renderer-interface` directly. Code +
+LEDGER commits land on that branch; CI keeps running on every push.
+**No new PRs are opened during phase A** — opening stacked-on-#24
+PRs creates churn that nobody wins from (zero diff vs #24 unless
+the tick rebases off main, which it can't until #24 merges).
+
+Tribunal commits are LEDGER-only and stay on
+`feat/renderer-interface`.
+
+### Phase B — post-merge (after #24 lands on main)
 
 Each code-producing tick:
 
-1. Branch off the current `feat/renderer-interface` tip:
+1. Pull main:
    ```bash
-   git checkout -b tick-<N>-<theme> feat/renderer-interface
+   git checkout main && git pull
    ```
-2. Implement the tick (the same loop protocol applies — phases 1–9).
-3. Commit the code change on the tick branch.
-4. Push and open a PR targeting `feat/renderer-interface`:
+2. Branch off main:
    ```bash
-   gh pr create --base feat/renderer-interface --head tick-<N>-<theme>
+   git checkout -b tick-<N>-<theme>
    ```
-5. After CI, switch back and update LEDGER + TICK_LOG on the
-   `feat/renderer-interface` branch (or a dedicated `loop-meta`
-   branch with its own long-running PR).
+3. Implement the tick (the loop protocol's 9 phases still apply).
+4. Commit code on the tick branch; commit LEDGER + TICK_LOG
+   updates either separately on a long-running `loop-meta`
+   branch, or in a final dedicated meta commit on the tick branch
+   if the maintainer prefers a single commit per tick.
+5. Push and open a PR targeting `main`:
+   ```bash
+   gh pr create --base main --head tick-<N>-<theme>
+   ```
 
-Result: every tick's code change reviewable on its own, while the
-loop's tribunal/ledger discipline stays uninterrupted.
-
-If `#24` merges first, the stacked PRs rebase onto `main`
-automatically (`git pull --rebase origin main` from each tick
-branch).
+Result: every phase-B tick's code change is a genuinely small PR
+(typically 1 file + 1 test file, hundreds of lines, no scaffold
+carry).

@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
+// @ts-expect-error — no types ship with the plugin
+import babel from 'vite-plugin-babel'
 
 // The createChartController bridge imports the legacy engine at
 // `../../../../src/core/chart.ts`. That module uses `@/...` aliases for its
@@ -9,6 +11,24 @@ import { defineConfig } from 'vitest/config'
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 
 export default defineConfig({
+    plugins: [
+        // Upstream added TC39 stage-3 decorators (`@Indicator(...)`) in
+        // `src/core/*` (the legacy engine the createChartController bridge
+        // imports). Mirror the babel transform from the root `vite.config.ts`,
+        // scoped only to the legacy directory.
+        babel({
+            include: [/\/src\/core\/.*\.tsx?$/],
+            exclude: [/node_modules/, /\/packages\//],
+            babelConfig: {
+                babelrc: false,
+                configFile: false,
+                plugins: [
+                    ['@babel/plugin-proposal-decorators', { version: '2023-11' }],
+                    ['@babel/plugin-transform-typescript', { allowDeclareFields: true }],
+                ],
+            },
+        }),
+    ],
     test: {
         environment: 'node',
         include: ['src/**/*.test.ts'],

@@ -16,3 +16,11 @@ export {
     type ModifierState,
     type KeyboardEventLike,
 } from './keyboard'
+export {
+    createGestureRecognizer,
+    type GestureRecognizer,
+    type GestureRecognizerOptions,
+    type GestureEvent,
+    type GestureState,
+    type PointerEventLike,
+} from './gesture'

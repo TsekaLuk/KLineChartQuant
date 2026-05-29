@@ -42,3 +42,12 @@ export {
     ChartSerializationError,
     type ChartSnapshotInput,
 } from './serialization'
+
+export {
+    executeTool,
+    executeToolOrThrow,
+    type ControllerRegistry,
+    type ToolResult,
+    type ToolErrorCode,
+    type ExecuteToolOptions,
+} from './executeTool'

@@ -2,6 +2,9 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { ATRRenderState } from '@/core/indicators/atrState'
 import { createATRStateKey } from '@/core/indicators/atrState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -11,10 +14,27 @@ export interface ATRRendererOptions {
     paneId?: string
 }
 
+function getATRStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[ATRRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('atr')
+    if (!meta) {
+        console.warn(`[ATRRenderer] Indicator metadata for 'atr' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_ATR' } = options
-    const STATE_KEY = createATRStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getATRStateKey(pluginHost, paneId)
+    }
 
     let cachedKey = ''
     let cachedPoints: LinePoint[] = []
@@ -60,13 +80,16 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
         },
 
         getDeclaredNamespaces() {
-            return [STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
 
-            const state = pluginHost?.getSharedState<ATRRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<ATRRenderState>(stateKey)
             if (!state || !state.params.showATR || state.visibleMin > state.visibleMax) {
                 clearCache()
                 return
@@ -138,7 +161,9 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<ATRRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<ATRRenderState>(stateKey)
             return state?.params ?? {}
         },
 
@@ -192,4 +217,15 @@ export function getATRTitleInfo(
             { label: 'ATR', value: atr, color: ATR_COLOR },
         ],
     }
+}
+
+@Indicator({
+    name: 'atr',
+    displayName: 'ATR',
+    category: 'oscillator',
+    stateKey: createATRStateKey,
+    defaultPaneId: 'sub_ATR',
+})
+class ATRIndicatorDefinition {
+    static rendererFactory = createATRRendererPlugin
 }

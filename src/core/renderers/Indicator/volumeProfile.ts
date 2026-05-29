@@ -1,7 +1,10 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { VolumeProfileRenderState } from '@/core/indicators/volumeProfileState'
 import { createVolumeProfileStateKey } from '@/core/indicators/volumeProfileState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
 const POC_COLOR = '#f59e0b'
@@ -9,10 +12,27 @@ const VA_COLOR = 'rgba(99, 102, 241, 0.6)'
 
 const PROFILE_WIDTH_PX = 80
 
+function getVolumeProfileStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[VolumeProfileRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('volumeProfile')
+    if (!meta) {
+        console.warn(`[VolumeProfileRenderer] Indicator metadata for 'volumeProfile' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createVolumeProfileRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_VolumeProfile' } = options
-    const STATE_KEY = createVolumeProfileStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getVolumeProfileStateKey(pluginHost, paneId)
+    }
     return {
         name: `volumeProfile_${paneId}`,
         version: '1.0.0',
@@ -21,10 +41,12 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, scrollLeft } = context
-            const state = pluginHost?.getSharedState<VolumeProfileRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<VolumeProfileRenderState>(stateKey)
             if (!state) return
             const { bins, poc, vah, val, totalVolume } = state.series
             if (bins.length === 0 || totalVolume <= 0) return
@@ -77,7 +99,23 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
 
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<VolumeProfileRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<VolumeProfileRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'volumeProfile',
+    displayName: 'VP',
+    category: 'volume',
+    stateKey: createVolumeProfileStateKey,
+    defaultPaneId: 'sub_VolumeProfile',
+})
+class VolumeProfileIndicatorDefinition {
+    static rendererFactory = createVolumeProfileRendererPlugin
 }

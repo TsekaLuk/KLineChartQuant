@@ -2,6 +2,9 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { ROCRenderState } from '@/core/indicators/rocState'
 import { createROCStateKey } from '@/core/indicators/rocState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const ROC_COLOR = '#0ea5e9'
 
@@ -9,10 +12,27 @@ type LinePoint = { x: number; y: number }
 
 export interface ROCRendererOptions { paneId?: string }
 
+function getROCStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[ROCRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('roc')
+    if (!meta) {
+        console.warn(`[ROCRenderer] Indicator metadata for 'roc' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_ROC' } = options
-    const STATE_KEY = createROCStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getROCStateKey(pluginHost, paneId)
+    }
 
     return {
         name: `roc_${paneId}`,
@@ -23,11 +43,13 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
         priority: RENDERER_PRIORITY.MAIN,
 
         onInstall(host: PluginHost) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<ROCRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<ROCRenderState>(stateKey)
             if (!state || !state.params.showROC || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -96,9 +118,22 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<ROCRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<ROCRenderState>(stateKey)
             return state?.params ?? {}
         },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'roc',
+    displayName: 'ROC',
+    category: 'oscillator',
+    stateKey: createROCStateKey,
+    defaultPaneId: 'sub_ROC',
+})
+class ROCIndicatorDefinition {
+    static rendererFactory = createROCRendererPlugin
 }

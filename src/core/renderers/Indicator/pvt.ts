@@ -1,16 +1,36 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { PVTRenderState } from '@/core/indicators/pvtState'
 import { createPVTStateKey } from '@/core/indicators/pvtState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const PVT_COLOR = '#a855f7'
 
 type LinePoint = { x: number; y: number }
 
+function getPVTStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[PVTRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('pvt')
+    if (!meta) {
+        console.warn(`[PVTRenderer] Indicator metadata for 'pvt' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_PVT' } = options
-    const STATE_KEY = createPVTStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getPVTStateKey(pluginHost, paneId)
+    }
     return {
         name: `pvt_${paneId}`,
         version: '1.1.0',
@@ -19,10 +39,12 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<PVTRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<PVTRenderState>(stateKey)
             if (!state || !state.params.showPVT || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -75,7 +97,23 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<PVTRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<PVTRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'pvt',
+    displayName: 'PVT',
+    category: 'volume',
+    stateKey: createPVTStateKey,
+    defaultPaneId: 'sub_PVT',
+})
+class PVTIndicatorDefinition {
+    static rendererFactory = createPVTRendererPlugin
 }

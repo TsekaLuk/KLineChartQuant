@@ -1,9 +1,11 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import type { KLineData } from '@/types/price'
 import { VOLUME_COLORS } from '@/core/theme/colors'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 export interface VolumeRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
@@ -15,13 +17,30 @@ export interface VolumeRenderState extends BaseIndicatorState {
     valueMax: number
 }
 
+function getVolumeStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[VolumeRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('volume')
+    if (!meta) {
+        console.warn("[VolumeRenderer] Indicator metadata for 'volume' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建副图成交量渲染器插件
  */
 export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
-    const stateKey = createIndicatorStateKey('volume', paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getVolumeStateKey(pluginHost, paneId)
+    }
 
     return {
         name: `volume_${paneId}`,
@@ -36,7 +55,8 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
         },
 
         getDeclaredNamespaces() {
-            return [stateKey]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
@@ -72,6 +92,8 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
             const baseY = pane.height - (0 - displayMin) / displayValueRange * pane.height
             const alignedBaseY = Math.round(baseY * dpr) / dpr
 
+            const stateKey = resolveKey()
+            if (!stateKey) return
             pluginHost?.setSharedState<VolumeRenderState>(stateKey, {
                 valueMin,
                 valueMax,
@@ -203,7 +225,7 @@ function judgeColor(dayData: KLineData) {
     name: 'volume',
     displayName: 'VOL',
     category: 'volume',
-    stateKey: 'indicator:volume',
+    stateKey: (paneId: string) => createIndicatorStateKey('volume', paneId),
     defaultPaneId: 'sub',
 })
 class VolumeIndicatorDefinition {

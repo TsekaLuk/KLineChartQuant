@@ -2,15 +2,36 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { ParkinsonRenderState } from '@/core/indicators/parkinsonState'
 import { createParkinsonStateKey } from '@/core/indicators/parkinsonState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const PARKINSON_COLOR = '#0891b2'
 
 type LinePoint = { x: number; y: number }
 
+function getParkinsonStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[ParkinsonRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('parkinson')
+    if (!meta) {
+        console.warn(`[ParkinsonRenderer] Indicator metadata for 'parkinson' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createParkinsonRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_Parkinson' } = options
-    const STATE_KEY = createParkinsonStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getParkinsonStateKey(pluginHost, paneId)
+    }
+
     return {
         name: `parkinson_${paneId}`,
         version: '1.1.0',
@@ -19,10 +40,12 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<ParkinsonRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<ParkinsonRenderState>(stateKey)
             if (!state || !state.params.showParkinson || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -76,9 +99,22 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
             ctx.restore()
         },
         getConfig() {
-            const state = pluginHost?.getSharedState<ParkinsonRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<ParkinsonRenderState>(stateKey)
             return state?.params ?? {}
         },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'parkinson',
+    displayName: 'Parkinson',
+    category: 'oscillator',
+    stateKey: createParkinsonStateKey,
+    defaultPaneId: 'sub_Parkinson',
+})
+class ParkinsonIndicatorDefinition {
+    static rendererFactory = createParkinsonRendererPlugin
 }

@@ -1,9 +1,12 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { KDJ_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { STOCHRenderState } from '@/core/indicators/stochState'
 import { createSTOCHStateKey } from '@/core/indicators/stochState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -12,13 +15,30 @@ export interface STOCHRendererOptions {
     paneId?: string
 }
 
+function getSTOCHStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[STOCHRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('stoch')
+    if (!meta) {
+        console.warn("[STOCHRenderer] Indicator metadata for 'stoch' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建 STOCH 渲染器插件
  */
 export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
-    const STATE_KEY = createSTOCHStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getSTOCHStateKey(pluginHost, paneId)
+    }
 
     // 线条点缓存
     let cachedKey = ''
@@ -124,13 +144,16 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
         },
 
         getDeclaredNamespaces() {
-            return [STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
 
-            const state = pluginHost?.getSharedState<STOCHRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<STOCHRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax) {
                 clearLineCache()
                 return
@@ -232,7 +255,9 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<STOCHRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<STOCHRenderState>(stateKey)
             return state?.params ?? {}
         },
 
@@ -310,4 +335,15 @@ export function getSTOCHTitleInfo(
         params: [n, m],
         values,
     }
+}
+
+@Indicator({
+    name: 'stoch',
+    displayName: 'STOCH',
+    category: 'oscillator',
+    stateKey: createSTOCHStateKey,
+    defaultPaneId: 'sub_STOCH',
+})
+class STOCHIndicatorDefinition {
+    static rendererFactory = createSTOCHRendererPlugin
 }

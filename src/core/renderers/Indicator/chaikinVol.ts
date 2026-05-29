@@ -2,15 +2,36 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { ChaikinVolRenderState } from '@/core/indicators/chaikinVolState'
 import { createChaikinVolStateKey } from '@/core/indicators/chaikinVolState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const CHAIKIN_VOL_COLOR = '#f59e0b'
 
 type LinePoint = { x: number; y: number }
 
+function getChaikinVolStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[ChaikinVolRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('chaikinVol')
+    if (!meta) {
+        console.warn(`[ChaikinVolRenderer] Indicator metadata for 'chaikinVol' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_ChaikinVol' } = options
-    const STATE_KEY = createChaikinVolStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getChaikinVolStateKey(pluginHost, paneId)
+    }
+
     return {
         name: `chaikinVol_${paneId}`,
         version: '1.1.0',
@@ -19,10 +40,12 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<ChaikinVolRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<ChaikinVolRenderState>(stateKey)
             if (!state || !state.params.showChaikinVol || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -89,7 +112,23 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<ChaikinVolRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<ChaikinVolRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'chaikinVol',
+    displayName: 'ChaikinVol',
+    category: 'oscillator',
+    stateKey: createChaikinVolStateKey,
+    defaultPaneId: 'sub_ChaikinVol',
+})
+class ChaikinVolIndicatorDefinition {
+    static rendererFactory = createChaikinVolRendererPlugin
 }

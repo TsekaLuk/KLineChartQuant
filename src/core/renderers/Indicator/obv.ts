@@ -1,16 +1,36 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { OBVRenderState } from '@/core/indicators/obvState'
 import { createOBVStateKey } from '@/core/indicators/obvState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const OBV_COLOR = '#16a34a'
 
 type LinePoint = { x: number; y: number }
 
+function getOBVStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[OBVRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('obv')
+    if (!meta) {
+        console.warn(`[OBVRenderer] Indicator metadata for 'obv' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_OBV' } = options
-    const STATE_KEY = createOBVStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getOBVStateKey(pluginHost, paneId)
+    }
     return {
         name: `obv_${paneId}`,
         version: '1.1.0',
@@ -19,10 +39,12 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<OBVRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<OBVRenderState>(stateKey)
             if (!state || !state.params.showOBV || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -75,7 +97,23 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<OBVRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<OBVRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'obv',
+    displayName: 'OBV',
+    category: 'volume',
+    stateKey: createOBVStateKey,
+    defaultPaneId: 'sub_OBV',
+})
+class OBVIndicatorDefinition {
+    static rendererFactory = createOBVRendererPlugin
 }

@@ -2,15 +2,35 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { HVRenderState } from '@/core/indicators/hvState'
 import { createHVStateKey } from '@/core/indicators/hvState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const HV_COLOR = '#7c3aed'
 
 type LinePoint = { x: number; y: number }
 
+function getHVStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[HVRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('hv')
+    if (!meta) {
+        console.warn(`[HVRenderer] Indicator metadata for 'hv' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_HV' } = options
-    const STATE_KEY = createHVStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getHVStateKey(pluginHost, paneId)
+    }
 
     return {
         name: `hv_${paneId}`,
@@ -20,10 +40,12 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<HVRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<HVRenderState>(stateKey)
             if (!state || !state.params.showHV || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -77,9 +99,22 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
             ctx.restore()
         },
         getConfig() {
-            const state = pluginHost?.getSharedState<HVRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<HVRenderState>(stateKey)
             return state?.params ?? {}
         },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'hv',
+    displayName: 'HV',
+    category: 'oscillator',
+    stateKey: createHVStateKey,
+    defaultPaneId: 'sub_HV',
+})
+class HVIndicatorDefinition {
+    static rendererFactory = createHVRendererPlugin
 }

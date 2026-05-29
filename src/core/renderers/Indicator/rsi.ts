@@ -1,10 +1,12 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { RSI_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { RSIRenderState } from '@/core/indicators/rsiState'
-import { createRSIStateKey, RSI_STATE_KEY } from '@/core/indicators/rsiState'
+import { createRSIStateKey } from '@/core/indicators/rsiState'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -13,12 +15,30 @@ export interface RSIRendererOptions {
     paneId?: string
 }
 
+function getRSIStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[RSIRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('rsi')
+    if (!meta) {
+        console.warn("[RSIRenderer] Indicator metadata for 'rsi' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建 RSI 渲染器插件
  */
 export function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getRSIStateKey(pluginHost, paneId)
+    }
 
     // 线条点缓存
     let cachedKey = ''
@@ -140,14 +160,16 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
         },
 
         getDeclaredNamespaces() {
-            return [createRSIStateKey(paneId)]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
 
             // 从 StateStore 读取 RSI 状态
-            const stateKey = createRSIStateKey(paneId)
+            const stateKey = resolveKey()
+            if (!stateKey) return
             const state = pluginHost?.getSharedState<RSIRenderState>(stateKey)
 
             // 无有效数据时跳过渲染
@@ -249,7 +271,8 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
         },
 
         getConfig() {
-            const stateKey = createRSIStateKey(paneId)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
             const state = pluginHost?.getSharedState<RSIRenderState>(stateKey)
             return state ? { ...state.params } : {}
         },
@@ -349,7 +372,7 @@ export function getRSITitleInfo(
     name: 'rsi',
     displayName: 'RSI',
     category: 'oscillator',
-    stateKey: RSI_STATE_KEY,
+    stateKey: createRSIStateKey,
     defaultPaneId: 'sub_RSI',
 })
 class RSIIndicatorDefinition {

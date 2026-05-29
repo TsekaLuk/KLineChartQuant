@@ -1,13 +1,15 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { MACD_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { MACDRenderState } from '@/core/indicators/macdState'
-import { createMACDStateKey, MACD_STATE_KEY } from '@/core/indicators/macdState'
+import { createMACDStateKey } from '@/core/indicators/macdState'
 import type { MACDPoint } from '@/core/indicators/calculators'
 import { calcMACDData } from '@/core/indicators/calculators'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -33,6 +35,20 @@ export interface MACDRendererOptions {
   config?: MACDConfig
 }
 
+function getMACDStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[MACDRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('macd')
+    if (!meta) {
+        console.warn("[MACDRenderer] Indicator metadata for 'macd' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建 MACD 渲染器插件
  * 从 StateStore 读取 MACD 状态，不再内联计算
@@ -40,8 +56,11 @@ export interface MACDRendererOptions {
 export function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPluginWithHost {
   const { paneId = 'sub', config: initialConfig = {} } = options
 
-  const stateKey = createMACDStateKey(paneId)
   let pluginHost: PluginHost | null = null
+
+  function resolveKey(): string | null {
+    return getMACDStateKey(pluginHost, paneId)
+  }
 
   const config: Required<MACDConfig> = {
     fastPeriod: 12,
@@ -102,7 +121,8 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
     },
 
     getDeclaredNamespaces() {
-      return [stateKey]
+      const key = resolveKey()
+      return key ? [key] : []
     },
 
     draw(context: RenderContext) {
@@ -110,6 +130,8 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
       const klineData = data as KLineData[]
 
       // 从 StateStore 读取 MACD 状态
+      const stateKey = resolveKey()
+      if (!stateKey) return
       const state = pluginHost?.getSharedState<MACDRenderState>(stateKey)
       if (!state || state.visibleMin > state.visibleMax) return
       if (klineData.length < config.slowPeriod) return
@@ -434,7 +456,7 @@ export function getMACDTitleInfo(
   name: 'macd',
   displayName: 'MACD',
   category: 'oscillator',
-  stateKey: MACD_STATE_KEY,
+  stateKey: createMACDStateKey,
   defaultPaneId: 'sub_MACD',
 })
 class MACDIndicatorDefinition {

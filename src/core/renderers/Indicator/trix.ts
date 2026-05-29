@@ -2,6 +2,9 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { TRIXRenderState } from '@/core/indicators/trixState'
 import { createTRIXStateKey } from '@/core/indicators/trixState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const TRIX_COLOR = '#e11d48'
 const SIGNAL_COLOR = '#f59e0b'
@@ -10,10 +13,27 @@ type Point = { x: number; y: number }
 
 export interface TRIXRendererOptions { paneId?: string }
 
+function getTRIXStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[TRIXRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('trix')
+    if (!meta) {
+        console.warn(`[TRIXRenderer] Indicator metadata for 'trix' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_TRIX' } = options
-    const STATE_KEY = createTRIXStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getTRIXStateKey(pluginHost, paneId)
+    }
 
     return {
         name: `trix_${paneId}`,
@@ -24,11 +44,13 @@ export function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): Ren
         priority: RENDERER_PRIORITY.MAIN,
 
         onInstall(host: PluginHost) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<TRIXRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<TRIXRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax) return
             const { showTRIX, showSignal } = state.params
             if (!showTRIX && !showSignal) return
@@ -102,7 +124,9 @@ export function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): Ren
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<TRIXRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<TRIXRenderState>(stateKey)
             return state?.params ?? {}
         },
         setConfig() {},
@@ -116,4 +140,15 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.moveTo(pts[0]!.x, pts[0]!.y)
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y)
     ctx.stroke()
+}
+
+@Indicator({
+    name: 'trix',
+    displayName: 'TRIX',
+    category: 'oscillator',
+    stateKey: createTRIXStateKey,
+    defaultPaneId: 'sub_TRIX',
+})
+class TRIXIndicatorDefinition {
+    static rendererFactory = createTRIXRendererPlugin
 }

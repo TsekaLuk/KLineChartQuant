@@ -1,9 +1,12 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { MOM_COLORS } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { MOMRenderState } from '@/core/indicators/momState'
 import { createMOMStateKey } from '@/core/indicators/momState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -12,13 +15,30 @@ export interface MOMRendererOptions {
     paneId?: string
 }
 
+function getMOMStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[MOMRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('mom')
+    if (!meta) {
+        console.warn("[MOMRenderer] Indicator metadata for 'mom' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建 MOM 渲染器插件
  */
 export function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
-    const STATE_KEY = createMOMStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getMOMStateKey(pluginHost, paneId)
+    }
 
     // 线条点缓存
     let cachedKey = ''
@@ -114,13 +134,16 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
         },
 
         getDeclaredNamespaces() {
-            return [STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
 
-            const state = pluginHost?.getSharedState<MOMRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<MOMRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax) {
                 clearLineCache()
                 return
@@ -202,7 +225,9 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<MOMRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<MOMRenderState>(stateKey)
             return state?.params ?? {}
         },
 
@@ -261,4 +286,15 @@ export function getMOMTitleInfo(
             { label: 'MOM', value: mom, color: MOM_COLORS.MOM },
         ],
     }
+}
+
+@Indicator({
+    name: 'mom',
+    displayName: 'MOM',
+    category: 'oscillator',
+    stateKey: createMOMStateKey,
+    defaultPaneId: 'sub_MOM',
+})
+class MOMIndicatorDefinition {
+    static rendererFactory = createMOMRendererPlugin
 }

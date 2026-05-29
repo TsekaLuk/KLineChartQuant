@@ -1,8 +1,11 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { CCI_COLORS } from '@/core/theme/colors'
 import type { CCIRenderState } from '@/core/indicators/cciState'
 import { createCCIStateKey } from '@/core/indicators/cciState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -11,13 +14,30 @@ export interface CCIRendererOptions {
     paneId?: string
 }
 
+function getCCIStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[CCIRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('cci')
+    if (!meta) {
+        console.warn("[CCIRenderer] Indicator metadata for 'cci' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建 CCI 渲染器插件
  */
 export function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
-    const STATE_KEY = createCCIStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getCCIStateKey(pluginHost, paneId)
+    }
 
     // 线条点缓存
     let cachedKey = ''
@@ -64,13 +84,16 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
         },
 
         getDeclaredNamespaces() {
-            return [STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
 
-            const state = pluginHost?.getSharedState<CCIRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<CCIRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax) {
                 clearLineCache()
                 return
@@ -167,7 +190,9 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<CCIRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<CCIRenderState>(stateKey)
             return state?.params ?? {}
         },
 
@@ -226,4 +251,15 @@ export function getCCITitleInfo(
             { label: 'CCI', value: cci, color: CCI_COLORS.CCI },
         ],
     }
+}
+
+@Indicator({
+    name: 'cci',
+    displayName: 'CCI',
+    category: 'oscillator',
+    stateKey: createCCIStateKey,
+    defaultPaneId: 'sub_CCI',
+})
+class CCIIndicatorDefinition {
+    static rendererFactory = createCCIRendererPlugin
 }

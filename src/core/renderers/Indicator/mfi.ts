@@ -1,16 +1,36 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { MFIRenderState } from '@/core/indicators/mfiState'
 import { createMFIStateKey } from '@/core/indicators/mfiState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const MFI_COLOR = '#fb923c'
 
 type LinePoint = { x: number; y: number }
 
+function getMFIStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[MFIRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('mfi')
+    if (!meta) {
+        console.warn(`[MFIRenderer] Indicator metadata for 'mfi' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_MFI' } = options
-    const STATE_KEY = createMFIStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getMFIStateKey(pluginHost, paneId)
+    }
     return {
         name: `mfi_${paneId}`,
         version: '1.1.0',
@@ -19,10 +39,12 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<MFIRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<MFIRenderState>(stateKey)
             if (!state || !state.params.showMFI || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -94,7 +116,23 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<MFIRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<MFIRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'mfi',
+    displayName: 'MFI',
+    category: 'volume',
+    stateKey: createMFIStateKey,
+    defaultPaneId: 'sub_MFI',
+})
+class MFIIndicatorDefinition {
+    static rendererFactory = createMFIRendererPlugin
 }

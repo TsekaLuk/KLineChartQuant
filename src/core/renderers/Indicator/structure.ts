@@ -1,7 +1,10 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { StructureRenderState } from '@/core/indicators/structureState'
 import { createStructureStateKey } from '@/core/indicators/structureState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const HH_COLOR = '#16a34a'
 const HL_COLOR = '#22c55e'
@@ -11,10 +14,27 @@ const BOS_COLOR = '#2563eb'
 const CHOCH_COLOR = '#a855f7'
 const LABEL_FONT = '11px sans-serif'
 
+function getStructureStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[StructureRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('structure')
+    if (!meta) {
+        console.warn(`[StructureRenderer] Indicator metadata for 'structure' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createStructureRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_Structure' } = options
-    const STATE_KEY = createStructureStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getStructureStateKey(pluginHost, paneId)
+    }
     return {
         name: `structure_${paneId}`,
         version: '1.0.0',
@@ -23,10 +43,12 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
-            const state = pluginHost?.getSharedState<StructureRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)
             if (!state) return
             const params = state.params
             const { swings, events } = state.series
@@ -84,7 +106,23 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
 
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<StructureRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'structure',
+    displayName: 'Structure',
+    category: 'sub',
+    stateKey: createStructureStateKey,
+    defaultPaneId: 'sub_Structure',
+})
+class StructureIndicatorDefinition {
+    static rendererFactory = createStructureRendererPlugin
 }

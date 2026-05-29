@@ -2,6 +2,9 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { SuperTrendRenderState } from '@/core/indicators/supertrendState'
 import { createSuperTrendStateKey } from '@/core/indicators/supertrendState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const ST_UP_COLOR = '#22c55e'
 const ST_DOWN_COLOR = '#ef4444'
@@ -10,10 +13,27 @@ export interface SuperTrendRendererOptions {
     paneId?: string
 }
 
+function getSuperTrendStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[SuperTrendRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('supertrend')
+    if (!meta) {
+        console.warn(`[SuperTrendRenderer] Indicator metadata for 'supertrend' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createSuperTrendRendererPlugin(options: SuperTrendRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_SuperTrend' } = options
-    const STATE_KEY = createSuperTrendStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getSuperTrendStateKey(pluginHost, paneId)
+    }
 
     return {
         name: `supertrend_${paneId}`,
@@ -24,11 +44,13 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
         priority: RENDERER_PRIORITY.MAIN,
 
         onInstall(host: PluginHost) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
-            const state = pluginHost?.getSharedState<SuperTrendRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
             if (!state || !state.params.showSuperTrend || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -70,9 +92,22 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<SuperTrendRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
             return state?.params ?? {}
         },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'supertrend',
+    displayName: 'SuperTrend',
+    category: 'oscillator',
+    stateKey: createSuperTrendStateKey,
+    defaultPaneId: 'sub_SuperTrend',
+})
+class SuperTrendIndicatorDefinition {
+    static rendererFactory = createSuperTrendRendererPlugin
 }

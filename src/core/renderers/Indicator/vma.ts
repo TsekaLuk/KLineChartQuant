@@ -1,16 +1,36 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { VMARenderState } from '@/core/indicators/vmaState'
 import { createVMAStateKey } from '@/core/indicators/vmaState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const VMA_COLOR = '#0ea5e9'
 
 type LinePoint = { x: number; y: number }
 
+function getVMAStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[VMARenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('vma')
+    if (!meta) {
+        console.warn(`[VMARenderer] Indicator metadata for 'vma' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_VMA' } = options
-    const STATE_KEY = createVMAStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getVMAStateKey(pluginHost, paneId)
+    }
     return {
         name: `vma_${paneId}`,
         version: '1.1.0',
@@ -19,10 +39,12 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<VMARenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<VMARenderState>(stateKey)
             if (!state || !state.params.showVMA || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -76,7 +98,23 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<VMARenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<VMARenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() { },
     }
+}
+
+@Indicator({
+    name: 'vma',
+    displayName: 'VMA',
+    category: 'volume',
+    stateKey: createVMAStateKey,
+    defaultPaneId: 'sub_VMA',
+})
+class VMAIndicatorDefinition {
+    static rendererFactory = createVMARendererPlugin
 }

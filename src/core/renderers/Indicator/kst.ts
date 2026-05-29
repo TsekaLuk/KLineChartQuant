@@ -1,8 +1,11 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { KST_COLORS } from '@/core/theme/colors'
 import type { KSTRenderState } from '@/core/indicators/kstState'
 import { createKSTStateKey } from '@/core/indicators/kstState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -11,13 +14,30 @@ export interface KSTRendererOptions {
     paneId?: string
 }
 
+function getKSTStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[KSTRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('kst')
+    if (!meta) {
+        console.warn("[KSTRenderer] Indicator metadata for 'kst' not found, skip rendering")
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 /**
  * 创建 KST 渲染器插件
  */
 export function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
-    const STATE_KEY = createKSTStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getKSTStateKey(pluginHost, paneId)
+    }
 
     // 线条点缓存
     let cachedKey = ''
@@ -71,13 +91,16 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
         },
 
         getDeclaredNamespaces() {
-            return [STATE_KEY]
+            const key = resolveKey()
+            return key ? [key] : []
         },
 
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
 
-            const state = pluginHost?.getSharedState<KSTRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<KSTRenderState>(stateKey)
             if (!state || state.visibleMin > state.visibleMax) {
                 clearLineCache()
                 return
@@ -172,7 +195,9 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
         },
 
         getConfig() {
-            const state = pluginHost?.getSharedState<KSTRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<KSTRenderState>(stateKey)
             return state?.params ?? {}
         },
 
@@ -253,4 +278,15 @@ export function getKSTTitleInfo(
         params: [roc1, roc2, roc3, roc4, signalPeriod],
         values,
     }
+}
+
+@Indicator({
+    name: 'kst',
+    displayName: 'KST',
+    category: 'oscillator',
+    stateKey: createKSTStateKey,
+    defaultPaneId: 'sub_KST',
+})
+class KSTIndicatorDefinition {
+    static rendererFactory = createKSTRendererPlugin
 }

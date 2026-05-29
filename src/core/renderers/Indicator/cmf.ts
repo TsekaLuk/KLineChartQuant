@@ -1,16 +1,36 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { CMFRenderState } from '@/core/indicators/cmfState'
 import { createCMFStateKey } from '@/core/indicators/cmfState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const CMF_COLOR = '#06b6d4'
 
 type LinePoint = { x: number; y: number }
 
+function getCMFStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[CMFRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('cmf')
+    if (!meta) {
+        console.warn(`[CMFRenderer] Indicator metadata for 'cmf' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_CMF' } = options
-    const STATE_KEY = createCMFStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getCMFStateKey(pluginHost, paneId)
+    }
     return {
         name: `cmf_${paneId}`,
         version: '1.1.0',
@@ -19,10 +39,12 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<CMFRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<CMFRenderState>(stateKey)
             if (!state || !state.params.showCMF || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -89,7 +111,23 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<CMFRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<CMFRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'cmf',
+    displayName: 'CMF',
+    category: 'volume',
+    stateKey: createCMFStateKey,
+    defaultPaneId: 'sub_CMF',
+})
+class CMFIndicatorDefinition {
+    static rendererFactory = createCMFRendererPlugin
 }

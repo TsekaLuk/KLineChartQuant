@@ -1,16 +1,36 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { VWAPRenderState } from '@/core/indicators/vwapState'
 import { createVWAPStateKey } from '@/core/indicators/vwapState'
+import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
 const VWAP_COLOR = '#ec4899'
 
 type LinePoint = { x: number; y: number }
 
+function getVWAPStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[VWAPRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('vwap')
+    if (!meta) {
+        console.warn(`[VWAPRenderer] Indicator metadata for 'vwap' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
 export function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_VWAP' } = options
-    const STATE_KEY = createVWAPStateKey(paneId)
     let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getVWAPStateKey(pluginHost, paneId)
+    }
     return {
         name: `vwap_${paneId}`,
         version: '1.1.0',
@@ -19,10 +39,12 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
         paneId,
         priority: RENDERER_PRIORITY.MAIN,
         onInstall(host) { pluginHost = host },
-        getDeclaredNamespaces() { return [STATE_KEY] },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters, lineWebGLSurface } = context
-            const state = pluginHost?.getSharedState<VWAPRenderState>(STATE_KEY)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<VWAPRenderState>(stateKey)
             if (!state || !state.params.showVWAP || state.visibleMin > state.visibleMax) return
 
             const { valueMin, valueMax, series } = state
@@ -75,7 +97,23 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
             ctx.stroke()
             ctx.restore()
         },
-        getConfig() { return pluginHost?.getSharedState<VWAPRenderState>(STATE_KEY)?.params ?? {} },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<VWAPRenderState>(stateKey)
+            return state?.params ?? {}
+        },
         setConfig() {},
     }
+}
+
+@Indicator({
+    name: 'vwap',
+    displayName: 'VWAP',
+    category: 'volume',
+    stateKey: createVWAPStateKey,
+    defaultPaneId: 'sub_VWAP',
+})
+class VWAPIndicatorDefinition {
+    static rendererFactory = createVWAPRendererPlugin
 }

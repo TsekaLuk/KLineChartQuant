@@ -16,6 +16,7 @@ export * from './indicators'
 export * from './tokens'
 export * from './input'
 export * from './renderer-tier'
+export * from './scheduler'
 export {
     KLineChartError,
     isKLineChartError,

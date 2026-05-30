@@ -385,9 +385,15 @@ describe('Chart pane layout regressions', () => {
     const macd = specs.find((pane) => pane.id === 'sub_MACD')
     const rsi = specs.find((pane) => pane.id === 'sub_RSI')
 
+    // updatePaneLayout is an explicit layout replacement — incoming ratios MUST
+    // be honoured (3:1 → 0.75:0.25 after visible normalization). Earlier this was
+    // weakened to `main > macd` because syncPaneRatiosFromSpecs preserved a stale
+    // prev value for `main`; fixed by clearing paneRatios in updatePaneLayout.
     expect((main?.ratio ?? 0) + (macd?.ratio ?? 0)).toBeCloseTo(1, 6)
-    expect(main?.ratio ?? 0).toBeGreaterThan(macd?.ratio ?? 0)
-    expect(rsi?.ratio).toBeCloseTo(5 / 24, 6)
+    expect(main?.ratio).toBeCloseTo(0.75, 6)
+    expect(macd?.ratio).toBeCloseTo(0.25, 6)
+    // Hidden pane preserves its incoming raw ratio (not normalized against visible);
+    // it will be folded into the layout only if/when re-shown.
     expect(rsi?.visible).toBe(false)
 
     await chart.destroy()

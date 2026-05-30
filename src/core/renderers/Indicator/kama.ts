@@ -80,7 +80,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const allOk = lineWebGLSurface.drawLineStrips(
-                    [{ points, width: 1.5, color: KAMA_COLOR }],
+                    [{ points, width: 1, color: KAMA_COLOR }],
                     scrollLeft,
                 )
                 if (allOk) {
@@ -94,7 +94,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             ctx.strokeStyle = KAMA_COLOR
-            ctx.lineWidth = 1.5
+            ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
             ctx.beginPath()

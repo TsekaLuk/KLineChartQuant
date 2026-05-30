@@ -57,7 +57,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)
-            ctx.lineWidth = 1.5
+            ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
 

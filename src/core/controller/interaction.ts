@@ -558,7 +558,11 @@ export class InteractionController {
         const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)
         this.hoveredSeparatorUpperPaneId = separatorUpperPaneId
         if (separatorUpperPaneId) {
-            this.clearHover()
+            this.crosshairPos = null
+            this.crosshairIndex = null
+            this.crosshairPrice = null
+            this.hoveredIndex = null
+            this.activePaneId = null
             return
         }
 

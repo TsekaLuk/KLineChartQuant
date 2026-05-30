@@ -73,7 +73,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const allOk = lineWebGLSurface.drawLineStrips(
-                    [{ points, width: 1.5, color: PARKINSON_COLOR }],
+                    [{ points, width: 1, color: PARKINSON_COLOR }],
                     scrollLeft,
                 )
                 if (allOk) {
@@ -87,7 +87,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             ctx.strokeStyle = PARKINSON_COLOR
-            ctx.lineWidth = 1.5
+            ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
             ctx.beginPath()

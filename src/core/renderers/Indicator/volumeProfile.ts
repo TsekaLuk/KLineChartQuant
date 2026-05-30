@@ -89,7 +89,7 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
 
             if (showPOC) {
                 ctx.strokeStyle = POC_COLOR
-                ctx.lineWidth = 1.5
+                ctx.lineWidth = 1
                 const pocY = toY(poc)
                 ctx.beginPath()
                 ctx.moveTo(scrollLeft, pocY)

@@ -72,7 +72,7 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const allOk = lineWebGLSurface.drawLineStrips(
-                    [{ points, width: 1.5, color: VWAP_COLOR }],
+                    [{ points, width: 1, color: VWAP_COLOR }],
                     scrollLeft,
                 )
                 if (allOk) {
@@ -86,7 +86,7 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             ctx.strokeStyle = VWAP_COLOR
-            ctx.lineWidth = 1.5
+            ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
             ctx.beginPath()

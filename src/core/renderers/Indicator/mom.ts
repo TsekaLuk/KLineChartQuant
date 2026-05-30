@@ -81,7 +81,8 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
         paneHeight: number,
         displayMin: number,
         displayMax: number,
-        dpr: number
+        dpr: number,
+        colors: { MOM: { ZERO: string } }
     ): void {
         const displayValueRange = displayMax - displayMin || 1
         const zeroY = alignToPhysicalPixelCenter(paneHeight - (0 - displayMin) / displayValueRange * paneHeight, dpr)
@@ -167,7 +168,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
                     Math.ceil(paneWidth * dpr),
                     Math.ceil(paneHeight * dpr)
                 )
-                renderZeroLineToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr)
+                renderZeroLineToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors)
             }
 
             if (offscreenCanvas) {

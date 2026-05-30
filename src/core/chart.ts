@@ -1103,14 +1103,16 @@ export class Chart {
                 theme: this._themeSignal.peek(),
             }
 
-            const errors = this.rendererPluginManager.render(pane.id, context, level)
-            if (errors.length > 0) {
-                this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
-            }
+            if (shouldUpdateMain || shouldUpdateOverlay) {
+                const errors = this.rendererPluginManager.render(pane.id, context, level)
+                if (errors.length > 0) {
+                    this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors })
+                }
 
-            const yAxisErrors = this.rendererPluginManager.renderPlugin('yAxis', context)
-            if (yAxisErrors.length > 0) {
-                this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
+                const yAxisErrors = this.rendererPluginManager.renderPlugin('yAxis', context)
+                if (yAxisErrors.length > 0) {
+                    this.pluginHost.events.emit('renderer:error', { paneId: pane.id, errors: yAxisErrors })
+                }
             }
         }
 

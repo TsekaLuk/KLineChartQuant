@@ -73,7 +73,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const allOk = lineWebGLSurface.drawLineStrips(
-                    [{ points, width: 1.5, color: HV_COLOR }],
+                    [{ points, width: 1, color: HV_COLOR }],
                     scrollLeft,
                 )
                 if (allOk) {
@@ -87,7 +87,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             ctx.strokeStyle = HV_COLOR
-            ctx.lineWidth = 1.5
+            ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
             ctx.beginPath()

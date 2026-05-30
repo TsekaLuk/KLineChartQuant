@@ -73,7 +73,7 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
             let usedWebGL = false
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const allOk = lineWebGLSurface.drawLineStrips(
-                    [{ points, width: 1.5, color: VMA_COLOR }],
+                    [{ points, width: 1, color: VMA_COLOR }],
                     scrollLeft,
                 )
                 if (allOk) {
@@ -87,7 +87,7 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
             ctx.save()
             ctx.translate(-scrollLeft, 0)
             ctx.strokeStyle = VMA_COLOR
-            ctx.lineWidth = 1.5
+            ctx.lineWidth = 1
             ctx.lineJoin = 'round'
             ctx.lineCap = 'round'
             ctx.beginPath()

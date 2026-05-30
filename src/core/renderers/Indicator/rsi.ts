@@ -108,7 +108,7 @@ export function createRSIRendererPlugin(options: RSIRendererOptions = {}): Rende
         ctx.scale(dpr, dpr)
 
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
-        ctx.lineWidth = 1.1
+        ctx.lineWidth = 1
         ctx.setLineDash([4, 4])
 
         ctx.beginPath()

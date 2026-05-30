@@ -14,10 +14,12 @@ import {
     ElementRef,
     InjectionToken,
     Input,
+    OnChanges,
     OnDestroy,
     PLATFORM_ID,
     Provider,
     Signal as NgSignal,
+    SimpleChanges,
     ViewChild,
     inject,
     signal,
@@ -28,6 +30,9 @@ import type {
     ChartControllerFactory,
     ChartMountOptions,
     ChartViewport,
+    DrawingControllerCallbacks,
+    IndicatorInstance,
+    InteractionSnapshot,
     KLineData,
     Signal as CoreSignal,
 } from '@klinechart-quant/core'
@@ -51,9 +56,6 @@ export const KLINE_CHART_THEME = new InjectionToken<'light' | 'dark'>(
  * consumers don't need to register it manually. Override per-application
  * via `provideKLineChart({ factory })` — useful for tests that inject a
  * mock factory.
- *
- * The contract tests build their own Injector and supply the factory via
- * `KLINE_CHART_FACTORY` directly, so this default is transparent to them.
  */
 export const KLINE_CHART_FACTORY = new InjectionToken<ChartControllerFactory | null>(
     'KLINE_CHART_FACTORY',
@@ -92,13 +94,7 @@ export function provideKLineChart(opts: ProvideKLineChartOptions = {}): Provider
 /**
  * Wrap a core signal into an Angular readonly signal. Unsubscribes via
  * the supplied `DestroyRef` — or, if omitted, `inject(DestroyRef)` from
- * the surrounding injection context (constructor / factory of a directive
- * / component / service).
- *
- * Explicit `destroyRef` lets non-component contexts (tests, services with
- * custom lifetimes) drive cleanup without relying on `inject()`, which is
- * special-cased for DestroyRef and only resolves correctly inside a
- * NodeInjector / view.
+ * the surrounding injection context.
  */
 export function coreSignalToAngular<T>(
     source: CoreSignal<T>,
@@ -118,12 +114,7 @@ export function coreSignalToAngular<T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Imperative escape hatch. Mirrors React/Vue. Throws if container is null
- * (we never half-mount). If no factory is registered via
- * `provideKLineChart({ factory })`, throws so callers cannot silently no-op.
- *
- * For pure imperative usage (outside an Angular DI context), callers can
- * pass `opts.factory` directly.
+ * Imperative escape hatch. Mirrors React/Vue.
  */
 export function createChart(
     opts: ChartMountOptions & { factory?: ChartControllerFactory },
@@ -150,18 +141,22 @@ export function createChart(
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: '<div #container style="width:100%;height:100%;"></div>',
 })
-export class KLineChartComponent implements AfterViewInit, OnDestroy {
+export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     @Input() data: ReadonlyArray<KLineData> = []
     @Input() theme: 'light' | 'dark' | undefined = undefined
     @Input() initialZoomLevel: number | undefined = undefined
+    @Input() zoomLevels: number | undefined = undefined
 
     @ViewChild('container', { static: true })
     container!: ElementRef<HTMLElement>
 
-    /** Angular signal mirroring the controller viewport. Drives OnPush refresh. */
+    /** Angular signals mirroring controller state. */
     viewport: NgSignal<ChartViewport | null> = signal<ChartViewport | null>(null)
+    interactionState: NgSignal<InteractionSnapshot | null> = signal<InteractionSnapshot | null>(null)
+    paneRatios: NgSignal<Readonly<Record<string, number>> | null> = signal<Readonly<Record<string, number>> | null>(null)
+    indicators: NgSignal<ReadonlyArray<IndicatorInstance> | null> = signal<ReadonlyArray<IndicatorInstance> | null>(null)
 
-    /** Underlying core controller; null until ngAfterViewInit (SSR or pre-mount). */
+    /** Underlying core controller; null until ngAfterViewInit. */
     controller: ChartController | null = null
 
     private readonly platformId = inject(PLATFORM_ID)
@@ -169,16 +164,15 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
     private readonly factory = inject(KLINE_CHART_FACTORY)
     private readonly destroyRef = inject(DestroyRef)
     private viewportUnsub: (() => void) | null = null
+    private interactionUnsub: (() => void) | null = null
+    private paneRatiosUnsub: (() => void) | null = null
+    private indicatorsUnsub: (() => void) | null = null
 
     ngAfterViewInit(): void {
-        // SSR guard — never touch DOM on the server.
         if (!isPlatformBrowser(this.platformId)) return
 
         const containerEl = this.container?.nativeElement ?? null
-        if (containerEl === null) {
-            // Defensive: ViewChild static:true should populate this synchronously.
-            return
-        }
+        if (containerEl === null) return
         if (typeof this.factory !== 'function') {
             throw new Error(
                 '<kline-chart>: no ChartControllerFactory registered. Add provideKLineChart({ factory }) at the application bootstrap.',
@@ -189,30 +183,68 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
             container: containerEl,
             data: this.data,
             initialZoomLevel: this.initialZoomLevel,
+            zoomLevels: this.zoomLevels,
             theme: this.theme ?? this.defaultTheme,
             factory: this.factory,
         })
         this.controller = controller
 
-        // Bridge core viewport signal into Angular signal for OnPush refresh.
+        // Bridge viewport
         const ngViewport = signal<ChartViewport | null>(controller.viewport.peek())
-        const unsub = controller.viewport.subscribe(() => {
+        const vpUnsub = controller.viewport.subscribe(() => {
             ngViewport.set(controller.viewport.peek())
         })
-        this.viewportUnsub = unsub
-        this.destroyRef.onDestroy(unsub)
+        this.viewportUnsub = vpUnsub
+        this.destroyRef.onDestroy(vpUnsub)
         this.viewport = ngViewport.asReadonly()
+
+        // Bridge interactionState
+        const ngInteraction = signal<InteractionSnapshot | null>(controller.interactionState.peek())
+        const iUnsub = controller.interactionState.subscribe(() => {
+            ngInteraction.set(controller.interactionState.peek())
+        })
+        this.interactionUnsub = iUnsub
+        this.destroyRef.onDestroy(iUnsub)
+        this.interactionState = ngInteraction.asReadonly()
+
+        // Bridge paneRatios
+        const ngRatios = signal<Readonly<Record<string, number>> | null>(controller.paneRatios.peek())
+        const rUnsub = controller.paneRatios.subscribe(() => {
+            ngRatios.set(controller.paneRatios.peek())
+        })
+        this.paneRatiosUnsub = rUnsub
+        this.destroyRef.onDestroy(rUnsub)
+        this.paneRatios = ngRatios.asReadonly()
+
+        // Bridge indicators
+        const ngIndicators = signal<ReadonlyArray<IndicatorInstance> | null>(controller.indicators.peek())
+        const indUnsub = controller.indicators.subscribe(() => {
+            ngIndicators.set(controller.indicators.peek())
+        })
+        this.indicatorsUnsub = indUnsub
+        this.destroyRef.onDestroy(indUnsub)
+        this.indicators = ngIndicators.asReadonly()
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        if (changes['data'] && !changes['data'].isFirstChange()) {
+            this.controller?.setData(this.data)
+        }
+        if (changes['theme'] && !changes['theme'].isFirstChange()) {
+            if (this.theme !== undefined) {
+                this.controller?.setTheme(this.theme)
+            }
+        }
     }
 
     ngOnDestroy(): void {
-        if (this.viewportUnsub !== null) {
-            try {
-                this.viewportUnsub()
-            } catch {
-                /* ignore */
-            }
-            this.viewportUnsub = null
+        const cleanup = (unsub: (() => void) | null): void => {
+            try { unsub?.() } catch { /* ignore */ }
         }
+        cleanup(this.viewportUnsub)
+        cleanup(this.interactionUnsub)
+        cleanup(this.paneRatiosUnsub)
+        cleanup(this.indicatorsUnsub)
         if (this.controller !== null) {
             try {
                 this.controller.dispose()
@@ -221,4 +253,53 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
             }
         }
     }
+
+    // -------------------------------------------------------------------
+    // Event handler passthroughs
+    // -------------------------------------------------------------------
+
+    handlePointerEvent(e: PointerEvent, drawingController?: DrawingControllerCallbacks): boolean {
+        return this.controller?.handlePointerEvent(e, drawingController) ?? false
+    }
+
+    handleWheelEvent(e: WheelEvent): void {
+        this.controller?.handleWheelEvent(e)
+    }
+
+    handleScrollEvent(): void {
+        this.controller?.handleScrollEvent()
+    }
+
+    zoomToLevel(level: number, anchorX?: number): void {
+        this.controller?.zoomToLevel(level, anchorX)
+    }
+
+    zoomIn(anchorX?: number): void {
+        this.controller?.zoomIn(anchorX)
+    }
+
+    zoomOut(anchorX?: number): void {
+        this.controller?.zoomOut(anchorX)
+    }
+
+    addIndicator(
+        definitionId: string,
+        role: 'main' | 'sub',
+        params?: Record<string, unknown>,
+    ): string | null {
+        return this.controller?.addIndicator(definitionId, role, params) ?? null
+    }
+
+    removeIndicator(instanceId: string): boolean {
+        return this.controller?.removeIndicator(instanceId) ?? false
+    }
+
+    setTheme(theme: 'light' | 'dark'): void {
+        this.controller?.setTheme(theme)
+    }
+
+    setData(next: ReadonlyArray<KLineData>): void {
+        this.controller?.setData(next)
+    }
+
 }

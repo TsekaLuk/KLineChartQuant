@@ -1143,13 +1143,14 @@ function setupChartCallbacks(chart: Chart): void {
     }
 
     // 在 nextTick 中应用 desiredScrollLeft
-    if (vp.desiredScrollLeft !== undefined && vp.desiredScrollLeft !== containerRef.value?.scrollLeft) {
+    const desiredLeft = vp.desiredScrollLeft
+    if (desiredLeft !== undefined && desiredLeft !== containerRef.value?.scrollLeft) {
       invalidateContainerRectCache()
       nextTick(() => {
         const c = containerRef.value
         if (!c) return
         const maxScrollLeft = Math.max(0, c.scrollWidth - c.clientWidth)
-        const clampedScrollLeft = Math.min(Math.max(0, vp.desiredScrollLeft), maxScrollLeft)
+        const clampedScrollLeft = Math.min(Math.max(0, desiredLeft), maxScrollLeft)
         const dpr = chart.getCurrentDpr()
         c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
       })

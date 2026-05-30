@@ -708,7 +708,7 @@ export class Chart {
             this.indicatorScheduler.registerIndicator(definition)
         }
         this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
-        
+
         // 初始化副图管理器
         this.subPaneManager = new SubPaneManager()
         // 注册副图活跃列表提供者，调度器据此只计算启用的副图
@@ -1409,7 +1409,7 @@ export class Chart {
         })
         this._paneRatiosSignal.set(ratios)
         this.syncSubPanesSignal()
-        
+
         this.onPaneLayoutChange?.(this.getPaneLayoutSpecs())
     }
 
@@ -1705,7 +1705,7 @@ export class Chart {
             PIVOT: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
             FIB: { period: 50, showLevels: true },
             STRUCTURE: { leftWindow: 2, rightWindow: 2, breakoutSource: 'close', showSwingLabels: true, showBOS: true, showCHOCH: true, showProvisional: false },
-        ZONES: { showFVG: true, showOB: true, showFilledZones: true, obLookback: 5 },
+            ZONES: { showFVG: true, showOB: true, showFilledZones: true, obLookback: 5 },
             VOLUME_PROFILE: { bins: 24, lookback: 0, valueAreaPercent: 0.7, showVolumeProfile: true },
         }
         return { ...defaults[indicatorId] }
@@ -2264,7 +2264,7 @@ export class Chart {
     private _indicatorsSignal = createSignal<ReadonlyArray<IndicatorInstance>>([])
     private _subPanesSignal = createSignal<ReadonlyArray<SubPaneInfo>>([])
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
-    private _drawingsSignal = createSignal<ReadonlyArray<DrawingObject>>([])
+    private _drawingsSignal = createSignal<ReadonlyArray<import('@/plugin').DrawingObject>>([])
     private _paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
     private _interactionSignal = createSignal<InteractionSnapshot>({
         crosshairPos: null,
@@ -2314,7 +2314,7 @@ export class Chart {
     }
 
     /** 绘图对象列表信号 */
-    get drawings(): Signal<ReadonlyArray<DrawingObject>> {
+    get drawings(): Signal<ReadonlyArray<import('@/plugin').DrawingObject>> {
         return this._drawingsSignal
     }
 

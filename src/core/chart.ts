@@ -2503,8 +2503,6 @@ export class Chart {
      * 使用 computeZoom 计算精确的 scrollLeft，更新 viewport signal
      */
     handleWheelEvent(e: WheelEvent): void {
-        e.preventDefault()
-
         const delta = e.deltaY > 0 ? -1 : 1
         const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
 

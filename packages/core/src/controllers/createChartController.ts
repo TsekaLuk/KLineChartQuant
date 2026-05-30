@@ -357,9 +357,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         try {
             chart.setData([...next])
         } catch {
-            /* tolerate jsdom */
+            data.set([...next])
         }
-        // chart.setData updates chart._dataSignal — the bridge will relay
     }
 
     function appendData(next: ReadonlyArray<KLineData>): void {

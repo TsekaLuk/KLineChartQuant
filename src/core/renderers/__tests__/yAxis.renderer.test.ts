@@ -69,6 +69,7 @@ function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
     paneWidth: 600,
     kLinePositions: [],
     kLineCenters: [],
+    kBarRects: [] as { x: number; width: number }[],
     yAxisLabels: [],
     xAxisLabels: [],
     theme: 'light',

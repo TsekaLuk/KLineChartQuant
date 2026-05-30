@@ -10,7 +10,8 @@
         "start": "next start"
     },
     "dependencies": {
-        "@klinechart-quant/react": "workspace:*",
+        "@klinechart-quant/react": "link:../../packages/react",
+"@klinechart-quant/core": "link:../../packages/core",
         "next": "^15.0.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"

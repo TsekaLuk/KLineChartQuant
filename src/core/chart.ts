@@ -1,5 +1,6 @@
 import type { KLineData } from '@/types/price'
 import type { ChartSettings } from '@/config/chartSettings'
+import { createSignal, type Signal } from '../../packages/core/src/reactivity/signal'
 import { getVisibleRange } from '@/core/viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from '@/core/layout/pane'
 import { InteractionController } from '@/core/controller/interaction'
@@ -2155,4 +2156,613 @@ export class Chart {
         }
         return vp
     }
+
+    // ==================== Facade API (High-level interface for adapters) ====================
+
+    // ---------- Signals ----------
+    private _viewportSignal = createSignal<ViewportState>({
+        zoomLevel: this.currentZoomLevel,
+        plotWidth: 0,
+        plotHeight: 0,
+        dpr: 1,
+        visibleFrom: 0,
+        visibleTo: 0,
+        desiredScrollLeft: 0,
+    })
+
+    private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
+    private _themeSignal = createSignal<'light' | 'dark'>('light')
+    private _indicatorsSignal = createSignal<ReadonlyArray<IndicatorInstance>>([])
+    private _subPanesSignal = createSignal<ReadonlyArray<SubPaneInfo>>([])
+    private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
+    private _drawingsSignal = createSignal<ReadonlyArray<DrawingObject>>([])
+    private _paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
+
+    /** 视口状态信号 */
+    get viewport(): Signal<ViewportState> {
+        return this._viewportSignal
+    }
+
+    /** 数据信号 */
+    get data(): Signal<ReadonlyArray<KLineData>> {
+        return this._dataSignal
+    }
+
+    /** 主题信号 */
+    get theme(): Signal<'light' | 'dark'> {
+        return this._themeSignal
+    }
+
+    /** 指标实例列表信号 */
+    get indicators(): Signal<ReadonlyArray<IndicatorInstance>> {
+        return this._indicatorsSignal
+    }
+
+    /** 子图信息信号 */
+    get subPanes(): Signal<ReadonlyArray<SubPaneInfo>> {
+        return this._subPanesSignal
+    }
+
+    /** 当前绘图工具信号 */
+    get drawingTool(): Signal<DrawingToolType | null> {
+        return this._drawingToolSignal
+    }
+
+    /** 绘图对象列表信号 */
+    get drawings(): Signal<ReadonlyArray<DrawingObject>> {
+        return this._drawingsSignal
+    }
+
+    /** 面板比例信号 */
+    get paneRatios(): Signal<Readonly<Record<string, number>>> {
+        return this._paneRatiosSignal
+    }
+
+    // ---------- Data ----------
+
+    /**
+     * 设置数据（高层 API）
+     * 内部调用 updateData，并更新 data signal
+     */
+    setData(data: KLineData[]): void {
+        this.updateData(data)
+        this._dataSignal.set([...data])
+    }
+
+    /**
+     * 追加数据（高层 API）
+     * 合并现有数据并更新
+     */
+    appendData(newData: KLineData[]): void {
+        const current = this.data.peek()
+        const merged = [...current, ...newData]
+        this.setData(merged)
+    }
+
+    // ---------- Theme ----------
+
+    /**
+     * 设置主题（高层 API）
+     */
+    setTheme(theme: 'light' | 'dark'): void {
+        this._themeSignal.set(theme)
+        // TODO: 当 Chart 支持主题时，在这里调用 updateSettings({ theme })
+    }
+
+    // ---------- Zoom ----------
+
+    /**
+     * 缩放到指定级别（高层 API）
+     * 计算并应用新的 render state，更新 viewport signal
+     */
+    zoomToLevel(level: number, anchorX?: number): void {
+        const clamped = Math.max(1, Math.min(this.zoomLevelCount, Math.round(level)))
+        this.applyZoom(clamped, anchorX)
+    }
+
+    /**
+     * 放大（高层 API）
+     */
+    zoomIn(anchorX?: number): void {
+        this.zoomToLevel(this.currentZoomLevel + 1, anchorX)
+    }
+
+    /**
+     * 缩小（高层 API）
+     */
+    zoomOut(anchorX?: number): void {
+        this.zoomToLevel(this.currentZoomLevel - 1, anchorX)
+    }
+
+    /**
+     * 内部缩放实现
+     */
+    private applyZoom(targetLevel: number, anchorX?: number): void {
+        if (targetLevel === this.currentZoomLevel) return
+
+        const anchor = typeof anchorX === 'number' ? anchorX : 0
+        const scrollLeft = this.getCachedScrollLeft()
+        const dpr = this.getCurrentDpr()
+
+        // 计算新的 kWidth/kGap
+        const { kWidth, kGap } = this.computeZoomState(targetLevel, dpr)
+
+        // 计算期望的 scrollLeft
+        const desiredScrollLeft = this.computeScrollLeftForZoom(
+            targetLevel,
+            this.currentZoomLevel,
+            kWidth,
+            kGap,
+            anchor,
+            scrollLeft,
+        )
+
+        // 应用 render state
+        this.currentZoomLevel = targetLevel
+        this.applyRenderState(kWidth, kGap, targetLevel)
+
+        // 更新 viewport signal
+        this._viewportSignal.set({
+            zoomLevel: targetLevel,
+            plotWidth: this.viewport?.plotWidth ?? 0,
+            plotHeight: this.viewport?.plotHeight ?? 0,
+            dpr,
+            visibleFrom: this.lastVisibleRange.start,
+            visibleTo: this.lastVisibleRange.end,
+            desiredScrollLeft,
+        })
+    }
+
+    /**
+     * 计算缩放后的状态
+     */
+    private computeZoomState(level: number, dpr: number): { kWidth: number; kGap: number } {
+        const { minKWidth, maxKWidth } = this.opt
+        const zoomLevelCount = this.zoomLevelCount
+
+        // 线性插值计算 kWidth
+        const t = (level - 1) / (zoomLevelCount - 1)
+        const kWidth = minKWidth + (maxKWidth - minKWidth) * t
+        const kGap = Math.max(0, Math.floor(kWidth * 0.1)) // 间隙为宽度的 10%
+
+        return { kWidth, kGap }
+    }
+
+    /**
+     * 计算缩放后的期望 scrollLeft
+     */
+    private computeScrollLeftForZoom(
+        targetLevel: number,
+        currentLevel: number,
+        newKWidth: number,
+        newKGap: number,
+        anchorX: number,
+        scrollLeft: number,
+    ): number {
+        // 基于 anchorX 保持位置不变计算新的 scrollLeft
+        const { kWidth: oldKWidth } = this.opt
+        const contentWidthRatio = newKWidth / oldKWidth
+        const newScrollLeft = anchorX * contentWidthRatio - anchorX + scrollLeft * contentWidthRatio
+
+        return Math.max(0, newScrollLeft)
+    }
+
+    // ---------- Interaction (Zero-config unified entry) ----------
+
+    /**
+     * 统一指针事件处理（零配置）
+     * 自动判断区域并分发给 interaction controller
+     * 
+     * @param e 指针事件
+     * @param drawingController 可选的绘图控制器，如果提供，会优先让绘图控制器处理事件
+     * @returns 是否被处理（如果 drawingController 处理了返回 true，否则返回 false）
+     */
+    handlePointerEvent(e: PointerEvent, drawingController?: {
+        onPointerDown?: (e: PointerEvent, container: HTMLElement) => boolean
+        onPointerMove?: (e: PointerEvent, container: HTMLElement) => boolean
+        onPointerUp?: (e: PointerEvent, container: HTMLElement) => boolean
+    }): boolean {
+        // 判断事件目标是否在右轴区域
+        const isRightAxis = this.dom.rightAxisLayer.contains(e.target as Node)
+
+        switch (e.type) {
+            case 'pointerdown':
+                // 优先让绘图控制器处理
+                if (drawingController?.onPointerDown) {
+                    const handled = drawingController.onPointerDown(e, this.dom.container)
+                    if (handled) return true
+                }
+                if (isRightAxis) {
+                    this.interaction.onRightAxisPointerDown(e)
+                } else {
+                    this.interaction.onPointerDown(e)
+                }
+                return false
+            case 'pointermove':
+                // 优先让绘图控制器处理
+                if (drawingController?.onPointerMove) {
+                    const handled = drawingController.onPointerMove(e, this.dom.container)
+                    if (handled) return true
+                }
+                if (isRightAxis) {
+                    this.interaction.onRightAxisPointerMove(e)
+                } else {
+                    this.interaction.onPointerMove(e)
+                }
+                return false
+            case 'pointerup':
+                // 优先让绘图控制器处理
+                if (drawingController?.onPointerUp) {
+                    const handled = drawingController.onPointerUp(e, this.dom.container)
+                    if (handled) return true
+                }
+                if (isRightAxis) {
+                    this.interaction.onRightAxisPointerUp(e)
+                } else {
+                    this.interaction.onPointerUp(e)
+                }
+                return false
+            case 'pointerleave':
+                // pointerleave 通常不用于绘图，直接交给 interaction
+                if (isRightAxis) {
+                    this.interaction.onRightAxisPointerLeave(e)
+                } else {
+                    this.interaction.onPointerLeave(e)
+                }
+                return false
+            default:
+                return false
+        }
+    }
+
+    /**
+     * 滚轮事件处理（高层 API）
+     * 计算缩放并更新 viewport signal
+     */
+    handleWheelEvent(e: WheelEvent): void {
+        e.preventDefault()
+
+        const delta = e.deltaY > 0 ? -1 : 1
+        const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
+
+        if (targetLevel === this.currentZoomLevel) return
+
+        // 获取鼠标在容器中的位置作为缩放锚点
+        const rect = this.dom.container.getBoundingClientRect()
+        const anchorX = e.clientX - rect.left + this.getCachedScrollLeft()
+
+        this.applyZoom(targetLevel, anchorX)
+    }
+
+    /**
+     * 滚动事件处理（高层 API）
+     * 更新缓存的 scrollLeft 并触发交互 controller
+     */
+    handleScrollEvent(): void {
+        this.interaction.onScroll()
+        // 更新 viewport signal 中的 visible range
+        this.updateViewportSignal()
+    }
+
+    /**
+     * 更新 viewport signal
+     */
+    private updateViewportSignal(): void {
+        const vp = this.viewport
+        if (!vp) return
+
+        this._viewportSignal.set({
+            zoomLevel: this.currentZoomLevel,
+            plotWidth: vp.plotWidth,
+            plotHeight: vp.plotHeight,
+            dpr: vp.dpr,
+            visibleFrom: this.lastVisibleRange.start,
+            visibleTo: this.lastVisibleRange.end,
+            desiredScrollLeft: this.getCachedScrollLeft(),
+        })
+    }
+
+    // ---------- Indicators (Explicit role) ----------
+
+    /**
+     * 添加指标（高层 API，显式指定 role）
+     * @param definitionId 指标定义 ID（如 'MA', 'MACD'）
+     * @param role 'main' 主图指标 或 'sub' 副图指标
+     * @param params 指标参数
+     * @returns 实例 ID（成功）或 null（失败）
+     */
+    addIndicator(
+        definitionId: string,
+        role: 'main' | 'sub',
+        params?: Record<string, unknown>,
+    ): string | null {
+        if (role === 'main') {
+            const success = this.enableMainIndicator(definitionId, params as Record<string, number | boolean | string>)
+            if (!success) return null
+
+            // 更新 indicators signal
+            this.syncIndicatorsSignal()
+            return definitionId.toUpperCase()
+        } else {
+            // 副图指标
+            const paneId = `${definitionId.toUpperCase()}_${Date.now()}`
+            const success = this.createSubPane(
+                paneId,
+                definitionId as SubIndicatorType,
+                params as Record<string, number | boolean | string>,
+            )
+            if (!success) return null
+
+            // 更新 signals
+            this.syncIndicatorsSignal()
+            this.syncSubPanesSignal()
+            return paneId
+        }
+    }
+
+    /**
+     * 移除指标（高层 API）
+     * @param instanceId 指标实例 ID
+     * @returns 是否成功移除
+     */
+    removeIndicator(instanceId: string): boolean {
+        const id = instanceId.toUpperCase()
+
+        // 先尝试作为主图指标移除（直接检查内部状态，不依赖 signal）
+        if (this.activeMainIndicators.has(id)) {
+            const success = this.disableMainIndicator(instanceId)
+            if (success) {
+                this.syncIndicatorsSignal()
+            }
+            return success
+        }
+
+        // 再尝试作为副图指标移除（检查 sub pane 是否存在）
+        const subPaneEntry = this.getSubPaneEntry(instanceId)
+        if (subPaneEntry) {
+            this.removeSubPane(instanceId)
+            this.syncIndicatorsSignal()
+            this.syncSubPanesSignal()
+            return true
+        }
+
+        // 都没找到，返回 false
+        return false
+    }
+
+    /**
+     * 更新指标参数（高层 API）
+     * @param instanceId 指标实例 ID
+     * @param params 新参数
+     * @returns 是否成功更新
+     */
+    updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean {
+        const id = instanceId.toUpperCase()
+
+        // 先尝试作为主图指标更新（直接检查内部状态）
+        if (this.activeMainIndicators.has(id)) {
+            this.updateMainIndicatorParams(instanceId, params as Record<string, number | boolean | string>)
+            this.syncIndicatorsSignal()
+            return true
+        }
+
+        // 再尝试作为副图指标更新
+        const subPaneEntry = this.getSubPaneEntry(instanceId)
+        if (subPaneEntry) {
+            this.updateSubPaneParams(instanceId, params)
+            this.syncIndicatorsSignal()
+            return true
+        }
+
+        // 都没找到
+        return false
+    }
+
+    /**
+     * 重新排序指标（高层 API）
+     * @param orderedInstanceIds 排序后的指标实例 ID 数组
+     * @returns 是否成功
+     */
+    reorderIndicators(orderedInstanceIds: string[]): boolean {
+        // TODO: 实现副图指标的重新排序
+        // 需要调用 updatePaneLayout 来调整 pane 顺序
+        console.warn('[Chart] reorderIndicators not fully implemented yet')
+        return false
+    }
+
+    /**
+     * 同步 indicators signal
+     */
+    private syncIndicatorsSignal(): void {
+        const mainIndicators: IndicatorInstance[] = this.getActiveMainIndicators().map(id => ({
+            id,
+            definitionId: id,
+            label: id,
+            name: id,
+            role: 'main',
+            params: this.getMainIndicatorParams(id) ?? {},
+        }))
+
+        const subIndicators: IndicatorInstance[] = this.getSubPaneEntries().map(entry => ({
+            id: entry.paneId,
+            definitionId: entry.indicatorId,
+            label: entry.indicatorId,
+            name: entry.indicatorId,
+            role: 'sub',
+            paneId: entry.paneId,
+            params: entry.params,
+        }))
+
+        this._indicatorsSignal.set([...mainIndicators, ...subIndicators])
+    }
+
+    /**
+     * 同步 sub panes signal
+     */
+    private syncSubPanesSignal(): void {
+        const entries = this.getSubPaneEntries()
+        const subPanes: SubPaneInfo[] = entries.map(entry => ({
+            paneId: entry.paneId,
+            indicatorId: entry.indicatorId,
+            params: entry.params,
+            ratio: this.paneRatios.get(entry.paneId) ?? 1,
+        }))
+
+        this._subPanesSignal.set(subPanes)
+    }
+
+    // ---------- Sub Panes ----------
+
+    /**
+     * 调整子图大小（高层 API）
+     * @param paneId 面板 ID
+     * @param deltaY 垂直偏移量
+     * @returns 是否成功
+     */
+    resizeSubPane(paneId: string, deltaY: number): boolean {
+        return this.resizePaneBoundary(paneId, deltaY)
+    }
+
+    // ---------- Drawings ----------
+
+    /**
+     * 设置当前绘图工具（高层 API）
+     * @param tool 工具类型或 null 取消选择
+     */
+    setDrawingTool(tool: DrawingToolType | null): void {
+        this._drawingToolSignal.set(tool)
+        // TODO: 当 Chart 支持绘图工具切换时，在这里调用相应方法
+    }
+
+    /**
+     * 移除绘图（高层 API）
+     * @param drawingId 绘图 ID
+     */
+    removeDrawing(drawingId: string): void {
+        // TODO: 实现绘图移除
+        console.warn('[Chart] removeDrawing not fully implemented yet')
+    }
+
+    /**
+     * 清除所有绘图（高层 API）
+     */
+    clearDrawings(): void {
+        this.setDrawings([])
+        this._drawingsSignal.set([])
+    }
+
+    // ---------- Settings ----------
+
+    /**
+     * 更新设置（高层 API）
+     * 代理到现有的 updateSettings
+     */
+    updateSettingsFacade(settings: Record<string, unknown>): void {
+        this.updateSettings(settings as ChartSettings)
+    }
+
+    /**
+     * 更新选项（高层 API）
+     * 代理到现有的 updateOptions
+     */
+    updateOptionsFacade(options: Partial<ChartOptions>): void {
+        this.updateOptions(options)
+    }
+
+    // ---------- Lifecycle hooks ----------
+
+    /**
+     * 初始化 facade signals
+     * 应在 Chart 构造完成后调用
+     */
+    initFacadeSignals(): void {
+        // 同步初始数据
+        this._dataSignal.set([...this.data])
+
+        // 同步指标
+        this.syncIndicatorsSignal()
+
+        // 同步子图
+        this.syncSubPanesSignal()
+
+        // 同步 pane ratios
+        const ratios: Record<string, number> = {}
+        this.paneRatios.forEach((ratio, id) => {
+            ratios[id] = ratio
+        })
+        this._paneRatiosSignal.set(ratios)
+
+        // 同步 viewport
+        this.updateViewportSignal()
+
+        // 设置回调以同步 signals
+        this.setOnViewportChange(() => {
+            this.updateViewportSignal()
+        })
+
+        this.setOnDataChange((newData) => {
+            this._dataSignal.set([...newData])
+        })
+
+        this.setOnPaneLayoutChange((panes) => {
+            const ratios: Record<string, number> = {}
+            panes.forEach(pane => {
+                if (pane.ratio !== undefined) {
+                    ratios[pane.id] = pane.ratio
+                }
+            })
+            this._paneRatiosSignal.set(ratios)
+            this.syncSubPanesSignal()
+        })
+    }
+}
+
+// ==================== Type definitions for Facade ====================
+
+export type ViewportState = {
+    zoomLevel: number
+    plotWidth: number
+    plotHeight: number
+    dpr: number
+    visibleFrom: number
+    visibleTo: number
+    desiredScrollLeft: number
+}
+
+export type IndicatorRole = 'main' | 'sub'
+
+export interface IndicatorInstance {
+    id: string
+    definitionId: string
+    label: string
+    name: string
+    role: IndicatorRole
+    paneId?: string
+    params: Record<string, unknown>
+}
+
+export interface SubPaneInfo {
+    paneId: string
+    indicatorId: string
+    params: Record<string, unknown>
+    ratio: number
+}
+
+export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
+
+export interface DrawingObject {
+    id: string
+    type: DrawingToolType
+}
+
+export interface InteractionSnapshot {
+    crosshairPos: { x: number; y: number } | null
+    crosshairIndex: number | null
+    crosshairPrice: number | null
+    hoveredIndex: number | null
+    activePaneId: string | null
+    isDragging: boolean
+    isResizingPane: boolean
+    isHoveringRightAxis: boolean
+    cursor: 'default' | 'crosshair' | 'grabbing' | 'pointer' | 'ns-resize'
 }

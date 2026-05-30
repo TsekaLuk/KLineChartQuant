@@ -475,17 +475,16 @@ function onDeleteDrawing() {
 }
 
 function onPointerDown(e: PointerEvent) {
-  const container = containerRef.value
-  if (!container) return
-
-  // 优先处理绘图交互
-  if (drawingController.value?.onPointerDown(e, container)) {
-    store.actions.setDrawings(drawingController.value.getDrawings())
-    store.actions.bumpDrawingVersion()
-    return
-  }
-
-  chartRef.value?.interaction.onPointerDown(e)
+  chartRef.value?.handlePointerEvent(e, {
+    onPointerDown: (event, container) => {
+      if (drawingController.value?.onPointerDown(event, container)) {
+        store.actions.setDrawings(drawingController.value.getDrawings())
+        store.actions.bumpDrawingVersion()
+        return true
+      }
+      return false
+    },
+  })
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -496,45 +495,53 @@ function onPointerMove(e: PointerEvent) {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     }
-    if (drawingController.value?.onPointerMove(e, container)) {
-      store.actions.setDrawings(drawingController.value.getDrawings())
-      return
-    }
   }
-  chartRef.value?.interaction.onPointerMove(e)
+  chartRef.value?.handlePointerEvent(e, {
+    onPointerMove: (event, container) => {
+      if (drawingController.value?.onPointerMove(event, container)) {
+        store.actions.setDrawings(drawingController.value.getDrawings())
+        return true
+      }
+      return false
+    },
+  })
 }
 
 function onPointerUp(e: PointerEvent) {
-  const container = containerRef.value
-  if (container && drawingController.value?.onPointerUp(e, container)) {
-    store.actions.setDrawings(drawingController.value.getDrawings())
-    return
-  }
-  chartRef.value?.interaction.onPointerUp(e)
+  chartRef.value?.handlePointerEvent(e, {
+    onPointerUp: (event, container) => {
+      if (drawingController.value?.onPointerUp(event, container)) {
+        store.actions.setDrawings(drawingController.value.getDrawings())
+        return true
+      }
+      return false
+    },
+  })
 }
 
 function onPointerLeave(e: PointerEvent) {
-  chartRef.value?.interaction.onPointerLeave(e)
+  // pointerleave 不需要绘图控制器路由，直接调用
+  chartRef.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerDown(e: PointerEvent) {
-  chartRef.value?.interaction.onRightAxisPointerDown(e)
+  chartRef.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerMove(e: PointerEvent) {
-  chartRef.value?.interaction.onRightAxisPointerMove(e)
+  chartRef.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerUp(e: PointerEvent) {
-  chartRef.value?.interaction.onRightAxisPointerUp(e)
+  chartRef.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerLeave(e: PointerEvent) {
-  chartRef.value?.interaction.onRightAxisPointerLeave(e)
+  chartRef.value?.handlePointerEvent(e)
 }
 
 function onScroll() {
-  chartRef.value?.interaction.onScroll()
+  chartRef.value?.handleScrollEvent()
 }
 
 // 主图指标显式状态（副图指标从 subPanes 派生）
@@ -634,12 +641,11 @@ function addSubPane(
     return false
   }
 
-  const paneId = generatePaneId(indicatorId)
   const mergedParams = params ?? getDefaultParams(indicatorId)
 
-  // 使用 Chart API 创建副图（pane + 指标渲染器 + scale renderer + scheduler 配置）
-  const success = chartRef.value?.createSubPane(paneId, indicatorId, mergedParams)
-  if (!success) return false
+  // 使用高层 Facade API 创建副图指标
+  const paneId = chartRef.value?.addIndicator(indicatorId, 'sub', mergedParams)
+  if (!paneId) return false
 
   // 创建 paneTitle 渲染器（UI 层职责）
   mountSubPaneTitle(paneId, indicatorId)
@@ -655,7 +661,7 @@ function addSubPane(
   return true
 }
 
-// 移除副图（使用 Chart API）
+// 移除副图（使用高层 Facade API）
 function removeSubPane(paneId: string): void {
   const index = subPanes.value.findIndex((p) => p.id === paneId)
   if (index === -1) return
@@ -666,22 +672,20 @@ function removeSubPane(paneId: string): void {
   // 移除 paneTitle 渲染器
   unmountSubPaneTitle(paneId)
 
-  // 使用 Chart API 移除副图（pane + 指标渲染器 + scale renderer）
-  chartRef.value?.removeSubPane(paneId)
+  // 使用高层 Facade API 移除指标
+  chartRef.value?.removeIndicator(paneId)
 
   // 更新本地状态
   subPanes.value.splice(index, 1)
 }
 
-// 清除所有副图（使用 Chart API）
+// 清除所有副图（使用高层 Facade API）
 function clearAllSubPanes(): void {
-  // 移除所有 paneTitle 渲染器
+  // 使用高层 Facade API 逐个移除
   for (const pane of subPanes.value) {
+    chartRef.value?.removeIndicator(pane.id)
     unmountSubPaneTitle(pane.id)
   }
-
-  // 使用 Chart API 清除所有副图
-  chartRef.value?.clearSubPanes()
 
   // 清空本地状态
   subPanes.value = []
@@ -849,43 +853,60 @@ function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
   return result
 }
 
-// 指标切换处理（直接调用Chart API）
+// 指标切换处理（使用高层 Facade API）
 function handleIndicatorToggle(indicatorId: string, active: boolean) {
   const chart = chartRef.value
   if (!chart) return
 
-  // 主图指标处理 - 直接调用Chart API
+  // 主图指标处理
   const mainIndicatorIds = ['MA', 'BOLL', 'EXPMA', 'ENE', 'WMA', 'DEMA', 'TEMA', 'HMA', 'KAMA', 'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU', 'PIVOT', 'FIB', 'STRUCTURE', 'ZONES']
   if (mainIndicatorIds.includes(indicatorId)) {
-    chart.toggleMainIndicator(indicatorId, active)
-    // 同步本地状态用于UI展示
-    if (active) {
-      if (!mainActiveIndicators.value.includes(indicatorId)) {
-        mainActiveIndicators.value.push(indicatorId)
-      }
-    } else {
+    const existingIndicator = mainActiveIndicators.value.find(id => id === indicatorId)
+    
+    if (active && !existingIndicator) {
+      // 添加主图指标
+      chart.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
+      mainActiveIndicators.value.push(indicatorId)
+    } else if (!active && existingIndicator) {
+      // 移除主图指标
+      const instanceId = indicatorId.toUpperCase()
+      chart.removeIndicator(instanceId)
       mainActiveIndicators.value = mainActiveIndicators.value.filter((id) => id !== indicatorId)
     }
     return
   }
 
-  // 副图指标处理（activeIndicators 由 subPanes 自动派生）
+  // 副图指标处理
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
     if (active) {
       // 如果已存在同类型指标 pane，跳过
       const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
       if (existingPane) return
 
-      if (!addSubPane(indicatorId as SubIndicatorType)) {
+      // 使用高层 API 添加副图指标
+      const paneId = chart.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
+      if (paneId) {
+        // 创建 paneTitle 渲染器
+        mountSubPaneTitle(paneId, indicatorId as SubIndicatorType)
+        // 同步本地状态
+        subPanes.value.push({
+          id: paneId,
+          indicatorId: indicatorId as SubIndicatorType,
+          params: { ...indicatorParams.value[indicatorId] },
+        })
+      } else if (subPanes.value.length > 0) {
+        // 添加失败（可能达到上限），替换最后一个
         const lastPane = subPanes.value[subPanes.value.length - 1]
-        if (lastPane) {
-          switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
-        }
+        switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
       }
     } else {
       // 找到并移除该指标的所有 pane
       const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
-      panesToRemove.forEach((pane) => removeSubPane(pane.id))
+      panesToRemove.forEach((pane) => {
+        chart.removeIndicator(pane.id)
+        unmountSubPaneTitle(pane.id)
+      })
+      subPanes.value = subPanes.value.filter((p) => p.indicatorId !== indicatorId)
     }
     scheduleRender()
   }

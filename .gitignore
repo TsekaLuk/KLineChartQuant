@@ -40,3 +40,13 @@ docs/TradingView级别像素对齐技术.md
 
 # Memory bank
 .memorybank/
+
+# Environment
+.env
+
+# Agents
+.agents/
+
+# Next.js examples
+examples/next-app/.next/
+examples/next-app/pnpm-lock.yaml

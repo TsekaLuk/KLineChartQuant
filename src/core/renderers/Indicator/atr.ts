@@ -49,9 +49,11 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
         kLineCenters: number[],
         pane: RenderContext['pane'],
         params: ATRRenderState['params'],
+        stateTimestamp: number
     ): string {
         const dr = pane.yAxis.getDisplayRange()
         return [
+            stateTimestamp,
             range.start,
             range.end,
             kLineCenters.length,
@@ -124,7 +126,7 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
             const drawStart = Math.max(range.start, params.period - 1)
             const drawEnd = Math.min(range.end, series.length)
 
-            const cacheKey = buildCacheKey(range, kLineCenters, pane, params)
+            const cacheKey = buildCacheKey(range, kLineCenters, pane, params, state.timestamp)
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
                 cachedPoints = []

@@ -90,10 +90,12 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
     kLineCenters: number[],
     pane: RenderContext['pane'],
     displayMin: number,
-    displayMax: number
+    displayMax: number,
+    stateTimestamp: number
   ): string {
     const dr = pane.yAxis.getDisplayRange()
     return [
+      stateTimestamp,
       range.start,
       range.end,
       kLineCenters.length,
@@ -219,7 +221,7 @@ export function createMACDRendererPlugin(options: MACDRendererOptions = {}): Ren
       }
 
       // 更新线条点缓存
-      const lineCacheKey = buildLineCacheKey(range, kLineCenters, pane, displayMin, displayMax)
+      const lineCacheKey = buildLineCacheKey(range, kLineCenters, pane, displayMin, displayMax, state.timestamp)
       if (cachedLineKey !== lineCacheKey) {
         cachedLineKey = lineCacheKey
         cachedDifPoints = []

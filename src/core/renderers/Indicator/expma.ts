@@ -13,10 +13,12 @@ type LinePoint = { x: number; y: number }
 function buildEXPMACacheKey(
     range: { start: number; end: number },
     kLineCenters: number[],
-    pane: RenderContext['pane']
+    pane: RenderContext['pane'],
+    stateTimestamp: number
 ): string {
     const dr = pane.yAxis.getDisplayRange()
     return [
+        stateTimestamp,
         range.start,
         range.end,
         kLineCenters.length,
@@ -97,7 +99,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             const expmaData = state.series
             const drawStart = range.start
             const drawEnd = Math.min(range.end, klineData.length)
-            const cacheKey = buildEXPMACacheKey(range, kLineCenters, pane)
+            const cacheKey = buildEXPMACacheKey(range, kLineCenters, pane, state.timestamp)
 
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey

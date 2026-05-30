@@ -869,6 +869,9 @@ function handleIndicatorToggle(indicatorId: string, active: boolean) {
       const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
       if (existingPane) return
 
+      // 副图数量上限检查
+      if (subPanes.value.length >= maxSubPanes) return
+
       // 使用高层 API 添加副图指标
       const paneId = chart.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
       if (paneId) {

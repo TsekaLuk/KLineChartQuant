@@ -81,7 +81,8 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
         paneHeight: number,
         displayMin: number,
         displayMax: number,
-        dpr: number
+        dpr: number,
+        colors: { WMSR: { OVERBOUGHT: string; OVERSOLD: string }; WMSR_GRID: string }
     ): void {
         const displayValueRange = displayMax - displayMin || 1
         const y20 = alignToPhysicalPixelCenter(paneHeight - (-20 - displayMin) / displayValueRange * paneHeight, dpr)
@@ -119,10 +120,12 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
         range: { start: number; end: number },
         kLineCenters: number[],
         pane: RenderContext['pane'],
-        params: WMSRRenderState['params']
+        params: WMSRRenderState['params'],
+        stateTimestamp: number
     ): string {
         const dr = pane.yAxis.getDisplayRange()
         return [
+            stateTimestamp,
             range.start,
             range.end,
             kLineCenters.length,
@@ -184,7 +187,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
                     Math.ceil(paneWidth * dpr),
                     Math.ceil(paneHeight * dpr)
                 )
-                renderDashedLinesToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr)
+                renderDashedLinesToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr, colors)
             }
 
             if (offscreenCanvas) {
@@ -196,7 +199,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             const drawEnd = Math.min(range.end, series.length)
 
             // 更新线条缓存
-            const cacheKey = buildWMSRCacheKey(range, kLineCenters, pane, params)
+            const cacheKey = buildWMSRCacheKey(range, kLineCenters, pane, params, state.timestamp)
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
 

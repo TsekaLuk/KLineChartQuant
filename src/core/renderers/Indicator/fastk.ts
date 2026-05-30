@@ -108,10 +108,12 @@ export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): R
         range: { start: number; end: number },
         kLineCenters: number[],
         pane: RenderContext['pane'],
-        params: FASTKRenderState['params']
+        params: FASTKRenderState['params'],
+        stateTimestamp: number
     ): string {
         const dr = pane.yAxis.getDisplayRange()
         return [
+            stateTimestamp,
             range.start,
             range.end,
             kLineCenters.length,
@@ -185,7 +187,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             const drawEnd = Math.min(range.end, series.length)
 
             // 更新线条缓存
-            const cacheKey = buildFASTKCacheKey(range, kLineCenters, pane, params)
+            const cacheKey = buildFASTKCacheKey(range, kLineCenters, pane, params, state.timestamp)
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
 

@@ -16,10 +16,12 @@ function buildMACacheKey(
     range: { start: number; end: number },
     kLineCenters: number[],
     pane: RenderContext['pane'],
-    enabledPeriods: number[]
+    enabledPeriods: number[],
+    stateTimestamp: number
 ): string {
     const dr = pane.yAxis.getDisplayRange()
     return [
+        stateTimestamp,
         range.start,
         range.end,
         kLineCenters.length,
@@ -111,7 +113,7 @@ export function createMARendererPlugin(): RendererPluginWithHost {
                 return
             }
 
-            const cacheKey = buildMACacheKey(range, kLineCenters, pane, state.enabledPeriods)
+            const cacheKey = buildMACacheKey(range, kLineCenters, pane, state.enabledPeriods, state.timestamp)
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
                 cachedLines = new Map()

@@ -52,10 +52,12 @@ export function createCCIRendererPlugin(options: CCIRendererOptions = {}): Rende
         range: { start: number; end: number },
         kLineCenters: number[],
         pane: RenderContext['pane'],
-        params: CCIRenderState['params']
+        params: CCIRenderState['params'],
+        stateTimestamp: number
     ): string {
         const dr = pane.yAxis.getDisplayRange()
         return [
+            stateTimestamp,
             range.start,
             range.end,
             kLineCenters.length,
@@ -150,7 +152,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
             const drawEnd = Math.min(range.end, series.length)
 
             // 更新线条缓存
-            const cacheKey = buildCCICacheKey(range, kLineCenters, pane, params)
+            const cacheKey = buildCCICacheKey(range, kLineCenters, pane, params, state.timestamp)
             if (cachedKey !== cacheKey) {
                 cachedKey = cacheKey
                 cachedCCIPoints = []

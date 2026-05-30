@@ -86,11 +86,11 @@
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@babel/plugin-proposal-decorators": "^7.29.0",
-    "@babel/plugin-transform-typescript": "^7.28.5",
+    "@babel/plugin-transform-typescript": "^7.29.7",
     "@iconify-json/tabler": "^1.2.34",
     "@tsconfig/node24": "^24.0.4",
     "@types/jsdom": "^28.0.1",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.9.1",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vitest/coverage-v8": "^4.1.5",
     "@vue/test-utils": "^2.4.10",
@@ -101,12 +101,12 @@
     "typedoc": "^0.28.19",
     "typescript": "~6.0.3",
     "unplugin-icons": "^23.0.1",
-    "unplugin-vue-components": "^32.0.0",
+    "unplugin-vue-components": "^32.1.0",
     "vite": "^8.0.10",
     "vite-plugin-babel": "^1.3.2",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-vue-devtools": "^8.1.1",
     "vitest": "^4.1.5",
-    "vue-tsc": "^3.2.8"
+    "vue-tsc": "^3.3.2"
   }
 }

@@ -54,10 +54,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
             const { swings, events } = state.series
             if (!params.showSwingLabels && !params.showBOS && !params.showCHOCH) return
 
-            const displayRange = pane.yAxis.getDisplayRange()
-            const displayMin = displayRange.minPrice
-            const displayValueRange = (displayRange.maxPrice - displayMin) || 1
-            const toY = (v: number) => pane.height - (v - displayMin) / displayValueRange * pane.height
+            const toY = (v: number) => pane.yAxis.priceToY(v)
 
             ctx.save()
             ctx.translate(-scrollLeft, 0)

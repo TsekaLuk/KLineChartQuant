@@ -114,7 +114,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
 import { SemanticChartController, type SemanticChartConfig } from '@/semantic'
-import { createCustomMarkersRenderer } from '@/core/renderers/customMarkers'
 import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
@@ -127,27 +126,13 @@ import {
   kGapFromKWidth,
 } from '@/core/utils/zoom'
 import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
-import { createCandleRenderer } from '@/core/renderers/candle'
-import { createGridLinesRendererPlugin } from '@/core/renderers/gridLines'
 import {
-  createLastPriceLineRendererPlugin,
-  createLastPriceLabelRegistrarPlugin,
-} from '@/core/renderers/lastPrice'
-import {
-  createMARendererPlugin,
-  createBOLLRendererPlugin,
-  createEXPMARendererPlugin,
-  createENERendererPlugin,
-  createMainIndicatorLegendRendererPlugin,
   type SubIndicatorType,
 } from '@/core/renderers/Indicator'
 import {
   SUB_PANE_INDICATOR_CONFIGS,
   SUB_PANE_INDICATORS,
 } from '@/core/renderers/Indicator/subPaneConfig'
-import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
-import { createTimeAxisRendererPlugin } from '@/core/renderers/timeAxis'
-import { createCrosshairRendererPlugin } from '@/core/renderers/crosshair'
 import { createPaneTitleRendererPlugin, type TitleInfo } from '@/core/renderers/paneTitle'
 import type { InteractionSnapshot } from '@/core/controller/interaction'
 import type { DrawingStyle } from '@/plugin'
@@ -1107,74 +1092,7 @@ function initChart(
       initialZoomLevel: props.initialZoomLevel,
     },
   )
-  registerRenderers(chart)
   return chart
-}
-
-function registerRenderers(chart: Chart): void {
-  chart.useRenderer(createGridLinesRendererPlugin())
-  chart.useRenderer(createMARendererPlugin())
-  chart.setRendererEnabled('ma', false)
-  chart.useRenderer(createBOLLRendererPlugin())
-  chart.setRendererEnabled('boll', false)
-  chart.useRenderer(createEXPMARendererPlugin())
-  chart.setRendererEnabled('expma', false)
-  chart.useRenderer(createENERendererPlugin())
-  chart.setRendererEnabled('ene', false)
-  chart.useRenderer(createCandleRenderer())
-  chart.useRenderer(createLastPriceLineRendererPlugin())
-  chart.useRenderer(createLastPriceLabelRegistrarPlugin())
-  chart.useRenderer(createCustomMarkersRenderer())
-
-  const axisWidth = props.rightAxisWidth + props.priceLabelWidth
-  const getAxisCrosshair = () => {
-    const pos = chart.interaction.crosshairPos
-    const price = chart.interaction.crosshairPrice
-    const activePaneId = chart.interaction.activePaneId
-    if (pos && price !== null) {
-      return { y: pos.y, price, activePaneId }
-    }
-    return null
-  }
-
-  chart.useRenderer(
-    createYAxisRendererPlugin({
-      axisWidth,
-      yPaddingPx: props.yPaddingPx,
-      getCrosshair: getAxisCrosshair,
-    }),
-  )
-  chart.useRenderer(
-    createMainIndicatorLegendRendererPlugin({
-      yPaddingPx: props.yPaddingPx,
-    }),
-  )
-
-  // Scale renderers 由 SubPaneManager 在 addSubPane 时按需注册
-
-  chart.useRenderer(
-    createCrosshairRendererPlugin({
-      getCrosshairState: () => ({
-        pos: chart.interaction.crosshairPos,
-        activePaneId: chart.interaction.activePaneId,
-        isDragging: chart.interaction.isDraggingState(),
-        price: chart.interaction.crosshairPrice,
-      }),
-    }),
-  )
-  chart.useRenderer(
-    createTimeAxisRendererPlugin({
-      height: props.bottomAxisHeight,
-      getCrosshair: () => {
-        const pos = chart.interaction.crosshairPos
-        const idx = chart.interaction.crosshairIndex
-        if (pos && idx !== null) {
-          return { x: pos.x, index: idx }
-        }
-        return null
-      },
-    }),
-  )
 }
 
 function setupChartCallbacks(chart: Chart): void {

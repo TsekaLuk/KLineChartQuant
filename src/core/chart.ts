@@ -51,6 +51,13 @@ import { createZonesRendererPlugin } from '@/core/renderers/Indicator/zones'
 import { createMainIndicatorLegendRendererPlugin } from '@/core/renderers/Indicator/mainIndicatorLegend'
 import { DrawingStore } from '@/core/drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '@/core/drawing/plugin'
+import { createGridLinesRendererPlugin } from '@/core/renderers/gridLines'
+import { createCandleRenderer } from '@/core/renderers/candle'
+import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from '@/core/renderers/lastPrice'
+import { createCustomMarkersRenderer } from '@/core/renderers/customMarkers'
+import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
+import { createCrosshairRendererPlugin } from '@/core/renderers/crosshair'
+import { createTimeAxisRendererPlugin } from '@/core/renderers/timeAxis'
 import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from '@/core/indicators/scheduler'
 
 // 重新导出以保持向后兼容
@@ -706,7 +713,54 @@ export class Chart {
         // 注册绘图标签插件（负责推送选中绘图的轴标签，layer: 'overlay'）
         // 注意：此插件依赖 overlay 更新级别，若将来添加 Main 级别需调整
         this.useRenderer(createDrawingLabelOverlayPlugin({ store: this.drawingStore }))
+        this.initCoreRenderers()
         this.initResizeObserver()
+    }
+
+
+    private initCoreRenderers(): void {
+        const axisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth ?? 0)
+
+        this.useRenderer(createGridLinesRendererPlugin())
+        this.useRenderer(createCandleRenderer())
+        this.useRenderer(createLastPriceLineRendererPlugin())
+        this.useRenderer(createLastPriceLabelRegistrarPlugin())
+        this.useRenderer(createCustomMarkersRenderer())
+        this.useRenderer(createMainIndicatorLegendRendererPlugin({
+            yPaddingPx: this.opt.yPaddingPx,
+        }))
+        this.useRenderer(createYAxisRendererPlugin({
+            axisWidth,
+            yPaddingPx: this.opt.yPaddingPx,
+            getCrosshair: () => {
+                const pos = this.interaction.crosshairPos
+                const price = this.interaction.crosshairPrice
+                const activePaneId = this.interaction.activePaneId
+                if (pos && price !== null) {
+                    return { y: pos.y, price, activePaneId }
+                }
+                return null
+            },
+        }))
+        this.useRenderer(createCrosshairRendererPlugin({
+            getCrosshairState: () => ({
+                pos: this.interaction.crosshairPos,
+                activePaneId: this.interaction.activePaneId,
+                isDragging: this.interaction.isDraggingState(),
+                price: this.interaction.crosshairPrice,
+            }),
+        }))
+        this.useRenderer(createTimeAxisRendererPlugin({
+            height: this.opt.bottomAxisHeight,
+            getCrosshair: () => {
+                const pos = this.interaction.crosshairPos
+                const idx = this.interaction.crosshairIndex
+                if (pos && idx !== null) {
+                    return { x: pos.x, index: idx }
+                }
+                return null
+            },
+        }))
     }
 
 

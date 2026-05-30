@@ -370,7 +370,6 @@ export function createChartController(opts: ChartMountOptions): ChartController 
 
     function setTheme(nextTheme: 'light' | 'dark'): void {
         if (disposed) return
-        themeSignal.set(nextTheme)
         chart.setTheme(nextTheme)
     }
 

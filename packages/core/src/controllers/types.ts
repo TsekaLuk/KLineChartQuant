@@ -9,6 +9,19 @@
  */
 
 import type { Signal } from '../reactivity'
+import type {
+    IndicatorRole,
+    IndicatorInstance,
+    SubPaneInfo,
+    DrawingToolType,
+    DrawingObject,
+    ViewportState,
+} from '../../../../src/core/chart'
+
+// Re-export shared facade types with API-surface names
+export type ChartViewport = ViewportState
+export type { IndicatorRole, IndicatorInstance, SubPaneInfo, DrawingToolType, DrawingObject }
+export type IndicatorPaneRole = IndicatorRole
 
 // ---------------------------------------------------------------------------
 // Data shapes (mirror src/types/price.ts — single source of truth lives here
@@ -34,9 +47,6 @@ export interface KLineData {
 // Indicator metadata
 // ---------------------------------------------------------------------------
 
-export type IndicatorPaneRole = 'main' | 'sub'
-export type IndicatorRole = 'main' | 'sub'
-
 export interface IndicatorParamDef {
     key: string
     label: string
@@ -49,45 +59,12 @@ export interface IndicatorParamDef {
 }
 
 export interface IndicatorDefinition {
-    key?: string
-    label?: string
+    id: string
+    label: string
     name?: string
     description?: string
-    role?: IndicatorPaneRole
-    params?: ReadonlyArray<IndicatorParamDef>
-    id: string
-}
-
-// ---------------------------------------------------------------------------
-// Indicator instance (live on the chart engine)
-// ---------------------------------------------------------------------------
-
-export interface IndicatorInstance {
-    id: string
-    definitionId: string
-    label: string
-    name: string
-    role: IndicatorRole
-    paneId?: string
-    params: Record<string, unknown>
-}
-
-export interface SubPaneInfo {
-    paneId: string
-    indicatorId: string
-    params: Record<string, unknown>
-    ratio: number
-}
-
-// ---------------------------------------------------------------------------
-// Drawing types
-// ---------------------------------------------------------------------------
-
-export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
-
-export interface DrawingObject {
-    id: string
-    type: DrawingToolType
+    role: IndicatorPaneRole
+    params: ReadonlyArray<IndicatorParamDef>
 }
 
 // ---------------------------------------------------------------------------
@@ -131,18 +108,6 @@ export interface ChartMountOptions {
     initialZoomLevel?: number
     zoomLevels?: number
     theme?: 'light' | 'dark'
-}
-
-export interface ChartViewport {
-    zoomLevel: number
-    plotWidth: number
-    plotHeight: number
-    dpr: number
-    visibleFrom: number
-    visibleTo: number
-    desiredScrollLeft: number | undefined
-    kWidth: number
-    kGap: number
 }
 
 export interface ChartController {

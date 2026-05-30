@@ -2336,7 +2336,6 @@ export class Chart {
      */
     setData(data: KLineData[]): void {
         this.updateData(data)
-        this._dataSignal.set([...data])
     }
 
     /**
@@ -2344,8 +2343,7 @@ export class Chart {
      * 合并现有数据并更新
      */
     appendData(newData: KLineData[]): void {
-        const current = this._dataSignal.peek()
-        const merged = [...current, ...newData]
+        const merged = [...this._internalData, ...newData]
         this.setData(merged)
     }
 

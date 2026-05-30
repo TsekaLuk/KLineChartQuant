@@ -150,11 +150,17 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     @ViewChild('container', { static: true })
     container!: ElementRef<HTMLElement>
 
-    /** Angular signals mirroring controller state. */
-    viewport: NgSignal<ChartViewport | null> = signal<ChartViewport | null>(null)
-    interactionState: NgSignal<InteractionSnapshot | null> = signal<InteractionSnapshot | null>(null)
-    paneRatios: NgSignal<Readonly<Record<string, number>> | null> = signal<Readonly<Record<string, number>> | null>(null)
-    indicators: NgSignal<ReadonlyArray<IndicatorInstance> | null> = signal<ReadonlyArray<IndicatorInstance> | null>(null)
+    // Private writable signals — only values change, never reassigned
+    private _viewport = signal<ChartViewport | null>(null)
+    private _interactionState = signal<InteractionSnapshot | null>(null)
+    private _paneRatios = signal<Readonly<Record<string, number>> | null>(null)
+    private _indicators = signal<ReadonlyArray<IndicatorInstance> | null>(null)
+
+    /** Angular signals mirroring controller state — readonly wrappers, references never change. */
+    readonly viewport = this._viewport.asReadonly()
+    readonly interactionState = this._interactionState.asReadonly()
+    readonly paneRatios = this._paneRatios.asReadonly()
+    readonly indicators = this._indicators.asReadonly()
 
     /** Underlying core controller; null until ngAfterViewInit. */
     controller: ChartController | null = null
@@ -163,10 +169,6 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     private readonly defaultTheme = inject(KLINE_CHART_THEME)
     private readonly factory = inject(KLINE_CHART_FACTORY)
     private readonly destroyRef = inject(DestroyRef)
-    private viewportUnsub: (() => void) | null = null
-    private interactionUnsub: (() => void) | null = null
-    private paneRatiosUnsub: (() => void) | null = null
-    private indicatorsUnsub: (() => void) | null = null
 
     ngAfterViewInit(): void {
         if (!isPlatformBrowser(this.platformId)) return
@@ -190,40 +192,28 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
         this.controller = controller
 
         // Bridge viewport
-        const ngViewport = signal<ChartViewport | null>(controller.viewport.peek())
-        const vpUnsub = controller.viewport.subscribe(() => {
-            ngViewport.set(controller.viewport.peek())
-        })
-        this.viewportUnsub = vpUnsub
-        this.destroyRef.onDestroy(vpUnsub)
-        this.viewport = ngViewport.asReadonly()
+        this._viewport.set(controller.viewport.peek())
+        this.destroyRef.onDestroy(
+            controller.viewport.subscribe(() => this._viewport.set(controller.viewport.peek())),
+        )
 
         // Bridge interactionState
-        const ngInteraction = signal<InteractionSnapshot | null>(controller.interactionState.peek())
-        const iUnsub = controller.interactionState.subscribe(() => {
-            ngInteraction.set(controller.interactionState.peek())
-        })
-        this.interactionUnsub = iUnsub
-        this.destroyRef.onDestroy(iUnsub)
-        this.interactionState = ngInteraction.asReadonly()
+        this._interactionState.set(controller.interactionState.peek())
+        this.destroyRef.onDestroy(
+            controller.interactionState.subscribe(() => this._interactionState.set(controller.interactionState.peek())),
+        )
 
         // Bridge paneRatios
-        const ngRatios = signal<Readonly<Record<string, number>> | null>(controller.paneRatios.peek())
-        const rUnsub = controller.paneRatios.subscribe(() => {
-            ngRatios.set(controller.paneRatios.peek())
-        })
-        this.paneRatiosUnsub = rUnsub
-        this.destroyRef.onDestroy(rUnsub)
-        this.paneRatios = ngRatios.asReadonly()
+        this._paneRatios.set(controller.paneRatios.peek())
+        this.destroyRef.onDestroy(
+            controller.paneRatios.subscribe(() => this._paneRatios.set(controller.paneRatios.peek())),
+        )
 
         // Bridge indicators
-        const ngIndicators = signal<ReadonlyArray<IndicatorInstance> | null>(controller.indicators.peek())
-        const indUnsub = controller.indicators.subscribe(() => {
-            ngIndicators.set(controller.indicators.peek())
-        })
-        this.indicatorsUnsub = indUnsub
-        this.destroyRef.onDestroy(indUnsub)
-        this.indicators = ngIndicators.asReadonly()
+        this._indicators.set(controller.indicators.peek())
+        this.destroyRef.onDestroy(
+            controller.indicators.subscribe(() => this._indicators.set(controller.indicators.peek())),
+        )
     }
 
     ngOnChanges(changes: SimpleChanges): void {
@@ -238,13 +228,6 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
 
     ngOnDestroy(): void {
-        const cleanup = (unsub: (() => void) | null): void => {
-            try { unsub?.() } catch { /* ignore */ }
-        }
-        cleanup(this.viewportUnsub)
-        cleanup(this.interactionUnsub)
-        cleanup(this.paneRatiosUnsub)
-        cleanup(this.indicatorsUnsub)
         if (this.controller !== null) {
             try {
                 this.controller.dispose()

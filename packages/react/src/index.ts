@@ -164,12 +164,22 @@ export function useIndicators(controller: ChartController): IndicatorsView {
         [indicators],
     )
 
-    const getSnapshot = useCallback((): IndicatorsView => ({
-        indicators: indicators(),
-        add: controller.addIndicator.bind(controller),
-        remove: controller.removeIndicator.bind(controller),
-        updateParams: controller.updateIndicatorParams.bind(controller),
-    }), [indicators, controller])
+    const { getSnapshot } = useMemo(() => {
+        let cached: IndicatorsView | null = null
+        return {
+            getSnapshot: (): IndicatorsView => {
+                const next = indicators()
+                if (cached !== null && cached.indicators === next) return cached
+                cached = {
+                    indicators: next,
+                    add: controller.addIndicator.bind(controller),
+                    remove: controller.removeIndicator.bind(controller),
+                    updateParams: controller.updateIndicatorParams.bind(controller),
+                }
+                return cached
+            },
+        }
+    }, [indicators, controller])
 
     const getServerSnapshot = getSnapshot
 

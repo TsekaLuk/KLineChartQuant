@@ -100,10 +100,15 @@ export interface InteractionSnapshot {
     crosshairPrice: number | null
     hoveredIndex: number | null
     activePaneId: string | null
+    tooltipPos: { x: number; y: number }
+    tooltipAnchorPlacement: 'right-bottom' | 'left-bottom'
+    hoveredMarkerData: Record<string, unknown> | null
+    hoveredCustomMarker: Record<string, unknown> | null
     isDragging: boolean
-    isResizingPane: boolean
+    isResizingPaneBoundary: boolean
+    isHoveringPaneBoundary: boolean
+    hoveredPaneBoundaryId: string | null
     isHoveringRightAxis: boolean
-    cursor: 'default' | 'crosshair' | 'grabbing' | 'pointer' | 'ns-resize'
 }
 
 // ---------------------------------------------------------------------------

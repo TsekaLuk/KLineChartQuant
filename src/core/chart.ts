@@ -4,6 +4,7 @@ import { createSignal, type Signal } from '../../packages/core/src/reactivity/si
 import { getVisibleRange } from '@/core/viewport/viewport'
 import { Pane, type VisibleRange, UpdateLevel } from '@/core/layout/pane'
 import { InteractionController, type InteractionSnapshot } from '@/core/controller/interaction'
+export type { InteractionSnapshot }
 import { PaneRenderer } from '@/core/paneRenderer'
 import { SharedWebGLSurface } from '@/core/renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
@@ -293,6 +294,7 @@ export class Chart {
             if (params) {
                 this.mainIndicatorParams[id] = { ...this.mainIndicatorParams[id], ...params }
                 this.updateIndicatorSchedulerConfig(id)
+                this.syncIndicatorsSignal()
             }
             return true
         }
@@ -311,6 +313,7 @@ export class Chart {
         this.updateIndicatorSchedulerConfig(id)
 
         this.scheduleDraw()
+        this.syncIndicatorsSignal()
         return true
     }
 
@@ -332,6 +335,7 @@ export class Chart {
         this.updateIndicatorSchedulerConfig(id)
 
         this.scheduleDraw()
+        this.syncIndicatorsSignal()
         return true
     }
 
@@ -386,6 +390,7 @@ export class Chart {
         // 更新调度器
         this.updateIndicatorSchedulerConfig(id)
         this.scheduleDraw()
+        this.syncIndicatorsSignal()
     }
 
     /**
@@ -405,6 +410,7 @@ export class Chart {
         }
         this.activeMainIndicators.clear()
         this.scheduleDraw()
+        this.syncIndicatorsSignal()
     }
 
     /**
@@ -675,6 +681,9 @@ export class Chart {
         // Chart 不持有业务 SSOT，kWidth/kGap/zoomLevel 由外部通过 applyRenderState() 传入
         this.opt = { ...restOpt, kWidth: _kWidth ?? 0, kGap: _kGap ?? 0 }
         this.interaction = new InteractionController(this)
+        this.interaction.setOnInteractionChange((snapshot) => {
+            this._interactionSignal.set(snapshot)
+        })
         this.markerManager = new MarkerManager()
         this.pluginHost = createPluginHost()
         this.rendererPluginManager = new RendererPluginManager()
@@ -1198,6 +1207,7 @@ export class Chart {
         if (zoomLevel !== undefined) {
             this.currentZoomLevel = nextZoomLevel
         }
+        this.updateViewportSignal()
         this.scheduleDraw()
     }
 
@@ -1362,6 +1372,7 @@ export class Chart {
     /** 更新绘图对象 */
     setDrawings(drawings: import('@/plugin').DrawingObject[]): void {
         this.drawingStore.setAll(drawings)
+        this._drawingsSignal.set(drawings)
         this.scheduleDraw()
     }
 
@@ -1397,6 +1408,7 @@ export class Chart {
             ratios[id] = ratio
         })
         this._paneRatiosSignal.set(ratios)
+        this.syncSubPanesSignal()
         
         this.onPaneLayoutChange?.(this.getPaneLayoutSpecs())
     }
@@ -1572,6 +1584,8 @@ export class Chart {
         this.upsertPane({ id: paneId, ratio: this._internalPaneRatios.get(paneId) ?? 1, visible: true, role: 'indicator' })
 
         const success = this.subPaneManager.create(this, paneId, indicatorId, params ?? this.getDefaultSubPaneParams(indicatorId))
+        this.syncIndicatorsSignal()
+        this.syncSubPanesSignal()
         return success
     }
 
@@ -1582,6 +1596,8 @@ export class Chart {
     removeSubPane(paneId: string): void {
         this.subPaneManager.remove(this, paneId)
         this._internalPaneRatios.delete(paneId)
+        this.syncIndicatorsSignal()
+        this.syncSubPanesSignal()
     }
 
     /**
@@ -1592,6 +1608,8 @@ export class Chart {
      */
     replaceSubPaneIndicator(paneId: string, newIndicatorId: SubIndicatorType, params?: Record<string, number | boolean | string>): void {
         this.subPaneManager.replaceIndicator(this, paneId, newIndicatorId, params ?? this.getDefaultSubPaneParams(newIndicatorId))
+        this.syncIndicatorsSignal()
+        this.syncSubPanesSignal()
     }
 
     /**
@@ -1601,6 +1619,7 @@ export class Chart {
      */
     updateSubPaneParams(paneId: string, params: Record<string, unknown>): void {
         this.subPaneManager.updateParams(this, paneId, params)
+        this.syncIndicatorsSignal()
     }
 
     /**
@@ -1622,6 +1641,8 @@ export class Chart {
 
         // 更新布局，移除所有副图 pane
         this.applyPaneLayoutSpecs(this.opt.panes.filter((spec) => !subPaneIds.includes(spec.id)))
+        this.syncIndicatorsSignal()
+        this.syncSubPanesSignal()
     }
 
     /**
@@ -1831,6 +1852,7 @@ export class Chart {
         this.cachedDrawFrame = null
         this.layoutPanes()
         this.emitPaneLayoutChange()
+        this.updateViewportSignal()
         this.scheduleDraw()
     }
 
@@ -2725,7 +2747,6 @@ export class Chart {
      */
     clearDrawings(): void {
         this.setDrawings([])
-        this._drawingsSignal.set([])
     }
 
     // ---------- Settings ----------
@@ -2749,49 +2770,8 @@ export class Chart {
     // ---------- Lifecycle hooks ----------
 
     /**
-     * 初始化 facade signals
-     * 应在 Chart 构造完成后调用
+     * 销毁图表实例
      */
-    initFacadeSignals(): void {
-        // 同步初始数据
-        this._dataSignal.set([...this._internalData])
-
-        // 同步指标
-        this.syncIndicatorsSignal()
-
-        // 同步子图
-        this.syncSubPanesSignal()
-
-        // 同步 pane ratios
-        const ratios: Record<string, number> = {}
-        this._internalPaneRatios.forEach((ratio, id) => {
-            ratios[id] = ratio
-        })
-        this._paneRatiosSignal.set(ratios)
-
-        // 同步 viewport
-        this.updateViewportSignal()
-
-        // 设置回调以同步 signals
-        this.setOnViewportChange(() => {
-            this.updateViewportSignal()
-        })
-
-        this.setOnDataChange((newData) => {
-            this._dataSignal.set([...newData])
-        })
-
-        this.setOnPaneLayoutChange((panes) => {
-            const ratios: Record<string, number> = {}
-            panes.forEach(pane => {
-                if (pane.ratio !== undefined) {
-                    ratios[pane.id] = pane.ratio
-                }
-            })
-            this._paneRatiosSignal.set(ratios)
-            this.syncSubPanesSignal()
-        })
-    }
 }
 
 // ==================== Type definitions for Facade ====================
@@ -2834,14 +2814,4 @@ export interface DrawingObject {
     type: DrawingToolType
 }
 
-export interface InteractionSnapshot {
-    crosshairPos: { x: number; y: number } | null
-    crosshairIndex: number | null
-    crosshairPrice: number | null
-    hoveredIndex: number | null
-    activePaneId: string | null
-    isDragging: boolean
-    isResizingPane: boolean
-    isHoveringRightAxis: boolean
-    cursor: 'default' | 'crosshair' | 'grabbing' | 'pointer' | 'ns-resize'
-}
+

@@ -50,10 +50,15 @@ const INITIAL_INTERACTION: InteractionSnapshot = {
     crosshairPrice: null,
     hoveredIndex: null,
     activePaneId: null,
+    tooltipPos: { x: 0, y: 0 },
+    tooltipAnchorPlacement: 'right-bottom',
+    hoveredMarkerData: null,
+    hoveredCustomMarker: null,
     isDragging: false,
-    isResizingPane: false,
+    isResizingPaneBoundary: false,
+    isHoveringPaneBoundary: false,
+    hoveredPaneBoundaryId: null,
     isHoveringRightAxis: false,
-    cursor: 'default',
 }
 
 // ---------------------------------------------------------------------------

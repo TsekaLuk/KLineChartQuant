@@ -11,25 +11,31 @@
 
 import {
     createElement,
+    forwardRef,
     useCallback,
     useEffect,
+    useImperativeHandle,
     useMemo,
     useRef,
     useState,
     useSyncExternalStore,
 } from 'react'
-import type { CSSProperties, FC, RefObject } from 'react'
+import type { CSSProperties, ForwardedRef, FC, RefObject } from 'react'
 import type {
     ChartController,
     ChartControllerFactory,
     ChartMountOptions,
+    ChartViewport,
     IndicatorInstance,
     InteractionSnapshot,
+    KLineData,
+    DrawingControllerCallbacks,
 } from '@klinechart-quant/core'
 
 export type {
     ChartController,
     ChartMountOptions,
+    ChartViewport,
 } from '@klinechart-quant/core'
 
 // ---------------------------------------------------------------------------
@@ -190,6 +196,42 @@ export function useInteractionState(
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
+/**
+ * Subscribe to `controller.paneRatios` via `useSyncExternalStore`.
+ */
+export function usePaneRatios(
+    controller: ChartController,
+): Readonly<Record<string, number>> {
+    const store = controller.paneRatios
+
+    const subscribe = useCallback(
+        (cb: () => void) => store.subscribe(cb),
+        [store],
+    )
+
+    const getSnapshot = useCallback(() => store(), [store])
+
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
+/**
+ * Subscribe to `controller.viewport` via `useSyncExternalStore`.
+ */
+export function useViewport(
+    controller: ChartController,
+): ChartViewport {
+    const store = controller.viewport
+
+    const subscribe = useCallback(
+        (cb: () => void) => store.subscribe(cb),
+        [store],
+    )
+
+    const getSnapshot = useCallback(() => store(), [store])
+
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
 // ---------------------------------------------------------------------------
 // <KLineChart /> — convenience component
 // ---------------------------------------------------------------------------
@@ -198,28 +240,100 @@ export interface KLineChartProps {
     data: ChartMountOptions['data']
     initialZoomLevel?: number
     theme?: 'light' | 'dark'
+    zoomLevels?: number
     className?: string
     style?: CSSProperties
+}
+
+export interface KLineChartHandle {
+    getController: () => ChartController | null
+    handlePointerEvent: (e: PointerEvent, drawingController?: DrawingControllerCallbacks) => boolean
+    handleWheelEvent: (e: WheelEvent) => void
+    handleScrollEvent: () => void
+    zoomToLevel: (level: number, anchorX?: number) => void
+    zoomIn: (anchorX?: number) => void
+    zoomOut: (anchorX?: number) => void
+    addIndicator: (
+        definitionId: string,
+        role: 'main' | 'sub',
+        params?: Record<string, unknown>,
+    ) => string | null
+    removeIndicator: (instanceId: string) => boolean
+    setTheme: (theme: 'light' | 'dark') => void
+    setData: (next: ReadonlyArray<KLineData>) => void
 }
 
 /**
  * Convenience component. Renders a host div, mounts a chart into it via
  * `useChart`, and forwards `className` / `style`.
  *
- * Consumers needing direct controller access should use `useChart` with their
- * own ref instead.
+ * Supports `ref` for imperative controller access via `KLineChartHandle`.
+ * Reacts to `data` and `theme` prop changes automatically.
  */
-export const KLineChart: FC<KLineChartProps> = ({
-    data,
-    initialZoomLevel,
-    theme,
-    className,
-    style,
-}) => {
-    const ref = useRef<HTMLDivElement | null>(null)
-    useChart(ref, { data, initialZoomLevel, theme })
-    return createElement('div', { ref, className, style })
-}
+export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
+    function KLineChart(
+        { data, initialZoomLevel, theme, zoomLevels, className, style },
+        ref: ForwardedRef<KLineChartHandle>,
+    ) {
+        const divRef = useRef<HTMLDivElement | null>(null)
+        const controllerRef = useRef<ChartController | null>(null)
+
+        useEffect(() => {
+            const container = divRef.current
+            if (container === null) return
+            const created = createChart({
+                container,
+                data,
+                initialZoomLevel,
+                zoomLevels,
+                theme,
+            })
+            controllerRef.current = created
+            return () => {
+                controllerRef.current = null
+                created.dispose()
+            }
+            // Mount once — prop changes handled by separate effects
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [])
+
+        // React to data prop changes
+        useEffect(() => {
+            controllerRef.current?.setData(data)
+        }, [data])
+
+        // React to theme prop changes
+        useEffect(() => {
+            if (theme !== undefined) {
+                controllerRef.current?.setTheme(theme)
+            }
+        }, [theme])
+
+        useImperativeHandle(
+            ref,
+            (): KLineChartHandle => ({
+                getController: (): ChartController | null => controllerRef.current,
+                handlePointerEvent: (e, dc) =>
+                    controllerRef.current?.handlePointerEvent(e, dc) ?? false,
+                handleWheelEvent: (e) => controllerRef.current?.handleWheelEvent(e),
+                handleScrollEvent: () => controllerRef.current?.handleScrollEvent(),
+                zoomToLevel: (level, anchorX) =>
+                    controllerRef.current?.zoomToLevel(level, anchorX),
+                zoomIn: (anchorX) => controllerRef.current?.zoomIn(anchorX),
+                zoomOut: (anchorX) => controllerRef.current?.zoomOut(anchorX),
+                addIndicator: (id, role, params) =>
+                    controllerRef.current?.addIndicator(id, role, params) ?? null,
+                removeIndicator: (id) =>
+                    controllerRef.current?.removeIndicator(id) ?? false,
+                setTheme: (t) => controllerRef.current?.setTheme(t),
+                setData: (next) => controllerRef.current?.setData(next),
+            }),
+            [],
+        )
+
+        return createElement('div', { ref: divRef, className, style })
+    },
+)
 
 // ---------------------------------------------------------------------------
 // Auto-register the production ChartControllerFactory

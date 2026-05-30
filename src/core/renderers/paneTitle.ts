@@ -1,6 +1,6 @@
 import type { RendererPlugin, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { TEXT_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -76,6 +76,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
         draw(context: RenderContext) {
             const { overlayCtx, pane, paneWidth } = context
+            const colors = getColors(context.theme)
             if (pane.id !== currentOptions.paneId || !overlayCtx) return
 
             const fontSize = 12
@@ -99,7 +100,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
                 if (titleInfo.params && titleInfo.params.length > 0) {
                     const paramText = `(${titleInfo.params.join(',')})`
-                    overlayCtx.fillStyle = TEXT_COLORS.TERTIARY
+                    overlayCtx.fillStyle = colors.TEXT.TERTIARY
                     overlayCtx.fillText(paramText, currentX, y)
                     currentX += measureTextWidth(overlayCtx, paramText) + gap
                 } else {
@@ -120,7 +121,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
 
                 if (currentOptions.description) {
                     const titleWidth = measureTextWidth(overlayCtx, currentOptions.title)
-                    overlayCtx.fillStyle = TEXT_COLORS.WEAK
+                    overlayCtx.fillStyle = colors.TEXT.WEAK
                     overlayCtx.fillText(` - ${currentOptions.description}`, x + titleWidth, y)
                 }
             }

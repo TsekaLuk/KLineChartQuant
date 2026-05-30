@@ -2,7 +2,7 @@
 import { RENDERER_PRIORITY } from '@/plugin'
 import { createIndicatorStateKey } from '@/plugin/stateKeys'
 import type { KLineData } from '@/types/price'
-import { VOLUME_COLORS } from '@/core/theme/colors'
+import { getColors, type VolumeColors } from '@/core/theme/colors'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '@/core/indicators/scheduler'
@@ -61,6 +61,7 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, dpr } = context
+            const colors = getColors(context.theme)
             const klineData = data as KLineData[]
             if (!klineData.length) return
 
@@ -123,13 +124,13 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
                 const finalH = rawH <= 0 ? minBarHPx : Math.max(rawH, minBarHPx)
                 const finalY = rawH <= 0 ? alignedBaseY - minBarHPx : alignedBaseY - finalH
 
-                const color = judgeColor(item)
+                const color = judgeColor(item, colors.VOLUME)
 
                 let buf: Float32Array
                 let idx: number
-                if (color === VOLUME_COLORS.UP) {
+                if (color === colors.VOLUME.UP) {
                     buf = upBuf; idx = upCount++
-                } else if (color === VOLUME_COLORS.DOWN) {
+                } else if (color === colors.VOLUME.DOWN) {
                     buf = downBuf; idx = downCount++
                 } else {
                     buf = neutralBuf; idx = neutralCount++
@@ -141,9 +142,9 @@ export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}):
                 buf[off + 3] = finalH
             }
 
-            const usedWebGL = drawVolumeWithWebGL(context, upBuf, upCount, downBuf, downCount, neutralBuf, neutralCount)
+            const usedWebGL = drawVolumeWithWebGL(context, upBuf, upCount, downBuf, downCount, neutralBuf, neutralCount, colors.VOLUME)
             if (!usedWebGL) {
-                drawVolumeWithCanvas2D(ctx, context.scrollLeft, upBuf, upCount, downBuf, downCount, neutralBuf, neutralCount)
+                drawVolumeWithCanvas2D(ctx, context.scrollLeft, upBuf, upCount, downBuf, downCount, neutralBuf, neutralCount, colors.VOLUME)
             } else {
                 compositeVolumeWebGL(ctx, context)
             }
@@ -155,7 +156,8 @@ function drawVolumeWithWebGL(
     context: RenderContext,
     upBuf: Float32Array, upCount: number,
     downBuf: Float32Array, downCount: number,
-    neutralBuf: Float32Array, neutralCount: number
+    neutralBuf: Float32Array, neutralCount: number,
+    volumeColors: VolumeColors
 ): boolean {
     if (context.settings?.enableWebGLRendering === false) return false
     const surface = context.candleWebGLSurface
@@ -163,9 +165,9 @@ function drawVolumeWithWebGL(
 
     surface.clear()
 
-    const ok1 = upCount === 0 || surface.drawRectBuffer(upBuf.subarray(0, upCount * 4), upCount, VOLUME_COLORS.UP, context.scrollLeft)
-    const ok2 = downCount === 0 || surface.drawRectBuffer(downBuf.subarray(0, downCount * 4), downCount, VOLUME_COLORS.DOWN, context.scrollLeft)
-    const ok3 = neutralCount === 0 || surface.drawRectBuffer(neutralBuf.subarray(0, neutralCount * 4), neutralCount, VOLUME_COLORS.NEUTRAL, context.scrollLeft)
+    const ok1 = upCount === 0 || surface.drawRectBuffer(upBuf.subarray(0, upCount * 4), upCount, volumeColors.UP, context.scrollLeft)
+    const ok2 = downCount === 0 || surface.drawRectBuffer(downBuf.subarray(0, downCount * 4), downCount, volumeColors.DOWN, context.scrollLeft)
+    const ok3 = neutralCount === 0 || surface.drawRectBuffer(neutralBuf.subarray(0, neutralCount * 4), neutralCount, volumeColors.NEUTRAL, context.scrollLeft)
 
     return ok1 && ok2 && ok3
 }
@@ -175,24 +177,25 @@ function drawVolumeWithCanvas2D(
     scrollLeft: number,
     upBuf: Float32Array, upCount: number,
     downBuf: Float32Array, downCount: number,
-    neutralBuf: Float32Array, neutralCount: number
+    neutralBuf: Float32Array, neutralCount: number,
+    volumeColors: VolumeColors
 ): void {
     ctx.save()
     ctx.translate(-scrollLeft, 0)
 
-    ctx.fillStyle = VOLUME_COLORS.UP
+    ctx.fillStyle = volumeColors.UP
     for (let i = 0; i < upCount; i++) {
         const off = i * 4
         ctx.fillRect(upBuf[off], upBuf[off + 1], upBuf[off + 2], upBuf[off + 3])
     }
 
-    ctx.fillStyle = VOLUME_COLORS.DOWN
+    ctx.fillStyle = volumeColors.DOWN
     for (let i = 0; i < downCount; i++) {
         const off = i * 4
         ctx.fillRect(downBuf[off], downBuf[off + 1], downBuf[off + 2], downBuf[off + 3])
     }
 
-    ctx.fillStyle = VOLUME_COLORS.NEUTRAL
+    ctx.fillStyle = volumeColors.NEUTRAL
     for (let i = 0; i < neutralCount; i++) {
         const off = i * 4
         ctx.fillRect(neutralBuf[off], neutralBuf[off + 1], neutralBuf[off + 2], neutralBuf[off + 3])
@@ -211,13 +214,13 @@ function compositeVolumeWebGL(ctx: CanvasRenderingContext2D, context: RenderCont
 /**
  * 判断成交量柱子颜色（使用 MACD 配色风格）
  */
-function judgeColor(dayData: KLineData) {
+function judgeColor(dayData: KLineData, volumeColors: VolumeColors): string {
     if (dayData.close > dayData.open) {
-        return VOLUME_COLORS.UP
+        return volumeColors.UP
     } else if (dayData.close < dayData.open) {
-        return VOLUME_COLORS.DOWN
+        return volumeColors.DOWN
     } else {
-        return VOLUME_COLORS.NEUTRAL
+        return volumeColors.NEUTRAL
     }
 }
 

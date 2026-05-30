@@ -1,6 +1,6 @@
 ﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { MOM_COLORS } from '@/core/theme/colors'
+import { getColors, type ChartTheme } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { MOMRenderState } from '@/core/indicators/momState'
 import { createMOMStateKey } from '@/core/indicators/momState'
@@ -89,7 +89,7 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
         ctx.save()
         ctx.scale(dpr, dpr)
-        ctx.strokeStyle = MOM_COLORS.ZERO
+        ctx.strokeStyle = colors.MOM.ZERO
         ctx.lineWidth = 1
         ctx.beginPath()
         ctx.moveTo(0, zeroY)
@@ -139,7 +139,8 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+            const colors = getColors(context.theme)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -209,7 +210,7 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showMOM && cachedMOMPoints.length >= 2) {
                     const ok = lineWebGLSurface.drawLineStrips(
-                        [{ points: cachedMOMPoints, width: 1, color: MOM_COLORS.MOM }],
+                        [{ points: cachedMOMPoints, width: 1, color: colors.MOM.MOM }],
                         scrollLeft
                     )
                     if (ok) {
@@ -220,7 +221,7 @@ export function createMOMRendererPlugin(options: MOMRendererOptions = {}): Rende
             }
 
             if (!usedWebGL) {
-                drawMOMLineWithCanvas2D(ctx, scrollLeft, cachedMOMPoints, params)
+                drawMOMLineWithCanvas2D(ctx, scrollLeft, cachedMOMPoints, params, colors)
             }
         },
 
@@ -244,13 +245,14 @@ function drawMOMLineWithCanvas2D(
     ctx: CanvasRenderingContext2D,
     scrollLeft: number,
     momPoints: LinePoint[],
-    params: { showMOM: boolean }
+    params: { showMOM: boolean },
+    colors: { MOM: { MOM: string } }
 ): void {
     if (!params.showMOM || momPoints.length < 2) return
 
     ctx.save()
     ctx.translate(-scrollLeft, 0)
-    ctx.strokeStyle = MOM_COLORS.MOM
+    ctx.strokeStyle = colors.MOM.MOM
     ctx.lineWidth = 1
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
@@ -271,8 +273,10 @@ export function getMOMTitleInfo(
     index: number,
     period: number,
     pluginHost: PluginHost,
-    paneId: string = 'sub_MOM'
+    paneId: string = 'sub_MOM',
+    theme: ChartTheme = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
+    const colors = getColors(theme)
     const state = pluginHost.getSharedState<MOMRenderState>(createMOMStateKey(paneId))
     if (!state) return null
 
@@ -283,7 +287,7 @@ export function getMOMTitleInfo(
         name: 'MOM',
         params: [period],
         values: [
-            { label: 'MOM', value: mom, color: MOM_COLORS.MOM },
+            { label: 'MOM', value: mom, color: colors.MOM.MOM },
         ],
     }
 }

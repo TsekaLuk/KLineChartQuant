@@ -2,7 +2,7 @@ import type { RendererPlugin, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/axis'
 import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
-import { PRICE_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import type { KLineData } from '@/types/price'
 import type { ScaleType } from '@/core/utils/tickPosition'
 
@@ -25,6 +25,7 @@ export function createYAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, pane, dpr, yAxisCtx, data } = context
+      const colors = getColors(context.theme)
       const scaleType = pane.yAxis.getScaleType()
 
       const targetCtx = yAxisCtx || ctx

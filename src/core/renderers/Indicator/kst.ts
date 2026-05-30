@@ -1,6 +1,6 @@
 ﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { KST_COLORS } from '@/core/theme/colors'
+import { getColors, type ChartTheme } from '@/core/theme/colors'
 import type { KSTRenderState } from '@/core/indicators/kstState'
 import { createKSTStateKey } from '@/core/indicators/kstState'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
@@ -96,7 +96,8 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+            const colors = getColors(context.theme)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -175,10 +176,10 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (params.showKST && cachedKSTPoints.length >= 2) {
-                    lines.push({ points: cachedKSTPoints, width: 1, color: KST_COLORS.KST })
+                    lines.push({ points: cachedKSTPoints, width: 1, color: colors.KST.KST })
                 }
                 if (params.showSignal && cachedSignalPoints.length >= 2) {
-                    lines.push({ points: cachedSignalPoints, width: 1, color: KST_COLORS.SIGNAL })
+                    lines.push({ points: cachedSignalPoints, width: 1, color: colors.KST.SIGNAL })
                 }
 
                 const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
@@ -190,7 +191,7 @@ export function createKSTRendererPlugin(options: KSTRendererOptions = {}): Rende
             }
 
             if (!usedWebGL) {
-                drawKSTLinesWithCanvas2D(ctx, scrollLeft, cachedKSTPoints, cachedSignalPoints, params)
+                drawKSTLinesWithCanvas2D(ctx, scrollLeft, cachedKSTPoints, cachedSignalPoints, params, colors)
             }
         },
 
@@ -215,7 +216,8 @@ function drawKSTLinesWithCanvas2D(
     scrollLeft: number,
     kstPoints: LinePoint[],
     signalPoints: LinePoint[],
-    params: { showKST: boolean; showSignal: boolean }
+    params: { showKST: boolean; showSignal: boolean },
+    colors: { KST: { KST: string; SIGNAL: string } }
 ): void {
     ctx.save()
     ctx.translate(-scrollLeft, 0)
@@ -224,7 +226,7 @@ function drawKSTLinesWithCanvas2D(
     ctx.lineCap = 'round'
 
     if (params.showKST && kstPoints.length >= 2) {
-        ctx.strokeStyle = KST_COLORS.KST
+        ctx.strokeStyle = colors.KST.KST
         ctx.beginPath()
         ctx.moveTo(kstPoints[0]!.x, kstPoints[0]!.y)
         for (let i = 1; i < kstPoints.length; i++) {
@@ -235,7 +237,7 @@ function drawKSTLinesWithCanvas2D(
     }
 
     if (params.showSignal && signalPoints.length >= 2) {
-        ctx.strokeStyle = KST_COLORS.SIGNAL
+        ctx.strokeStyle = colors.KST.SIGNAL
         ctx.beginPath()
         ctx.moveTo(signalPoints[0]!.x, signalPoints[0]!.y)
         for (let i = 1; i < signalPoints.length; i++) {
@@ -259,8 +261,10 @@ export function getKSTTitleInfo(
     roc4: number,
     signalPeriod: number,
     pluginHost: PluginHost,
-    paneId: string = 'sub_KST'
+    paneId: string = 'sub_KST',
+    theme: ChartTheme = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
+    const colors = getColors(theme)
     const state = pluginHost.getSharedState<KSTRenderState>(createKSTStateKey(paneId))
     if (!state) return null
 
@@ -268,8 +272,8 @@ export function getKSTTitleInfo(
     if (!point) return null
 
     const values = []
-    if (state.params.showKST) values.push({ label: 'KST', value: point.kst, color: KST_COLORS.KST })
-    if (state.params.showSignal) values.push({ label: 'Signal', value: point.signal, color: KST_COLORS.SIGNAL })
+    if (state.params.showKST) values.push({ label: 'KST', value: point.kst, color: colors.KST.KST })
+    if (state.params.showSignal) values.push({ label: 'Signal', value: point.signal, color: colors.KST.SIGNAL })
 
     if (values.length === 0) return null
 

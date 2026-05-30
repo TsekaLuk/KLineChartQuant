@@ -8,7 +8,7 @@ import {
     roundToPhysicalPixel,
 } from '@/core/draw/pixelAlign'
 import { formatMonthOrYear, findMonthBoundaries } from '@/utils/dateFormat'
-import { GRID_COLORS, TEXT_COLORS, PRICE_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 
 export interface GridOption {
@@ -45,14 +45,16 @@ export function drawGridLayer(
     endIndex: number,
     priceRange: PriceRange,
     /**
-     * 右侧价格轴所在的“世界坐标X”（在 translate(-scrollLeft, 0) 之后的坐标系里）
+     * 右侧价格轴所在的"世界坐标X"（在 translate(-scrollLeft, 0) 之后的坐标系里）
      * 通常传入：scrollLeft + viewWidth
      */
     axisRightX: number,
-    gridOpt: GridOption = {}
+    gridOpt: GridOption = {},
+    theme: 'light' | 'dark' = 'light'
 ) {
     if (!data.length) return
 
+    const colors = getColors(theme)
     const height = logicHeight
 
     const wantPad = option.yPaddingPx ?? 0
@@ -61,9 +63,9 @@ export function drawGridLayer(
     const paddingBottom = pad
 
     const unit = option.kWidth + option.kGap
-    const gridColor = gridOpt.gridColor ?? GRID_COLORS.HORIZONTAL
-    const lastPriceColor = gridOpt.lastPriceColor ?? PRICE_COLORS.LAST_PRICE
-    const textColor = gridOpt.textColor ?? TEXT_COLORS.TERTIARY
+    const gridColor = gridOpt.gridColor ?? colors.GRID.HORIZONTAL
+    const lastPriceColor = gridOpt.lastPriceColor ?? colors.PRICE.LAST_PRICE
+    const textColor = gridOpt.textColor ?? colors.TEXT.TERTIARY
     const fontSize = gridOpt.fontSize ?? 12
     const rightTextPadding = gridOpt.rightTextPadding ?? 6
     const bottomTextPadding = gridOpt.bottomTextPadding ?? 4

@@ -61,8 +61,8 @@ import {
   formatSignedNumber,
   formatSignedPercent,
   formatWanYi,
-  NEUTRAL_COLOR,
 } from '@/utils/kline/format'
+import { getColors } from '@/core/theme/colors'
 import { formatShanghaiDate } from '@/utils/dateFormat'
 
 const props = defineProps<{
@@ -88,7 +88,7 @@ function onRef(el: Element | ComponentPublicInstance | null) {
 
 const openColor = computed(() => {
   const k = props.k
-  if (!k) return NEUTRAL_COLOR
+  if (!k) return getColors('light').PRICE.NEUTRAL
   const idx = props.index
   const prev = typeof idx === 'number' && idx > 0 ? props.data[idx - 1] : undefined
   return calcOpenColor(k, prev)
@@ -96,13 +96,13 @@ const openColor = computed(() => {
 
 const closeColor = computed(() => {
   const k = props.k
-  if (!k) return NEUTRAL_COLOR
+  if (!k) return getColors('light').PRICE.NEUTRAL
   return calcCloseColor(k)
 })
 
 const changeColor = computed(() => {
   const k = props.k
-  if (!k) return NEUTRAL_COLOR
+  if (!k) return getColors('light').PRICE.NEUTRAL
   return calcChangeColor(k)
 })
 </script>

@@ -1,15 +1,11 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import { getColors } from '@/core/theme/colors'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { ZonesRenderState } from '@/core/indicators/zonesState'
 import { createZonesStateKey } from '@/core/indicators/zonesState'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '@/core/indicators/scheduler'
-
-const FVG_BULL_FILL = 'rgba(34, 197, 94, 0.12)'
-const FVG_BEAR_FILL = 'rgba(239, 68, 68, 0.12)'
-const OB_BULL_FILL = 'rgba(34, 197, 94, 0.25)'
-const OB_BEAR_FILL = 'rgba(239, 68, 68, 0.25)'
 
 function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -43,6 +39,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
+            const colors = getColors(context.theme)
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<ZonesRenderState>(stateKey)
@@ -72,10 +69,10 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
 
                 const yHigh = toY(zone.high)
                 const yLow = toY(zone.low)
-                const fill = zone.kind === 'FVG_BULL' ? FVG_BULL_FILL
-                    : zone.kind === 'FVG_BEAR' ? FVG_BEAR_FILL
-                    : zone.kind === 'OB_BULL' ? OB_BULL_FILL
-                    : OB_BEAR_FILL
+                const fill = zone.kind === 'FVG_BULL' ? colors.ZONES.FVG_BULL_FILL
+                    : zone.kind === 'FVG_BEAR' ? colors.ZONES.FVG_BEAR_FILL
+                    : zone.kind === 'OB_BULL' ? colors.ZONES.OB_BULL_FILL
+                    : colors.ZONES.OB_BEAR_FILL
                 ctx.fillStyle = fill
                 ctx.fillRect(startX, yHigh, endX - startX, yLow - yHigh)
             }

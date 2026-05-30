@@ -2,13 +2,7 @@ import type { KLineData } from '@/types/price'
 import { priceToY } from '../priceToY'
 import type { drawOption, PriceRange } from './kLine'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-import { MA_COLORS } from '@/core/theme/colors'
-
-export const MA5_COLOR = MA_COLORS.MA5
-export const MA10_COLOR = MA_COLORS.MA10
-export const MA20_COLOR = MA_COLORS.MA20
-export const MA30_COLOR = MA_COLORS.MA30
-export const MA60_COLOR = MA_COLORS.MA60
+import { getColors } from '@/core/theme/colors'
 
 /**
  * 通用 MA 线绘制函数 - 逻辑像素坐标系
@@ -109,9 +103,11 @@ export function drawMA5Line(
   startIndex: number = 0,
   endIndex: number = data.length,
   priceRange?: PriceRange,
-  kLinePositions?: number[]
+  kLinePositions?: number[],
+  theme: 'light' | 'dark' = 'light'
 ) {
-  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 5, MA5_COLOR, kLinePositions)
+  const colors = getColors(theme)
+  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 5, colors.MA.MA5, kLinePositions)
 }
 
 export function drawMA10Line(
@@ -123,9 +119,11 @@ export function drawMA10Line(
   startIndex: number = 0,
   endIndex: number = data.length,
   priceRange?: PriceRange,
-  kLinePositions?: number[]
+  kLinePositions?: number[],
+  theme: 'light' | 'dark' = 'light'
 ) {
-  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 10, MA10_COLOR, kLinePositions)
+  const colors = getColors(theme)
+  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 10, colors.MA.MA10, kLinePositions)
 }
 
 export function drawMA20Line(
@@ -137,9 +135,11 @@ export function drawMA20Line(
   startIndex: number = 0,
   endIndex: number = data.length,
   priceRange?: PriceRange,
-  kLinePositions?: number[]
+  kLinePositions?: number[],
+  theme: 'light' | 'dark' = 'light'
 ) {
-  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 20, MA20_COLOR, kLinePositions)
+  const colors = getColors(theme)
+  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 20, colors.MA.MA20, kLinePositions)
 }
 
 export function drawMA30Line(
@@ -151,9 +151,11 @@ export function drawMA30Line(
   startIndex: number = 0,
   endIndex: number = data.length,
   priceRange?: PriceRange,
-  kLinePositions?: number[]
+  kLinePositions?: number[],
+  theme: 'light' | 'dark' = 'light'
 ) {
-  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 30, MA30_COLOR, kLinePositions)
+  const colors = getColors(theme)
+  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 30, colors.MA.MA30, kLinePositions)
 }
 
 export function drawMA60Line(
@@ -165,7 +167,9 @@ export function drawMA60Line(
   startIndex: number = 0,
   endIndex: number = data.length,
   priceRange?: PriceRange,
-  kLinePositions?: number[]
+  kLinePositions?: number[],
+  theme: 'light' | 'dark' = 'light'
 ) {
-  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 60, MA60_COLOR, kLinePositions)
+  const colors = getColors(theme)
+  drawMALine(ctx, data, option, logicHeight, dpr, startIndex, endIndex, priceRange, 60, colors.MA.MA60, kLinePositions)
 }

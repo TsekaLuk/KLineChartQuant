@@ -1,4 +1,5 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
+﻿import { getColors } from '@/core/theme/colors'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { StructureRenderState } from '@/core/indicators/structureState'
 import { createStructureStateKey } from '@/core/indicators/structureState'
@@ -6,12 +7,6 @@ import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '@/core/indicators/scheduler'
 
-const HH_COLOR = '#16a34a'
-const HL_COLOR = '#22c55e'
-const LH_COLOR = '#f87171'
-const LL_COLOR = '#dc2626'
-const BOS_COLOR = '#2563eb'
-const CHOCH_COLOR = '#a855f7'
 const LABEL_FONT = '11px sans-serif'
 
 function getStructureStateKey(host: PluginHost | null, paneId: string): string | null {
@@ -46,6 +41,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
         draw(context: RenderContext) {
             const { ctx, pane, range, scrollLeft, kLineCenters } = context
+            const colors = getColors(context.theme)
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<StructureRenderState>(stateKey)
@@ -68,7 +64,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
                     const centerX = kLineCenters[s.index - range.start]
                     if (centerX === undefined) continue
                     const y = toY(s.price)
-                    ctx.fillStyle = s.label === 'HH' ? HH_COLOR : s.label === 'HL' ? HL_COLOR : s.label === 'LH' ? LH_COLOR : LL_COLOR
+                    ctx.fillStyle = s.label === 'HH' ? colors.STRUCTURE.HH : s.label === 'HL' ? colors.STRUCTURE.HL : s.label === 'LH' ? colors.STRUCTURE.LH : colors.STRUCTURE.LL
                     const labelY = s.kind === 'high' ? y - 8 : y + 16
                     ctx.fillText(s.label, centerX, labelY)
                     // Dot
@@ -90,12 +86,12 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
                     const x2 = kLineCenters[ev.index - range.start]
                     if (x1 === undefined || x2 === undefined) continue
                     const y = toY(ev.brokenLevel)
-                    ctx.strokeStyle = ev.kind === 'BOS' ? BOS_COLOR : CHOCH_COLOR
+                    ctx.strokeStyle = ev.kind === 'BOS' ? colors.STRUCTURE.BOS : colors.STRUCTURE.CHOCH
                     ctx.beginPath()
                     ctx.moveTo(x1, y)
                     ctx.lineTo(x2, y)
                     ctx.stroke()
-                    ctx.fillStyle = ev.kind === 'BOS' ? BOS_COLOR : CHOCH_COLOR
+                    ctx.fillStyle = ev.kind === 'BOS' ? colors.STRUCTURE.BOS : colors.STRUCTURE.CHOCH
                     ctx.fillText(ev.kind, (x1 + x2) / 2, y - 4)
                 }
                 ctx.setLineDash([])

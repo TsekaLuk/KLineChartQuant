@@ -2,7 +2,7 @@
  * 像素对齐工具函数 - 逻辑像素空间（配合 ctx.scale(dpr) 使用）
  */
 
-import { BORDER_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 
 /**
  * 将逻辑坐标对齐到物理像素边界（用于矩形填充）
@@ -10,7 +10,7 @@ import { BORDER_COLORS } from '@/core/theme/colors'
  * @param dpr - 设备像素比
  * @returns 对齐后的逻辑坐标
  */
-export function roundToPhysicalPixel(value: number, dpr: number): number {
+export function roundToPhysicalPixel(value: number, dpr: number, theme?: 'light' | 'dark'): number {
     return Math.round(value * dpr) / dpr
 }
 
@@ -20,7 +20,7 @@ export function roundToPhysicalPixel(value: number, dpr: number): number {
  * @param dpr - 设备像素比
  * @returns 对齐后的逻辑坐标
  */
-export function alignToPhysicalPixelCenter(value: number, dpr: number): number {
+export function alignToPhysicalPixelCenter(value: number, dpr: number, theme?: 'light' | 'dark'): number {
     return (Math.floor(value * dpr) + 0.5) / dpr
 }
 
@@ -38,7 +38,8 @@ export function alignRect(
     y: number,
     width: number,
     height: number,
-    dpr: number
+    dpr: number,
+    theme?: 'light' | 'dark'
 ): { x: number; y: number; width: number; height: number } {
     const alignedX = roundToPhysicalPixel(x, dpr)
     const alignedY = roundToPhysicalPixel(y, dpr)
@@ -65,7 +66,8 @@ export function createVerticalLineRect(
     centerX: number,
     y1: number,
     y2: number,
-    dpr: number
+    dpr: number,
+    theme?: 'light' | 'dark'
 ): { x: number; y: number; width: number; height: number } | null {
     if (y1 === y2) return null
 
@@ -97,7 +99,8 @@ export function createHorizontalLineRect(
     x1: number,
     x2: number,
     centerY: number,
-    dpr: number
+    dpr: number,
+    theme?: 'light' | 'dark'
 ): { x: number; y: number; width: number; height: number } | null {
     if (x1 === x2) return null
 
@@ -130,7 +133,8 @@ export function createAlignedKLine(
     rectY: number,
     kWidth: number,
     height: number,
-    dpr: number
+    dpr: number,
+    theme?: 'light' | 'dark'
 ): {
     bodyRect: { x: number; y: number; width: number; height: number }
     physBodyLeft: number
@@ -204,7 +208,8 @@ export function createAlignedKLineFromPx(
     rectY: number,
     widthPx: number,
     height: number,
-    dpr: number
+    dpr: number,
+    theme?: 'light' | 'dark'
 ): {
     bodyRect: { x: number; y: number; width: number; height: number }
     physBodyLeft: number

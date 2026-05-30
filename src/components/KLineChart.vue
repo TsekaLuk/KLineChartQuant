@@ -1,5 +1,5 @@
 <template>
-  <div class="chart-wrapper">
+  <div class="chart-wrapper" :data-theme="chartTheme">
     <div
       class="chart-stage"
       :class="{
@@ -202,6 +202,9 @@ const store = createChartStore({
   rightAxisWidth: props.rightAxisWidth,
   priceLabelWidth: props.priceLabelWidth,
 })
+
+/* ========== 主题状态 ========== */
+const chartTheme = ref<'light' | 'dark'>('light')
 
 // 初始化 kWidth / kGap
 store.actions.setZoomState(
@@ -1160,11 +1163,18 @@ function setupChartCallbacks(chart: Chart): void {
     store.actions.bumpDataVersion()
   })
 
+  // 订阅 theme signal，同步到 CSS data-theme
+  const unsubscribeTheme = chart.theme.subscribe(() => {
+    const theme = chart.theme.peek()
+    chartTheme.value = theme
+  })
+
   // 保存 unsubscribe 函数以便清理
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
     unsubscribePaneRatios()
+    unsubscribeTheme()
   })
 }
 
@@ -1321,6 +1331,14 @@ watch(
   --kmap-height: var(--kmap-chart-height, 100%);
   --kmap-width: var(--kmap-chart-width, 100%);
 
+  /* 主题颜色变量 - Light (默认) */
+  --chart-bg: #ffffff;
+  --chart-bg-secondary: #f8f9fa;
+  --chart-border: #e5e7eb;
+  --chart-border-active: #3b82f6;
+  --chart-text: #374151;
+  --chart-text-secondary: #6b7280;
+
   /* 让组件在父容器中居中显示 */
   display: flex;
   align-items: center;
@@ -1329,6 +1347,16 @@ watch(
   height: var(--kmap-height);
   min-height: 300px; /* 默认最小高度，确保容器有有效尺寸 */
   flex-direction: column;
+}
+
+/* 暗色主题变量 */
+.chart-wrapper[data-theme="dark"] {
+  --chart-bg: #1a1a2e;
+  --chart-bg-secondary: #16162a;
+  --chart-border: #2d2d44;
+  --chart-border-active: #60a5fa;
+  --chart-text: #e5e7eb;
+  --chart-text-secondary: #9ca3af;
 }
 
 .chart-stage {
@@ -1362,7 +1390,7 @@ watch(
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--chart-border);
   opacity: 1;
   box-sizing: border-box;
   transition:
@@ -1373,7 +1401,7 @@ watch(
 }
 
 .pane-separator-line.is-active {
-  border-top-color: #3b82f6;
+  border-top-color: var(--chart-border-active);
   border-top-width: 2px;
   margin-top: -1px;
 }
@@ -1404,11 +1432,11 @@ watch(
   min-height: inherit;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--chart-border);
   border-right: 0;
   border-radius: 6px 0 0 6px;
   box-sizing: border-box;
-  background: #ffffff;
+  background: var(--chart-bg);
 
   /* ===== 移动端：屏蔽长按弹出菜单/选择等默认行为，避免影响交互 ===== */
   -webkit-touch-callout: none;
@@ -1428,9 +1456,9 @@ watch(
   height: 100%;
   min-height: inherit;
   box-sizing: border-box;
-  background: #ffffff;
+  background: var(--chart-bg);
   overflow: visible;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--chart-border);
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
 

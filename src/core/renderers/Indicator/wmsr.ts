@@ -1,6 +1,6 @@
 ﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { WMSR_COLORS } from '@/core/theme/colors'
+import { getColors, type ChartTheme } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { WMSRRenderState } from '@/core/indicators/wmsrState'
 import { createWMSRStateKey } from '@/core/indicators/wmsrState'
@@ -94,19 +94,19 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
         ctx.lineWidth = 1
         ctx.setLineDash([4, 4])
 
-        ctx.strokeStyle = WMSR_COLORS.OVERBOUGHT
+        ctx.strokeStyle = colors.WMSR.OVERBOUGHT
         ctx.beginPath()
         ctx.moveTo(0, y20)
         ctx.lineTo(paneWidth, y20)
         ctx.stroke()
 
-        ctx.strokeStyle = WMSR_COLORS.OVERSOLD
+        ctx.strokeStyle = colors.WMSR.OVERSOLD
         ctx.beginPath()
         ctx.moveTo(0, y80)
         ctx.lineTo(paneWidth, y80)
         ctx.stroke()
 
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+        ctx.strokeStyle = colors.WMSR_GRID
         ctx.beginPath()
         ctx.moveTo(0, y50)
         ctx.lineTo(paneWidth, y50)
@@ -156,7 +156,8 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+            const colors = getColors(context.theme)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -226,7 +227,7 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 if (params.showWMSR && cachedWMSRPoints.length >= 2) {
                     const ok = lineWebGLSurface.drawLineStrips(
-                        [{ points: cachedWMSRPoints, width: 1, color: WMSR_COLORS.WMSR }],
+                        [{ points: cachedWMSRPoints, width: 1, color: colors.WMSR.WMSR }],
                         scrollLeft
                     )
                     if (ok) {
@@ -237,7 +238,7 @@ export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): Ren
             }
 
             if (!usedWebGL) {
-                drawWMSRLineWithCanvas2D(ctx, scrollLeft, cachedWMSRPoints, params)
+                drawWMSRLineWithCanvas2D(ctx, scrollLeft, cachedWMSRPoints, params, colors)
             }
         },
 
@@ -261,13 +262,14 @@ function drawWMSRLineWithCanvas2D(
     ctx: CanvasRenderingContext2D,
     scrollLeft: number,
     wmsrPoints: LinePoint[],
-    params: { showWMSR: boolean }
+    params: { showWMSR: boolean },
+    colors: { WMSR: { WMSR: string } }
 ): void {
     if (!params.showWMSR || wmsrPoints.length < 2) return
 
     ctx.save()
     ctx.translate(-scrollLeft, 0)
-    ctx.strokeStyle = WMSR_COLORS.WMSR
+    ctx.strokeStyle = colors.WMSR.WMSR
     ctx.lineWidth = 1
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
@@ -288,8 +290,10 @@ export function getWMSRTitleInfo(
     index: number,
     period: number,
     pluginHost: PluginHost,
-    paneId: string = 'sub_WMSR'
+    paneId: string = 'sub_WMSR',
+    theme: ChartTheme = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
+    const colors = getColors(theme)
     const state = pluginHost.getSharedState<WMSRRenderState>(createWMSRStateKey(paneId))
     if (!state) return null
 
@@ -300,7 +304,7 @@ export function getWMSRTitleInfo(
         name: 'WMSR',
         params: [period],
         values: [
-            { label: 'WMSR', value: wmsr, color: WMSR_COLORS.WMSR },
+            { label: 'WMSR', value: wmsr, color: colors.WMSR.WMSR },
         ],
     }
 }

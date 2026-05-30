@@ -1,7 +1,7 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorState } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import { createIndicatorStateKey } from '@/plugin/stateKeys'
-import { TEXT_COLORS } from '@/core/theme/colors'
+import { getColors, type ThemeColors } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 import { calculateValueTickPositions, type ScaleType } from '@/core/utils/tickPosition'
 import { drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
@@ -62,7 +62,7 @@ export interface DrawScaleTicksOptions {
 const BASELINE_MIDDLE = 'middle' as const
 const ALIGN_CENTER = 'center' as const
 
-export function drawScaleTicks(options: DrawScaleTicksOptions): void {
+export function drawScaleTicks(options: DrawScaleTicksOptions & { colors: ThemeColors }): void {
     const {
         ctx,
         dpr,
@@ -85,7 +85,7 @@ export function drawScaleTicks(options: DrawScaleTicksOptions): void {
     setCanvasFont(ctx, font)
     ctx.textBaseline = BASELINE_MIDDLE
     ctx.textAlign = ALIGN_CENTER
-    ctx.fillStyle = TEXT_COLORS.SECONDARY
+    ctx.fillStyle = options.colors.TEXT.SECONDARY
 
     const centerX = axisWidth / 2
     const centerXPx = roundToPhysicalPixel(centerX, dpr)
@@ -148,6 +148,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
 
             const effectiveScaleType: ScaleType = pane.yAxis.getScaleType() ?? scaleType
             const effectiveAxisWidth = yAxisCtx.canvas ? (yAxisCtx.canvas.width / dpr) : axisWidth
+            const colors = getColors(context.theme)
 
             const displayRange = pane.yAxis.getDisplayRange({
                 minPrice: state.valueMin,
@@ -155,6 +156,7 @@ export function createIndicatorScaleRendererPlugin(options: IndicatorScaleRender
             })
 
             drawScaleTicks({
+                colors,
                 ctx: yAxisCtx,
                 dpr,
                 axisWidth: effectiveAxisWidth,

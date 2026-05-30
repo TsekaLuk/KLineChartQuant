@@ -1,7 +1,7 @@
 import type { RendererPlugin, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
-import { PRICE_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 
 function getLastPriceInfo(context: RenderContext) {
     const { pane, data } = context
@@ -35,6 +35,7 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
         priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
 
         draw(context: RenderContext) {
+            const colors = getColors(context.theme)
             const info = getLastPriceInfo(context)
             if (!info) return
 
@@ -45,9 +46,9 @@ export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
                 y: info.y,
                 type: 'lastPrice',
                 style: {
-                    bgColor: 'rgba(255, 247, 248, 0.98)',
-                    borderColor: PRICE_COLORS.LAST_PRICE,
-                    textColor: PRICE_COLORS.LAST_PRICE,
+                    bgColor: colors.LAST_PRICE_LABEL.BG,
+                    borderColor: colors.PRICE.LAST_PRICE,
+                    textColor: colors.PRICE.LAST_PRICE,
                 }
             })
         },
@@ -68,6 +69,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, scrollLeft, dpr, kLinePositions, paneWidth } = context
+            const colors = getColors(context.theme)
             const info = getLastPriceInfo(context)
             if (!info) return
 
@@ -79,7 +81,7 @@ export function createLastPriceLineRendererPlugin(): RendererPlugin {
             const startX = kLinePositions[0] ?? 0
             const endX = paneWidth + scrollLeft
 
-            ctx.strokeStyle = PRICE_COLORS.LAST_PRICE
+            ctx.strokeStyle = colors.PRICE.LAST_PRICE
             ctx.lineWidth = 1
             ctx.setLineDash([4, 3])
             ctx.beginPath()

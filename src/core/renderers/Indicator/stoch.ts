@@ -1,6 +1,6 @@
 ﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { KDJ_COLORS } from '@/core/theme/colors'
+import { getColors, type ChartTheme } from '@/core/theme/colors'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
 import type { STOCHRenderState } from '@/core/indicators/stochState'
 import { createSTOCHStateKey } from '@/core/indicators/stochState'
@@ -149,7 +149,8 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
         },
 
         draw(context: RenderContext) {
-            const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
+            const colors = getColors(context.theme)
 
             const stateKey = resolveKey()
             if (!stateKey) return
@@ -235,10 +236,10 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (params.showK && cachedKPoints.length >= 2) {
-                    lines.push({ points: cachedKPoints, width: 1, color: KDJ_COLORS.K })
+                    lines.push({ points: cachedKPoints, width: 1, color: colors.KDJ.K })
                 }
                 if (params.showD && cachedDPoints.length >= 2) {
-                    lines.push({ points: cachedDPoints, width: 1, color: KDJ_COLORS.D })
+                    lines.push({ points: cachedDPoints, width: 1, color: colors.KDJ.D })
                 }
 
                 const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
@@ -250,7 +251,7 @@ export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): R
             }
 
             if (!usedWebGL) {
-                drawSTOCHLinesWithCanvas2D(ctx, scrollLeft, cachedKPoints, cachedDPoints, params)
+                drawSTOCHLinesWithCanvas2D(ctx, scrollLeft, cachedKPoints, cachedDPoints, params, colors)
             }
         },
 
@@ -275,7 +276,8 @@ function drawSTOCHLinesWithCanvas2D(
     scrollLeft: number,
     kPoints: LinePoint[],
     dPoints: LinePoint[],
-    params: { showK: boolean; showD: boolean }
+    params: { showK: boolean; showD: boolean },
+    colors: { KDJ: { K: string; D: string } }
 ): void {
     ctx.save()
     ctx.translate(-scrollLeft, 0)
@@ -284,7 +286,7 @@ function drawSTOCHLinesWithCanvas2D(
     ctx.lineCap = 'round'
 
     if (params.showK && kPoints.length >= 2) {
-        ctx.strokeStyle = KDJ_COLORS.K
+        ctx.strokeStyle = colors.KDJ.K
         ctx.beginPath()
         ctx.moveTo(kPoints[0]!.x, kPoints[0]!.y)
         for (let i = 1; i < kPoints.length; i++) {
@@ -295,7 +297,7 @@ function drawSTOCHLinesWithCanvas2D(
     }
 
     if (params.showD && dPoints.length >= 2) {
-        ctx.strokeStyle = KDJ_COLORS.D
+        ctx.strokeStyle = colors.KDJ.D
         ctx.beginPath()
         ctx.moveTo(dPoints[0]!.x, dPoints[0]!.y)
         for (let i = 1; i < dPoints.length; i++) {
@@ -316,8 +318,10 @@ export function getSTOCHTitleInfo(
     n: number,
     m: number,
     pluginHost: PluginHost,
-    paneId: string = 'sub_STOCH'
+    paneId: string = 'sub_STOCH',
+    theme: ChartTheme = 'light'
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
+    const colors = getColors(theme)
     const state = pluginHost.getSharedState<STOCHRenderState>(createSTOCHStateKey(paneId))
     if (!state) return null
 
@@ -325,8 +329,8 @@ export function getSTOCHTitleInfo(
     if (!point || point.k === undefined) return null
 
     const values = []
-    if (state.params.showK) values.push({ label: 'K', value: point.k, color: KDJ_COLORS.K })
-    if (state.params.showD) values.push({ label: 'D', value: point.d, color: KDJ_COLORS.D })
+    if (state.params.showK) values.push({ label: 'K', value: point.k, color: colors.KDJ.K })
+    if (state.params.showD) values.push({ label: 'D', value: point.d, color: colors.KDJ.D })
 
     if (values.length === 0) return null
 

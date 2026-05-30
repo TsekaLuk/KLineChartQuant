@@ -2,7 +2,7 @@ import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin
 import { RENDERER_PRIORITY } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-import { EXPMA_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/expmaState'
 import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
@@ -80,6 +80,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = context
             const klineData = data as KLineData[]
+            const colors = getColors(context.theme)
             const stateKey = resolveKey()
             if (!stateKey) return
             const state = pluginHost?.getSharedState<EXPMARenderState>(stateKey)
@@ -120,10 +121,10 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             if (enableWebGL && lineWebGLSurface?.isAvailable()) {
                 const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
                 if (cachedFastPoints.length >= 2) {
-                    lines.push({ points: cachedFastPoints, width: 1, color: EXPMA_COLORS.FAST })
+                    lines.push({ points: cachedFastPoints, width: 1, color: colors.EXPMA.FAST })
                 }
                 if (cachedSlowPoints.length >= 2) {
-                    lines.push({ points: cachedSlowPoints, width: 1, color: EXPMA_COLORS.SLOW })
+                    lines.push({ points: cachedSlowPoints, width: 1, color: colors.EXPMA.SLOW })
                 }
 
                 const allOk = lines.length > 0 && lineWebGLSurface.drawLineStrips(lines, scrollLeft)
@@ -143,7 +144,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             ctx.lineCap = 'round'
 
             if (cachedFastPoints.length >= 2) {
-                ctx.strokeStyle = EXPMA_COLORS.FAST
+                ctx.strokeStyle = colors.EXPMA.FAST
                 ctx.beginPath()
                 ctx.moveTo(cachedFastPoints[0]!.x, cachedFastPoints[0]!.y)
                 for (let i = 1; i < cachedFastPoints.length; i++) {
@@ -154,7 +155,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
             }
 
             if (cachedSlowPoints.length >= 2) {
-                ctx.strokeStyle = EXPMA_COLORS.SLOW
+                ctx.strokeStyle = colors.EXPMA.SLOW
                 ctx.beginPath()
                 ctx.moveTo(cachedSlowPoints[0]!.x, cachedSlowPoints[0]!.y)
                 for (let i = 1; i < cachedSlowPoints.length; i++) {

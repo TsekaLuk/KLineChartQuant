@@ -1,6 +1,6 @@
 import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
 import { RENDERER_PRIORITY } from '@/plugin'
-import { TEXT_COLORS, MACD_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 import type { MACDRenderState } from '@/core/indicators/macdState'
 import { createMACDStateKey } from '@/core/indicators/macdState'
@@ -59,6 +59,7 @@ export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}):
 
         draw(context: RenderContext) {
             const { ctx, range } = context
+            const colors = getColors(context.theme)
 
             // 从 StateStore 读取 MACD 状态
             const state = pluginHost?.getSharedState<MACDRenderState>(stateKey)
@@ -102,22 +103,22 @@ export function createMACDLegendRendererPlugin(options: MACDLegendOptions = {}):
             ctx.textBaseline = 'top'
 
             const paramText = `MACD(${fastPeriod},${slowPeriod},${signalPeriod})`
-            ctx.fillStyle = TEXT_COLORS.TERTIARY
+            ctx.fillStyle = colors.TEXT.TERTIARY
             ctx.fillText(paramText, x, y)
             x += measureTextWidth(ctx, paramText) + gap
 
             const difText = `DIF:${macdValue.dif.toFixed(2)}`
-            ctx.fillStyle = MACD_COLORS.DIF
+            ctx.fillStyle = colors.MACD.DIF
             ctx.fillText(difText, x, y)
             x += measureTextWidth(ctx, difText) + gap
 
             const deaText = `DEA:${macdValue.dea.toFixed(2)}`
-            ctx.fillStyle = MACD_COLORS.DEA
+            ctx.fillStyle = colors.MACD.DEA
             ctx.fillText(deaText, x, y)
             x += measureTextWidth(ctx, deaText) + gap
 
             const macdText = `MACD:${macdValue.macd.toFixed(2)}`
-            ctx.fillStyle = macdValue.macd >= 0 ? MACD_COLORS.BAR_UP : MACD_COLORS.BAR_DOWN
+            ctx.fillStyle = macdValue.macd >= 0 ? colors.MACD.BAR_UP : colors.MACD.BAR_DOWN
             ctx.fillText(macdText, x, y)
 
             ctx.restore()

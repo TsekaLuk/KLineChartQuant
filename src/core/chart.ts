@@ -1091,6 +1091,7 @@ export class Chart {
                 xAxisLabels: sharedXAxisLabels,
                 yAxisRanges: sharedYAxisRanges,
                 xAxisRanges: sharedXAxisRanges,
+                theme: this._themeSignal.peek(),
             }
 
             const errors = this.rendererPluginManager.render(pane.id, context, level)
@@ -1165,6 +1166,7 @@ export class Chart {
                 yAxisLabels: [],
                 xAxisLabels: sharedXAxisLabels,
                 xAxisRanges: sharedXAxisRanges,
+                theme: this._themeSignal.peek(),
             }
             const errors = this.rendererPluginManager.renderPlugin('timeAxis', timeAxisContext)
             if (errors.length > 0) {
@@ -2332,7 +2334,7 @@ export class Chart {
      */
     setTheme(theme: 'light' | 'dark'): void {
         this._themeSignal.set(theme)
-        // TODO: 当 Chart 支持主题时，在这里调用 updateSettings({ theme })
+        this.scheduleDraw()
     }
 
     // ---------- Zoom ----------

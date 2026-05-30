@@ -2,7 +2,7 @@ import type { KLineData } from '@/types/price'
 import { priceToY, yToPrice } from '../priceToY'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '@/core/draw/pixelAlign'
 import { formatYMDShanghai, formatMonthOrYear, findMonthBoundaries } from '@/utils/dateFormat'
-import { TAG_BG_COLORS, BORDER_COLORS, TEXT_COLORS, CROSSHAIR_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 
 const textWidthCache = new Map<string, number>()
@@ -46,7 +46,8 @@ export interface PriceAxisOptions {
 }
 
 /** 右侧价格轴（固定，不随 translate/scroll 变化） */
-export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions) {
+export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         x,
         y,
@@ -56,9 +57,9 @@ export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOpti
         yPaddingPx = 0,
         dpr,
         ticks = 10,
-        bgColor = TAG_BG_COLORS.TRANSPARENT,
-        textColor = TEXT_COLORS.SECONDARY,
-        lineColor = BORDER_COLORS.DARK,
+        bgColor = colors.TAG_BG.TRANSPARENT,
+        textColor = colors.TEXT.SECONDARY,
+        lineColor = colors.BORDER.DARK,
         fontSize = 16,
         drawLeftBorder = true,
         drawTickLines = true,
@@ -195,7 +196,8 @@ export interface CrosshairTimeLabelOptions {
     paddingY?: number
 }
 
-export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: CrosshairTimeLabelOptions) {
+export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: CrosshairTimeLabelOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         x,
         y,
@@ -225,7 +227,7 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
     const rectX = centerX - rectW / 2
     const rectY = y
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+    ctx.fillStyle = colors.LABEL.BG
     ctx.fillRect(
         roundToPhysicalPixel(rectX, dpr),
         roundToPhysicalPixel(rectY, dpr),
@@ -233,13 +235,14 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
         roundToPhysicalPixel(rectH, dpr),
     )
 
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = colors.LABEL.TEXT
     ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(centerY, dpr))
 
     ctx.restore()
 }
 
-export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: CrosshairPriceLabelOptions) {
+export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: CrosshairPriceLabelOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         x,
         y,
@@ -249,9 +252,9 @@ export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: Cro
         priceRange,
         yPaddingPx = 0,
         dpr,
-        bgColor = 'rgba(0, 0, 0, 0.8)',
+        bgColor = colors.LABEL.BG,
         borderColor,
-        textColor = '#ffffff',
+        textColor = colors.LABEL.TEXT,
         fontSize = 16,
         priceOffset = 0,
         price,
@@ -300,7 +303,8 @@ export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: Cro
 }
 
 /** 绘制"最新价水平虚线"（画在 plotCanvas 的 world 坐标系：需在 translate(-scrollLeft,0) 之后调用） */
-export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: LastPriceLineOptions) {
+export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: LastPriceLineOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         plotWidth,
         plotHeight,
@@ -313,7 +317,7 @@ export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: Las
         lastPrice,
         yPaddingPx = 0,
         dpr,
-        color = CROSSHAIR_COLORS.LINE,
+        color = colors.CROSSHAIR.LINE,
     } = opts
 
     const { maxPrice, minPrice } = priceRange
@@ -340,7 +344,8 @@ export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: Las
 }
 
 /** 底部时间轴（X方向随 scrollLeft 变化） */
-export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOptions) {
+export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         x,
         y,
@@ -353,9 +358,9 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         startIndex,
         endIndex,
         dpr,
-        bgColor = TAG_BG_COLORS.TRANSPARENT,
-        textColor = TEXT_COLORS.SECONDARY,
-        lineColor = BORDER_COLORS.DARK,
+        bgColor = colors.TAG_BG.TRANSPARENT,
+        textColor = colors.TEXT.SECONDARY,
+        lineColor = colors.BORDER.DARK,
         fontSize = 12,
         paddingX = 8,
         drawTopBorder = true,
@@ -443,7 +448,8 @@ export interface AxisPriceLabelOptions {
     fontSize?: number
 }
 
-export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPriceLabelOptions) {
+export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPriceLabelOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         x,
         y,
@@ -452,9 +458,9 @@ export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPric
         priceY,
         price,
         dpr,
-        bgColor = 'rgba(0, 0, 0, 0.8)',
+        bgColor = colors.LABEL.BG,
         borderColor,
-        textColor = '#ffffff',
+        textColor = colors.LABEL.TEXT,
         fontSize = 12,
     } = opts
 
@@ -510,7 +516,8 @@ export interface AxisTimeLabelOptions {
     paddingX?: number
 }
 
-export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeLabelOptions) {
+export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeLabelOptions, theme: 'light' | 'dark' = 'light') {
+    const colors = getColors(theme)
     const {
         x,
         y,
@@ -540,7 +547,7 @@ export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeL
     const rectX = centerX - rectW / 2
     const rectY = y
 
-    ctx.fillStyle = opts.bgColor ?? 'rgba(0, 0, 0, 0.8)'
+    ctx.fillStyle = opts.bgColor ?? colors.LABEL.BG
     ctx.fillRect(
         roundToPhysicalPixel(rectX, dpr),
         roundToPhysicalPixel(rectY, dpr),
@@ -548,7 +555,7 @@ export function drawAxisTimeLabel(ctx: CanvasRenderingContext2D, opts: AxisTimeL
         roundToPhysicalPixel(rectH, dpr),
     )
 
-    ctx.fillStyle = opts.textColor ?? '#ffffff'
+    ctx.fillStyle = opts.textColor ?? colors.LABEL.TEXT
     ctx.fillText(text, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(centerY, dpr))
 
     ctx.restore()

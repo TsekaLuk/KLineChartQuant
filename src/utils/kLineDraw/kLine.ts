@@ -6,7 +6,7 @@ import {
   createHorizontalLineRect,
   createAlignedKLine,
 } from '@/core/draw/pixelAlign'
-import { PRICE_COLORS, TEXT_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { getFont, setCanvasFont } from '@/core/theme/fonts'
 
 export interface drawOption {
@@ -28,8 +28,10 @@ function drawPriceMarker(
   x: number,
   y: number,
   price: number,
-  dpr: number
+  dpr: number,
+  theme: 'light' | 'dark' = 'light'
 ) {
+  const colors = getColors(theme)
   const text = price.toFixed(2)
   const padding = 4
   const lineLength = 30
@@ -37,13 +39,13 @@ function drawPriceMarker(
 
   const lineRect = createHorizontalLineRect(x, x + lineLength, y, dpr)
   if (lineRect) {
-    ctx.fillStyle = TEXT_COLORS.WEAK
+    ctx.fillStyle = colors.TEXT.WEAK
     ctx.fillRect(lineRect.x, lineRect.y, lineRect.width, lineRect.height)
   }
 
   const endX = roundToPhysicalPixel(x + lineLength, dpr)
   const alignedY = roundToPhysicalPixel(y, dpr)
-  ctx.fillStyle = TEXT_COLORS.WEAK
+  ctx.fillStyle = colors.TEXT.WEAK
   ctx.beginPath()
   ctx.arc(endX, alignedY, dotRadius, 0, Math.PI * 2)
   ctx.fill()
@@ -51,7 +53,7 @@ function drawPriceMarker(
   setCanvasFont(ctx, getFont(12))
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
-  ctx.fillStyle = TEXT_COLORS.PRIMARY
+  ctx.fillStyle = colors.TEXT.PRIMARY
   ctx.fillText(
     text,
     roundToPhysicalPixel(x + lineLength + padding, dpr),
@@ -71,10 +73,12 @@ export function kLineDraw(
   dpr: number = 1,
   startIndex: number = 0,
   endIndex: number = data.length,
-  priceRange?: PriceRange
+  priceRange?: PriceRange,
+  theme: 'light' | 'dark' = 'light'
 ) {
   if (data.length === 0) return
 
+  const colors = getColors(theme)
   const height = logicHeight
 
   const wantPad = option.yPaddingPx ?? 0
@@ -139,7 +143,7 @@ export function kLineDraw(
     const aligned = createAlignedKLine(rectX, rawRectY, option.kWidth, rawRectHeight, dpr)
 
     const trend: kLineTrend = getKLineTrend(e)
-    const color = trend === 'up' ? PRICE_COLORS.UP : PRICE_COLORS.DOWN
+    const color = trend === 'up' ? colors.PRICE.UP : colors.PRICE.DOWN
 
     ctx.fillStyle = color
     ctx.fillRect(aligned.bodyRect.x, aligned.bodyRect.y, aligned.bodyRect.width, aligned.bodyRect.height)
@@ -181,12 +185,12 @@ export function kLineDraw(
 
     if (i === maxPriceIndex) {
       const markerX = aligned.physWickX / dpr
-      drawPriceMarker(ctx, markerX, highY, visibleMaxPrice, dpr)
+      drawPriceMarker(ctx, markerX, highY, visibleMaxPrice, dpr, theme)
     }
 
     if (i === minPriceIndex) {
       const markerX = aligned.physWickX / dpr
-      drawPriceMarker(ctx, markerX, lowY, visibleMinPrice, dpr)
+      drawPriceMarker(ctx, markerX, lowY, visibleMinPrice, dpr, theme)
     }
   }
 }

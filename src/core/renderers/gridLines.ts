@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
 import type { KLineData } from '@/types/price'
 import { createHorizontalLineRect, createVerticalLineRect } from '@/core/draw/pixelAlign'
 import { findMonthBoundaries } from '@/utils/dateFormat'
-import { GRID_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 import { calculateTickPositions, calculateValueTickPositions, type ScaleType } from '@/core/utils/tickPosition'
 
 /**
@@ -22,12 +22,13 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
 
         draw(context: RenderContext) {
             const { ctx, pane, data, range, scrollLeft, kWidth, dpr, kLinePositions, settings } = context
+            const colors = getColors(context.theme)
             const klineData = data as KLineData[]
             if (!klineData.length) return
             if (settings?.showGridLines === false) return
 
             ctx.save()
-            ctx.fillStyle = GRID_COLORS.HORIZONTAL
+            ctx.fillStyle = colors.GRID.HORIZONTAL
             ctx.translate(-scrollLeft, 0)
 
             const plotWidth = ctx.canvas.width / dpr

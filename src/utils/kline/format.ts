@@ -2,16 +2,13 @@ import type { KLineData } from '@/types/price'
 
 // 重新导出日期格式化函数以保持向后兼容
 export { formatShanghaiDate } from '@/utils/dateFormat'
-import { PRICE_COLORS } from '@/core/theme/colors'
+import { getColors } from '@/core/theme/colors'
 
-export const UP_COLOR = PRICE_COLORS.UP
-export const DOWN_COLOR = PRICE_COLORS.DOWN
-export const NEUTRAL_COLOR = PRICE_COLORS.NEUTRAL
-
-export function getUpDownColor(delta: number): string {
-    if (delta > 0) return UP_COLOR
-    if (delta < 0) return DOWN_COLOR
-    return NEUTRAL_COLOR
+export function getUpDownColor(delta: number, theme: 'light' | 'dark' = 'light'): string {
+    const colors = getColors(theme)
+    if (delta > 0) return colors.PRICE.UP
+    if (delta < 0) return colors.PRICE.DOWN
+    return colors.PRICE.NEUTRAL
 }
 
 /** 成交量/成交额单位换算：万/亿 */
@@ -37,17 +34,18 @@ export function formatSignedPercent(n: number, digits = 2): string {
     return `${sign}${n.toFixed(digits)}%`
 }
 
-export function calcOpenColor(k: KLineData, prev?: KLineData): string {
+export function calcOpenColor(k: KLineData, prev?: KLineData, theme: 'light' | 'dark' = 'light'): string {
     const base = prev?.close ?? k.open
-    return getUpDownColor(k.open - base)
+    return getUpDownColor(k.open - base, theme)
 }
 
-export function calcCloseColor(k: KLineData): string {
-    return getUpDownColor(k.close - k.open)
+export function calcCloseColor(k: KLineData, theme: 'light' | 'dark' = 'light'): string {
+    return getUpDownColor(k.close - k.open, theme)
 }
 
-export function calcChangeColor(k: KLineData): string {
-    if (typeof k.changePercent === 'number') return getUpDownColor(k.changePercent)
-    if (typeof k.changeAmount === 'number') return getUpDownColor(k.changeAmount)
-    return NEUTRAL_COLOR
+export function calcChangeColor(k: KLineData, theme: 'light' | 'dark' = 'light'): string {
+    const colors = getColors(theme)
+    if (typeof k.changePercent === 'number') return getUpDownColor(k.changePercent, theme)
+    if (typeof k.changeAmount === 'number') return getUpDownColor(k.changeAmount, theme)
+    return colors.PRICE.NEUTRAL
 }

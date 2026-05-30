@@ -1,57 +1,33 @@
 /**
  * createChartController — production ChartControllerFactory.
  *
- * Wraps the existing legacy chart engine (`src/core/chart.ts`, ~2150 LOC)
- * behind the framework-agnostic `ChartController` signal surface. Adapters
- * (React / Vue / Angular) consume this via auto-registration in their own
- * `index.ts` entry — consumers don't need to call `__setChartFactory`
- * unless they want to inject a custom backing for testing.
+ * Wraps the legacy chart engine (`src/core/chart.ts`) behind the
+ * framework-agnostic `ChartController` signal surface. Adapters
+ * (React / Vue / Angular) consume this.
  *
  * Boundaries owned here:
- *   - Construct the inner DOM scaffold the legacy `Chart` expects
- *     (canvas-layer + right-axis-host + x-axis-canvas inside the
- *     consumer-supplied container).
- *   - Bridge Chart's imperative callbacks (`setOnViewportChange`,
- *     `setOnDataChange`) into signal writes.
- *   - Translate zoom intents (`zoomIn`, `zoomOut`, `zoomToLevel`) into
- *     `computeZoom` / `computeZoomToLevel` -> `applyRenderState` calls.
- *   - Translate `setData` / `appendData` into `updateData(...)`.
- *   - Compose the IndicatorSelectorController with a sensible default
- *     catalog discovered from the legacy renderer registry.
- *   - Stub `toolbar` and `drawing` controllers (Round 1F shipped real
- *     implementations; we wire those with reasonable defaults but do
- *     NOT yet bind toolbar selections to drawing-tool activation —
- *     that crossover is the maintainer's TODO).
- *   - Tear down DOM + listeners + child controllers on dispose().
- *
- * Engine import note: this module statically imports the legacy `Chart`
- * via a relative path that crosses the `packages/core` rootDir boundary.
- * That is accepted by tsc with `moduleResolution: bundler` and resolved
- * by vitest via the repo-root `@` alias added to each package's
- * vitest.config.ts. The auto-register line in each adapter does NOT
- * touch the DOM at module-evaluation time — Chart's constructor only
- * runs when `createChart(opts)` is called with a real container.
+ *   - Construct the inner DOM scaffold the legacy `Chart` expects.
+ *   - Bridge Chart's facade signals into controller-owned signals.
+ *   - Delegate zoom / interaction / indicator / drawing methods to Chart.
+ *   - Tear down DOM + listeners on dispose().
  */
 
 import { createSignal, type Signal } from '../reactivity'
-import { createIndicatorSelectorController } from './createIndicatorSelectorController'
-import { createToolbarController } from './createToolbarController'
-import { createDrawingController } from './createDrawingController'
 import type {
     ChartController,
     ChartMountOptions,
     ChartViewport,
+    DrawingToolType,
+    DrawingObject,
+    SubPaneInfo,
+    IndicatorInstance,
+    InteractionSnapshot,
+    DrawingControllerCallbacks,
     IndicatorDefinition,
     KLineData,
 } from './types'
-import { Chart, type ChartOptions } from '../../../../src/core/chart'
-import type { Viewport as LegacyViewport } from '../../../../src/core/chart'
-import {
-    computeZoom,
-    computeZoomToLevel,
-    zoomLevelToKWidth,
-    kGapFromKWidth,
-} from '../../../../src/core/utils/zoom'
+import { Chart, type ChartOptions, type Viewport as LegacyViewport } from '../../../../src/core/chart'
+import { zoomLevelToKWidth, kGapFromKWidth } from '../../../../src/core/utils/zoom'
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -68,32 +44,31 @@ const DEFAULT_OPTS = {
     initialZoomLevel: 3,
 } as const
 
-// Minimal main + sub indicator catalog. Mirrors the renderer ids registered
-// in `src/core/chart.ts`'s `enableMainIndicator` whitelist and the
-// `SUB_PANE_INDICATOR_CONFIGS` keys. Kept here as a static, framework-agnostic
-// catalog so the controller has no runtime dependency on the renderer module
-// graph at module-load time.
+const INITIAL_INTERACTION: InteractionSnapshot = {
+    crosshairPos: null,
+    crosshairIndex: null,
+    crosshairPrice: null,
+    hoveredIndex: null,
+    activePaneId: null,
+    isDragging: false,
+    isResizingPane: false,
+    isHoveringRightAxis: false,
+    cursor: 'default',
+}
+
+// ---------------------------------------------------------------------------
+// Indicator catalog (mirrors renderer ids registered in the engine)
+// ---------------------------------------------------------------------------
+
 const DEFAULT_INDICATOR_CATALOG: ReadonlyArray<IndicatorDefinition> = [
-    // ---------- Main pane ----------
     { id: 'MA', label: 'MA', name: '移动平均线', role: 'main', params: [] },
     { id: 'BOLL', label: 'BOLL', name: '布林带', role: 'main', params: [] },
     { id: 'EXPMA', label: 'EXPMA', name: '指数平均线', role: 'main', params: [] },
     { id: 'ENE', label: 'ENE', name: '轨道线', role: 'main', params: [] },
-    { id: 'WMA', label: 'WMA', name: '加权移动平均', role: 'main', params: [] },
-    { id: 'DEMA', label: 'DEMA', name: '双指数移动平均', role: 'main', params: [] },
-    { id: 'TEMA', label: 'TEMA', name: '三指数移动平均', role: 'main', params: [] },
-    { id: 'HMA', label: 'HMA', name: 'Hull 移动平均', role: 'main', params: [] },
-    { id: 'KAMA', label: 'KAMA', name: '考夫曼自适应', role: 'main', params: [] },
     { id: 'SAR', label: 'SAR', name: '抛物线', role: 'main', params: [] },
     { id: 'SUPERTREND', label: 'SuperTrend', name: '超级趋势', role: 'main', params: [] },
-    { id: 'KELTNER', label: 'KELTNER', name: 'Keltner 通道', role: 'main', params: [] },
-    { id: 'DONCHIAN', label: 'DONCHIAN', name: 'Donchian 通道', role: 'main', params: [] },
-    { id: 'ICHIMOKU', label: 'ICHIMOKU', name: '一目均衡表', role: 'main', params: [] },
-    { id: 'PIVOT', label: 'PIVOT', name: '枢轴点', role: 'main', params: [] },
-    { id: 'FIB', label: 'FIB', name: '斐波那契', role: 'main', params: [] },
     { id: 'STRUCTURE', label: 'Structure', name: 'SMC 结构', role: 'main', params: [] },
     { id: 'ZONES', label: 'Zones', name: 'SMC 区域', role: 'main', params: [] },
-    // ---------- Sub pane ----------
     { id: 'VOLUME', label: 'VOL', name: '成交量', role: 'sub', params: [] },
     { id: 'MACD', label: 'MACD', name: 'MACD', role: 'sub', params: [] },
     { id: 'RSI', label: 'RSI', name: '相对强弱', role: 'sub', params: [] },
@@ -103,18 +78,8 @@ const DEFAULT_INDICATOR_CATALOG: ReadonlyArray<IndicatorDefinition> = [
     { id: 'WMSR', label: 'WMSR', name: '威廉指标', role: 'sub', params: [] },
     { id: 'KST', label: 'KST', name: 'KST 振荡器', role: 'sub', params: [] },
     { id: 'FASTK', label: 'FASTK', name: '快速 K', role: 'sub', params: [] },
-    { id: 'ATR', label: 'ATR', name: '真实波幅', role: 'sub', params: [] },
-    { id: 'ROC', label: 'ROC', name: '变动率', role: 'sub', params: [] },
-    { id: 'TRIX', label: 'TRIX', name: '三重指数平滑', role: 'sub', params: [] },
-    { id: 'HV', label: 'HV', name: '历史波动率', role: 'sub', params: [] },
-    { id: 'PARKINSON', label: 'Parkinson', name: 'Parkinson 波动率', role: 'sub', params: [] },
-    { id: 'CHAIKIN_VOL', label: 'ChaikinVol', name: '蔡金波动率', role: 'sub', params: [] },
-    { id: 'VMA', label: 'VMA', name: '成交量均线', role: 'sub', params: [] },
     { id: 'OBV', label: 'OBV', name: '能量潮', role: 'sub', params: [] },
-    { id: 'PVT', label: 'PVT', name: '价量趋势', role: 'sub', params: [] },
     { id: 'VWAP', label: 'VWAP', name: '成交量加权均价', role: 'sub', params: [] },
-    { id: 'CMF', label: 'CMF', name: '蔡金资金流量', role: 'sub', params: [] },
-    { id: 'MFI', label: 'MFI', name: '资金流量指标', role: 'sub', params: [] },
     { id: 'VOLUME_PROFILE', label: 'VP', name: '成交量分布', role: 'sub', params: [] },
 ]
 
@@ -130,30 +95,14 @@ interface MountedDom {
     cleanup: () => void
 }
 
-/**
- * Build the DOM scaffold the legacy `Chart` expects inside the
- * consumer-supplied container.
- *
- * Mirrors the structure of `src/components/KLineChart.vue` (`.chart-container`
- * > `.scroll-content` > `.canvas-layer` + `.x-axis-canvas`; sibling
- * `.right-axis-host`). The legacy engine adds canvas elements into
- * `canvasLayer` itself during `initPanes()`.
- *
- * The cleanup callback removes only the elements WE created, leaving the
- * consumer-supplied container untouched.
- */
 function buildDom(container: HTMLElement): MountedDom {
     const ownerDoc = container.ownerDocument
-    if (ownerDoc === null || ownerDoc === undefined) {
+    if (!ownerDoc) {
         throw new Error(
             '[createChartController] container has no ownerDocument; cannot build DOM scaffold',
         )
     }
 
-    // The legacy Chart class types `container` as HTMLDivElement. If the
-    // consumer passed a different element type, wrap it in a child div so
-    // the engine has the exact shape it expects without us mutating the
-    // outer element's tag.
     let chartContainer: HTMLDivElement
     let containerCreatedByUs = false
     if (container instanceof HTMLDivElement) {
@@ -204,13 +153,7 @@ function buildDom(container: HTMLElement): MountedDom {
         }
     }
 
-    return {
-        container: chartContainer,
-        canvasLayer,
-        rightAxisLayer,
-        xAxisCanvas,
-        cleanup,
-    }
+    return { container: chartContainer, canvasLayer, rightAxisLayer, xAxisCanvas, cleanup }
 }
 
 // ---------------------------------------------------------------------------
@@ -218,18 +161,13 @@ function buildDom(container: HTMLElement): MountedDom {
 // ---------------------------------------------------------------------------
 
 export function createChartController(opts: ChartMountOptions): ChartController {
-    if (opts === null || opts === undefined) {
+    if (!opts) {
         throw new Error('[createChartController] opts is required')
     }
-    if (opts.container === null || opts.container === undefined) {
-        throw new Error(
-            '[createChartController] opts.container must be a non-null HTMLElement',
-        )
+    if (!opts.container) {
+        throw new Error('[createChartController] opts.container must be a non-null HTMLElement')
     }
 
-    // -------------------------------------------------------------------
-    // DOM + Chart construction
-    // -------------------------------------------------------------------
     const mounted = buildDom(opts.container)
     const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
     const zoomLevelCount = opts.zoomLevels ?? DEFAULT_OPTS.zoomLevels
@@ -257,185 +195,166 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chartOptions,
     )
 
-    // -------------------------------------------------------------------
-    // Signal-backed state
-    // -------------------------------------------------------------------
-    let currentDpr = typeof window !== 'undefined' && window.devicePixelRatio > 0
+    const currentDpr = typeof window !== 'undefined' && window.devicePixelRatio > 0
         ? window.devicePixelRatio
         : 1
-    let currentKWidth = zoomLevelToKWidth(initialZoomLevel, {
+    const currentKWidth = zoomLevelToKWidth(initialZoomLevel, {
         minKWidth: DEFAULT_OPTS.minKWidth,
         maxKWidth: DEFAULT_OPTS.maxKWidth,
         zoomLevelCount,
         dpr: currentDpr,
     })
-    let currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
-    let currentZoomLevel = initialZoomLevel
+    const currentKGap = kGapFromKWidth(currentKWidth, currentDpr)
 
-    // Apply the initial render state so the engine has valid kWidth/kGap
-    // before the first draw. Wrapped in try/catch because some test
-    // environments (jsdom) lack a meaningful Canvas2D context — the engine
-    // is otherwise defensive against this.
-    try {
-        chart.applyRenderState(currentKWidth, currentKGap, currentZoomLevel)
-    } catch {
-        /* tolerate jsdom / first-paint constructor races */
-    }
+    // -------------------------------------------------------------------
+    // Controller signals (bridge mode: subscribe to Chart's signals)
+    // -------------------------------------------------------------------
 
     const viewport: Signal<ChartViewport> = createSignal<ChartViewport>({
-        zoomLevel: currentZoomLevel,
-        kWidth: currentKWidth,
+        zoomLevel: initialZoomLevel,
+        plotWidth: 0,
+        plotHeight: 0,
+        dpr: currentDpr,
         visibleFrom: 0,
         visibleTo: 0,
+        desiredScrollLeft: undefined,
+        kWidth: currentKWidth,
+        kGap: currentKGap,
     })
 
-    const data: Signal<ReadonlyArray<KLineData>> =
-        createSignal<ReadonlyArray<KLineData>>(opts.data)
+    const data: Signal<ReadonlyArray<KLineData>> = createSignal(opts.data)
 
-    const theme: Signal<'light' | 'dark'> = createSignal<'light' | 'dark'>(
-        opts.theme ?? 'light',
+    const themeSignal: Signal<'light' | 'dark'> = createSignal(opts.theme ?? 'light')
+
+    const indicators: Signal<ReadonlyArray<IndicatorInstance>> = createSignal<
+        ReadonlyArray<IndicatorInstance>
+    >([])
+    const subPanes: Signal<ReadonlyArray<SubPaneInfo>> = createSignal<ReadonlyArray<SubPaneInfo>>([])
+    const drawingTool: Signal<DrawingToolType | null> = createSignal<DrawingToolType | null>(null)
+    const drawings: Signal<ReadonlyArray<DrawingObject>> = createSignal<ReadonlyArray<DrawingObject>>([])
+    const paneRatios: Signal<Readonly<Record<string, number>>> = createSignal<
+        Readonly<Record<string, number>>
+    >({})
+    const interactionState: Signal<InteractionSnapshot> = createSignal(INITIAL_INTERACTION)
+
+    // -------------------------------------------------------------------
+    // Apply initial render state + seed data
+    // -------------------------------------------------------------------
+
+    try {
+        chart.applyRenderState(currentKWidth, currentKGap, initialZoomLevel)
+    } catch {
+        /* tolerate jsdom */
+    }
+
+    try {
+        chart.setData([...opts.data])
+    } catch {
+        /* tolerate first-paint racing */
+    }
+
+    // Apply initial theme if non-default
+    if (opts.theme && opts.theme !== 'light') {
+        chart.setTheme(opts.theme)
+    }
+
+    // -------------------------------------------------------------------
+    // Signal bridges — subscribe to Chart's facade signals and forward
+    // -------------------------------------------------------------------
+
+    const unsubs: Array<() => void> = []
+
+    // viewport: after zoom/scroll through facade methods
+    unsubs.push(
+        chart.viewport.subscribe(() => {
+            const vp = chart.viewport.peek()
+            viewport.set({
+                zoomLevel: vp.zoomLevel,
+                plotWidth: vp.plotWidth,
+                plotHeight: vp.plotHeight,
+                dpr: vp.dpr,
+                visibleFrom: vp.visibleFrom,
+                visibleTo: vp.visibleTo,
+                desiredScrollLeft: vp.desiredScrollLeft,
+                kWidth: vp.kWidth,
+                kGap: vp.kGap,
+            })
+        }),
+    )
+
+    // data
+    unsubs.push(
+        chart.data.subscribe(() => data.set(chart.data.peek())),
+    )
+
+    // theme
+    unsubs.push(
+        chart.theme.subscribe(() => themeSignal.set(chart.theme.peek())),
+    )
+
+    // indicators
+    unsubs.push(
+        chart.indicators.subscribe(() => indicators.set(chart.indicators.peek())),
+    )
+
+    // subPanes
+    unsubs.push(
+        chart.subPanes.subscribe(() => subPanes.set(chart.subPanes.peek())),
+    )
+
+    // drawingTool
+    unsubs.push(
+        chart.drawingTool.subscribe(() => drawingTool.set(chart.drawingTool.peek())),
+    )
+
+    // drawings
+    unsubs.push(
+        chart.drawings.subscribe(() => drawings.set(chart.drawings.peek())),
+    )
+
+    // paneRatios
+    unsubs.push(
+        chart.paneRatios.subscribe(() => paneRatios.set(chart.paneRatios.peek())),
+    )
+
+    // interactionState
+    unsubs.push(
+        chart.interactionState.subscribe(() => interactionState.set(chart.interactionState.peek())),
     )
 
     // -------------------------------------------------------------------
-    // Child controllers
+    // Legacy callback for resize (chart's viewport signal doesn't fire
+    // on resize — only on zoom/scroll through facade methods)
     // -------------------------------------------------------------------
-    const indicatorSelector = createIndicatorSelectorController({
-        catalog: DEFAULT_INDICATOR_CATALOG,
-    })
 
-    // TODO(Round 1F): cross-wire toolbar selections to drawing.setActiveTool
-    // and to chart.interaction state. For now the toolbar is initialised
-    // with an empty tool catalog — consumers can register tools imperatively
-    // via the controller surface in a later round.
-    const toolbar = createToolbarController({ tools: [] })
-
-    // TODO(Round 1F): bind drawing.clearAll / deleteLast to the legacy
-    // DrawingStore via `chart.setDrawings([])`. The Round 1F drawing
-    // controller currently tracks drawing count locally; bridging to the
-    // engine store is the next step. We listen to drawing state changes
-    // so the engine can be updated when that wiring lands.
-    const drawing = createDrawingController()
-
-    // -------------------------------------------------------------------
-    // Chart -> signal wiring
-    // -------------------------------------------------------------------
     chart.setOnViewportChange((vp: LegacyViewport) => {
-        // Keep our zoom-derivation state in sync with the engine's effective
-        // DPR (the engine can refine DPR from ResizeObserver).
-        if (vp.dpr > 0) {
-            currentDpr = vp.dpr
-        }
-        // Visible range is opaque to the controller without re-deriving from
-        // scrollLeft/kWidth; we publish what we know and leave visibleFrom/To
-        // as 0 until a dedicated visible-range signal is added.
+        const current = viewport.peek()
         viewport.set({
-            zoomLevel: currentZoomLevel,
-            kWidth: currentKWidth,
-            visibleFrom: 0,
-            visibleTo: 0,
+            ...current,
+            plotWidth: vp.plotWidth,
+            plotHeight: vp.plotHeight,
+            dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
         })
     })
 
-    chart.setOnDataChange((next: KLineData[]) => {
-        data.set([...next])
-    })
-
-    // Seed the engine with the initial data the consumer passed in.
-    try {
-        chart.updateData(Array.from(opts.data))
-    } catch {
-        /* tolerate first-paint racing the constructor */
-    }
-
     // -------------------------------------------------------------------
-    // Zoom helpers
+    // Lifecycle guard
     // -------------------------------------------------------------------
-    function applyZoom(targetLevel: number, anchorX: number | undefined): void {
-        const delta = targetLevel - currentZoomLevel
-        if (delta === 0) return
-        const anchor = typeof anchorX === 'number' ? anchorX : 0
-        const scrollLeft = chart.getCachedScrollLeft()
-        const result = computeZoomToLevel(
-            targetLevel,
-            anchor,
-            scrollLeft,
-            currentZoomLevel,
-            currentKWidth,
-            currentKGap,
-            {
-                minKWidth: DEFAULT_OPTS.minKWidth,
-                maxKWidth: DEFAULT_OPTS.maxKWidth,
-                zoomLevelCount,
-                dpr: currentDpr,
-            },
-        )
-        if (result === null) return
-        currentZoomLevel = result.targetLevel
-        currentKWidth = result.newKWidth
-        currentKGap = result.newKGap
-        try {
-            chart.applyRenderState(currentKWidth, currentKGap, currentZoomLevel)
-        } catch {
-            /* tolerate jsdom canvas absence */
-        }
-        viewport.set({
-            zoomLevel: currentZoomLevel,
-            kWidth: currentKWidth,
-            visibleFrom: 0,
-            visibleTo: 0,
-        })
-    }
 
-    function applyZoomDelta(delta: number, anchorX: number | undefined): void {
-        const anchor = typeof anchorX === 'number' ? anchorX : 0
-        const scrollLeft = chart.getCachedScrollLeft()
-        const result = computeZoom(
-            delta,
-            anchor,
-            scrollLeft,
-            currentZoomLevel,
-            currentKWidth,
-            currentKGap,
-            {
-                minKWidth: DEFAULT_OPTS.minKWidth,
-                maxKWidth: DEFAULT_OPTS.maxKWidth,
-                zoomLevelCount,
-                dpr: currentDpr,
-            },
-        )
-        if (result === null) return
-        currentZoomLevel = result.targetLevel
-        currentKWidth = result.newKWidth
-        currentKGap = result.newKGap
-        try {
-            chart.applyRenderState(currentKWidth, currentKGap, currentZoomLevel)
-        } catch {
-            /* tolerate jsdom canvas absence */
-        }
-        viewport.set({
-            zoomLevel: currentZoomLevel,
-            kWidth: currentKWidth,
-            visibleFrom: 0,
-            visibleTo: 0,
-        })
-    }
-
-    // -------------------------------------------------------------------
-    // Public controller surface
-    // -------------------------------------------------------------------
     let disposed = false
+
+    // -------------------------------------------------------------------
+    // Public methods — delegate to Chart facade
+    // -------------------------------------------------------------------
 
     function setData(next: ReadonlyArray<KLineData>): void {
         if (disposed) return
-        const arr = Array.from(next)
         try {
-            chart.updateData(arr)
+            chart.setData([...next])
         } catch {
-            /* engine reports via onDataChange; tolerate jsdom */
+            /* tolerate jsdom */
         }
-        // onDataChange will fire data.set; this is a safety net for engines
-        // that elide the callback when array reference is unchanged.
-        data.set(arr)
+        // chart.setData updates chart._dataSignal — the bridge will relay
     }
 
     function appendData(next: ReadonlyArray<KLineData>): void {
@@ -447,49 +366,108 @@ export function createChartController(opts: ChartMountOptions): ChartController 
 
     function setTheme(nextTheme: 'light' | 'dark'): void {
         if (disposed) return
-        theme.set(nextTheme)
-        // TODO(maintainer): the legacy Chart class has no theme API yet.
-        // When `updateSettings({ theme })` is added, wire it here.
+        themeSignal.set(nextTheme)
+        chart.setTheme(nextTheme)
     }
 
     function zoomToLevel(level: number, anchorX?: number): void {
         if (disposed) return
-        const clamped = Math.max(1, Math.min(zoomLevelCount, Math.round(level)))
-        applyZoom(clamped, anchorX)
+        chart.zoomToLevel(level, anchorX)
     }
 
     function zoomIn(anchorX?: number): void {
         if (disposed) return
-        applyZoomDelta(1, anchorX)
+        chart.zoomIn(anchorX)
     }
 
     function zoomOut(anchorX?: number): void {
         if (disposed) return
-        applyZoomDelta(-1, anchorX)
+        chart.zoomOut(anchorX)
+    }
+
+    function handlePointerEvent(
+        e: PointerEvent,
+        drawingController?: DrawingControllerCallbacks,
+    ): boolean {
+        if (disposed) return false
+        return chart.handlePointerEvent(e, drawingController)
+    }
+
+    function handleWheelEvent(e: WheelEvent): void {
+        if (disposed) return
+        chart.handleWheelEvent(e)
+    }
+
+    function handleScrollEvent(): void {
+        if (disposed) return
+        chart.handleScrollEvent()
+    }
+
+    function handlePinchZoom(delta: number, centerClientX: number): void {
+        if (disposed) return
+        chart.handlePinchZoom(delta, centerClientX)
+    }
+
+    function addIndicator(
+        definitionId: string,
+        role: 'main' | 'sub',
+        params?: Record<string, unknown>,
+    ): string | null {
+        if (disposed) return null
+        return chart.addIndicator(definitionId, role, params)
+    }
+
+    function removeIndicator(instanceId: string): boolean {
+        if (disposed) return false
+        return chart.removeIndicator(instanceId)
+    }
+
+    function updateIndicatorParams(
+        instanceId: string,
+        params: Record<string, unknown>,
+    ): boolean {
+        if (disposed) return false
+        return chart.updateIndicatorParams(instanceId, params)
+    }
+
+    function setDrawingTool(tool: DrawingToolType | null): void {
+        if (disposed) return
+        chart.setDrawingTool(tool)
+    }
+
+    function clearDrawings(): void {
+        if (disposed) return
+        chart.clearDrawings()
+    }
+
+    function removeDrawing(drawingId: string): void {
+        if (disposed) return
+        chart.removeDrawing(drawingId)
+    }
+
+    function resizeSubPane(paneId: string, deltaY: number): boolean {
+        if (disposed) return false
+        return chart.resizeSubPane(paneId, deltaY)
+    }
+
+    function updateOptionsFacade(options: Record<string, unknown>): void {
+        if (disposed) return
+        chart.updateOptionsFacade(options)
     }
 
     function dispose(): void {
         if (disposed) return
         disposed = true
+        // Unsubscribe all signal bridges first
+        for (const unsub of unsubs) {
+            try {
+                unsub()
+            } catch {
+                /* best-effort */
+            }
+        }
         try {
-            // chart.destroy() is async but we don't await — caller already
-            // released its reference. The engine handles partial teardown.
             void chart.destroy()
-        } catch {
-            /* best-effort */
-        }
-        try {
-            indicatorSelector.dispose()
-        } catch {
-            /* best-effort */
-        }
-        try {
-            toolbar.dispose()
-        } catch {
-            /* best-effort */
-        }
-        try {
-            drawing.dispose()
         } catch {
             /* best-effort */
         }
@@ -503,16 +481,32 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     return {
         viewport,
         data,
-        theme,
-        indicatorSelector,
-        toolbar,
-        drawing,
+        theme: themeSignal,
+        indicators,
+        subPanes,
+        drawingTool,
+        drawings,
+        paneRatios,
+        interactionState,
+        catalog: DEFAULT_INDICATOR_CATALOG,
         setData,
         appendData,
         setTheme,
         zoomToLevel,
         zoomIn,
         zoomOut,
+        handlePointerEvent,
+        handleWheelEvent,
+        handleScrollEvent,
+        handlePinchZoom,
+        addIndicator,
+        removeIndicator,
+        updateIndicatorParams,
+        setDrawingTool,
+        clearDrawings,
+        removeDrawing,
+        resizeSubPane,
+        updateOptionsFacade,
         dispose,
     }
 }

@@ -28,14 +28,14 @@ import type {
     ChartController,
     ChartControllerFactory,
     ChartMountOptions,
-    IndicatorSelectorController,
+    IndicatorInstance,
+    InteractionSnapshot,
     KLineData,
 } from '@klinechart-quant/core'
 
 export type {
     ChartController,
     ChartMountOptions,
-    IndicatorSelectorController,
 } from '@klinechart-quant/core'
 
 // ---------------------------------------------------------------------------
@@ -164,47 +164,46 @@ export function useChart(
 }
 
 // ---------------------------------------------------------------------------
-// useIndicatorSelector — composable
+// useIndicators — composable
 // ---------------------------------------------------------------------------
 
 /**
- * Bridge the IndicatorSelectorController's catalog + active signals into
- * Vue shallowRefs. Returns refs and mutation methods (forwarded directly).
+ * Bridge the Chart's indicators signal into a Vue shallowRef.
  */
-export function useIndicatorSelector(controller: ChartController): {
-    catalog: Ref<ReturnType<IndicatorSelectorController['catalog']>>
-    active: Ref<ReturnType<IndicatorSelectorController['active']>>
-    add: IndicatorSelectorController['add']
-    remove: IndicatorSelectorController['remove']
+export function useIndicators(controller: ChartController): {
+    indicators: Ref<ReadonlyArray<IndicatorInstance>>
+    add: ChartController['addIndicator']
+    remove: ChartController['removeIndicator']
+    updateParams: ChartController['updateIndicatorParams']
 } {
-    const selector = controller.indicatorSelector
-    const catalog = shallowRef(selector.catalog.peek()) as Ref<
-        ReturnType<IndicatorSelectorController['catalog']>
+    const indicators = shallowRef(controller.indicators.peek()) as Ref<
+        ReadonlyArray<IndicatorInstance>
     >
-    const active = shallowRef(selector.active.peek()) as Ref<
-        ReturnType<IndicatorSelectorController['active']>
-    >
-
-    // Subscribe directly to each signal — no need for full `effect` tracking
-    // since each shallowRef maps to exactly one signal.
-    const unsubCatalog = selector.catalog.subscribe(() => {
-        catalog.value = selector.catalog.peek()
+    const unsub = controller.indicators.subscribe(() => {
+        indicators.value = controller.indicators.peek()
     })
-    const unsubActive = selector.active.subscribe(() => {
-        active.value = selector.active.peek()
-    })
-
-    onScopeDispose(() => {
-        unsubCatalog()
-        unsubActive()
-    })
+    onScopeDispose(unsub)
 
     return {
-        catalog,
-        active,
-        add: (definitionId: string) => selector.add(definitionId),
-        remove: (instanceId: string) => selector.remove(instanceId),
+        indicators,
+        add: controller.addIndicator.bind(controller),
+        remove: controller.removeIndicator.bind(controller),
+        updateParams: controller.updateIndicatorParams.bind(controller),
     }
+}
+
+/**
+ * Bridge the Chart's interactionState signal into a Vue shallowRef.
+ */
+export function useInteractionState(
+    controller: ChartController,
+): Ref<InteractionSnapshot> {
+    const state = shallowRef(controller.interactionState.peek()) as Ref<InteractionSnapshot>
+    const unsub = controller.interactionState.subscribe(() => {
+        state.value = controller.interactionState.peek()
+    })
+    onScopeDispose(unsub)
+    return state
 }
 
 // ---------------------------------------------------------------------------

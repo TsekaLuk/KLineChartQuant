@@ -35,6 +35,7 @@ export interface KLineData {
 // ---------------------------------------------------------------------------
 
 export type IndicatorPaneRole = 'main' | 'sub'
+export type IndicatorRole = 'main' | 'sub'
 
 export interface IndicatorParamDef {
     key: string
@@ -48,112 +49,71 @@ export interface IndicatorParamDef {
 }
 
 export interface IndicatorDefinition {
-    /** stable id, e.g. 'MA', 'BOLL', 'VOLUME_PROFILE' */
-    id: string
-    /** display label, e.g. 'MA' */
-    label: string
-    /** localized name, e.g. '移动平均线' */
-    name: string
-    /** short description for tooltips */
+    key?: string
+    label?: string
+    name?: string
     description?: string
-    /** which pane it draws to */
-    role: IndicatorPaneRole
-    /** parameter schema (empty array = no params) */
-    params: ReadonlyArray<IndicatorParamDef>
+    role?: IndicatorPaneRole
+    params?: ReadonlyArray<IndicatorParamDef>
+    id: string
 }
 
-export interface ActiveIndicator {
-    /** instance id, unique across active indicators */
+// ---------------------------------------------------------------------------
+// Indicator instance (live on the chart engine)
+// ---------------------------------------------------------------------------
+
+export interface IndicatorInstance {
     id: string
-    /** references IndicatorDefinition.id */
     definitionId: string
     label: string
     name: string
-    role: IndicatorPaneRole
-    /** current param values keyed by IndicatorParamDef.key */
-    params: Readonly<Record<string, number | string | boolean>>
+    role: IndicatorRole
+    paneId?: string
+    params: Record<string, unknown>
+}
+
+export interface SubPaneInfo {
+    paneId: string
+    indicatorId: string
+    params: Record<string, unknown>
+    ratio: number
 }
 
 // ---------------------------------------------------------------------------
-// IndicatorSelectorController — extracted from IndicatorSelector.vue
-// ---------------------------------------------------------------------------
-
-export interface IndicatorSelectorController {
-    /** all indicators registered in the catalog */
-    readonly catalog: Signal<ReadonlyArray<IndicatorDefinition>>
-    /** currently active indicators, in display order */
-    readonly active: Signal<ReadonlyArray<ActiveIndicator>>
-    /** add menu open state */
-    readonly menuOpen: Signal<boolean>
-    /** search query for filtering catalog */
-    readonly searchQuery: Signal<string>
-    /** computed: catalog filtered by searchQuery, split by role */
-    readonly filteredMain: Signal<ReadonlyArray<IndicatorDefinition>>
-    readonly filteredSub: Signal<ReadonlyArray<IndicatorDefinition>>
-
-    /** add an indicator by definition id; returns new active instance id, or null if already active */
-    add(definitionId: string): string | null
-    /** remove by instance id */
-    remove(instanceId: string): boolean
-    /** update params of an active instance */
-    updateParams(instanceId: string, params: Record<string, number | string | boolean>): boolean
-    /** reorder sub indicators (drag-drop) */
-    reorder(fromInstanceId: string, toInstanceId: string): boolean
-    /** menu */
-    openMenu(): void
-    closeMenu(): void
-    toggleMenu(): void
-    setSearchQuery(q: string): void
-    /** is this definition currently active? */
-    isActive(definitionId: string): boolean
-    /** dispose all subscriptions */
-    dispose(): void
-}
-
-// ---------------------------------------------------------------------------
-// ToolbarController — extracted from LeftToolbar.vue
-// ---------------------------------------------------------------------------
-
-export type ToolId = string
-
-export interface ToolDefinition {
-    id: ToolId
-    label: string
-    icon?: string
-    /** group id for radio-style mutually-exclusive selection */
-    group?: string
-    /** disabled state computed by controller */
-    disabled?: boolean
-}
-
-export interface ToolbarController {
-    readonly tools: Signal<ReadonlyArray<ToolDefinition>>
-    readonly activeTool: Signal<ToolId | null>
-    readonly disabledTools: Signal<ReadonlySet<ToolId>>
-
-    selectTool(id: ToolId): void
-    clearSelection(): void
-    setDisabled(id: ToolId, disabled: boolean): void
-    dispose(): void
-}
-
-// ---------------------------------------------------------------------------
-// DrawingController — extracted from drawing/plugin.ts
+// Drawing types
 // ---------------------------------------------------------------------------
 
 export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
 
-export interface DrawingState {
-    readonly activeTool: DrawingToolType | null
-    readonly drawingCount: number
+export interface DrawingObject {
+    id: string
+    type: DrawingToolType
 }
 
-export interface DrawingController {
-    readonly state: Signal<DrawingState>
-    setActiveTool(tool: DrawingToolType | null): void
-    clearAll(): void
-    deleteLast(): void
-    dispose(): void
+// ---------------------------------------------------------------------------
+// Interaction state
+// ---------------------------------------------------------------------------
+
+export interface InteractionSnapshot {
+    crosshairPos: { x: number; y: number } | null
+    crosshairIndex: number | null
+    crosshairPrice: number | null
+    hoveredIndex: number | null
+    activePaneId: string | null
+    isDragging: boolean
+    isResizingPane: boolean
+    isHoveringRightAxis: boolean
+    cursor: 'default' | 'crosshair' | 'grabbing' | 'pointer' | 'ns-resize'
+}
+
+// ---------------------------------------------------------------------------
+// Drawing controller callback type (passed to handlePointerEvent)
+// ---------------------------------------------------------------------------
+
+export interface DrawingControllerCallbacks {
+    onPointerDown?: (e: PointerEvent, container: HTMLElement) => boolean
+    onPointerMove?: (e: PointerEvent, container: HTMLElement) => boolean
+    onPointerUp?: (e: PointerEvent, container: HTMLElement) => boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -170,25 +130,69 @@ export interface ChartMountOptions {
 
 export interface ChartViewport {
     zoomLevel: number
-    kWidth: number
+    plotWidth: number
+    plotHeight: number
+    dpr: number
     visibleFrom: number
     visibleTo: number
+    desiredScrollLeft: number | undefined
+    kWidth: number
+    kGap: number
 }
 
 export interface ChartController {
+    // ---- Signals ----
     readonly viewport: Signal<ChartViewport>
     readonly data: Signal<ReadonlyArray<KLineData>>
     readonly theme: Signal<'light' | 'dark'>
-    readonly indicatorSelector: IndicatorSelectorController
-    readonly toolbar: ToolbarController
-    readonly drawing: DrawingController
+    readonly indicators: Signal<ReadonlyArray<IndicatorInstance>>
+    readonly subPanes: Signal<ReadonlyArray<SubPaneInfo>>
+    readonly drawingTool: Signal<DrawingToolType | null>
+    readonly drawings: Signal<ReadonlyArray<DrawingObject>>
+    readonly paneRatios: Signal<Readonly<Record<string, number>>>
+    readonly interactionState: Signal<InteractionSnapshot>
 
+    // indicator catalog (static — adapters use for picker UI)
+    readonly catalog: ReadonlyArray<IndicatorDefinition>
+
+    // ---- Data ----
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void
+
+    // ---- Theme ----
     setTheme(theme: 'light' | 'dark'): void
+
+    // ---- Zoom ----
     zoomToLevel(level: number, anchorX?: number): void
     zoomIn(anchorX?: number): void
     zoomOut(anchorX?: number): void
+
+    // ---- Interaction ----
+    handlePointerEvent(e: PointerEvent, drawingController?: DrawingControllerCallbacks): boolean
+    handleWheelEvent(e: WheelEvent): void
+    handleScrollEvent(): void
+    handlePinchZoom(delta: number, centerClientX: number): void
+
+    // ---- Indicators ----
+    addIndicator(
+        definitionId: string,
+        role: 'main' | 'sub',
+        params?: Record<string, unknown>,
+    ): string | null
+    removeIndicator(instanceId: string): boolean
+    updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
+
+    // ---- Drawing ----
+    setDrawingTool(tool: DrawingToolType | null): void
+    clearDrawings(): void
+    removeDrawing(drawingId: string): void
+
+    // ---- Layout ----
+    resizeSubPane(paneId: string, deltaY: number): boolean
+
+    // ---- Settings ----
+    updateOptionsFacade(options: Record<string, unknown>): void
+
     /** tear down DOM + listeners; idempotent */
     dispose(): void
 }
@@ -200,3 +204,72 @@ export interface ChartController {
  * (Phase 1 deliverable). It wires the existing Chart engine in src/core/chart.ts.
  */
 export type ChartControllerFactory = (opts: ChartMountOptions) => ChartController
+
+// ---------------------------------------------------------------------------
+// Legacy type aliases (deprecated — kept for internal sub-controller tests)
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use `IndicatorInstance` instead. Kept for createIndicatorSelectorController tests. */
+export interface ActiveIndicator {
+    id: string
+    definitionId: string
+    label: string
+    name: string
+    role: IndicatorPaneRole
+    params: Readonly<Record<string, number | string | boolean>>
+}
+
+/** @deprecated Flattened into ChartController. Kept for createIndicatorSelectorController tests. */
+export interface IndicatorSelectorController {
+    readonly catalog: Signal<ReadonlyArray<IndicatorDefinition>>
+    readonly active: Signal<ReadonlyArray<ActiveIndicator>>
+    readonly menuOpen: Signal<boolean>
+    readonly searchQuery: Signal<string>
+    readonly filteredMain: Signal<ReadonlyArray<IndicatorDefinition>>
+    readonly filteredSub: Signal<ReadonlyArray<IndicatorDefinition>>
+    add(definitionId: string): string | null
+    remove(instanceId: string): boolean
+    updateParams(instanceId: string, params: Record<string, number | string | boolean>): boolean
+    reorder(fromInstanceId: string, toInstanceId: string): boolean
+    openMenu(): void
+    closeMenu(): void
+    toggleMenu(): void
+    setSearchQuery(q: string): void
+    isActive(definitionId: string): boolean
+    dispose(): void
+}
+
+export type ToolId = string
+
+export interface ToolDefinition {
+    id: ToolId
+    label: string
+    icon?: string
+    group?: string
+    disabled?: boolean
+}
+
+/** @deprecated Flattened into ChartController. Kept for createToolbarController tests. */
+export interface ToolbarController {
+    readonly tools: Signal<ReadonlyArray<ToolDefinition>>
+    readonly activeTool: Signal<ToolId | null>
+    readonly disabledTools: Signal<ReadonlySet<ToolId>>
+    selectTool(id: ToolId): void
+    clearSelection(): void
+    setDisabled(id: ToolId, disabled: boolean): void
+    dispose(): void
+}
+
+export interface DrawingState {
+    readonly activeTool: DrawingToolType | null
+    readonly drawingCount: number
+}
+
+/** @deprecated Flattened into ChartController. Kept for createDrawingController tests. */
+export interface DrawingController {
+    readonly state: Signal<DrawingState>
+    setActiveTool(tool: DrawingToolType | null): void
+    clearAll(): void
+    deleteLast(): void
+    dispose(): void
+}

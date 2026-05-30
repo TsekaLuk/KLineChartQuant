@@ -23,13 +23,13 @@ import type {
     ChartController,
     ChartControllerFactory,
     ChartMountOptions,
-    IndicatorSelectorController,
+    IndicatorInstance,
+    InteractionSnapshot,
 } from '@klinechart-quant/core'
 
 export type {
     ChartController,
     ChartMountOptions,
-    IndicatorSelectorController,
 } from '@klinechart-quant/core'
 
 // ---------------------------------------------------------------------------
@@ -137,75 +137,57 @@ export function useChart(
 }
 
 // ---------------------------------------------------------------------------
-// useIndicatorSelector — subscribe to indicator selector signals
+// useIndicators — subscribe to controller indicators signal
 // ---------------------------------------------------------------------------
 
-type IndicatorSelectorView = {
-    catalog: ReturnType<IndicatorSelectorController['catalog']>
-    active: ReturnType<IndicatorSelectorController['active']>
-    add: IndicatorSelectorController['add']
-    remove: IndicatorSelectorController['remove']
+type IndicatorsView = {
+    indicators: ReadonlyArray<IndicatorInstance>
+    add: ChartController['addIndicator']
+    remove: ChartController['removeIndicator']
+    updateParams: ChartController['updateIndicatorParams']
 }
 
 /**
- * Subscribes to `controller.indicatorSelector.catalog` and `.active` via
- * `useSyncExternalStore` (tearing-safe in concurrent React).
- *
- * Returns the current snapshots plus the mutation methods.
+ * Subscribes to `controller.indicators` via `useSyncExternalStore`.
  */
-export function useIndicatorSelector(controller: ChartController): IndicatorSelectorView {
-    const selector = controller.indicatorSelector
+export function useIndicators(controller: ChartController): IndicatorsView {
+    const indicators = controller.indicators
 
-    // Subscribe to BOTH signals through one combined subscription so React
-    // sees a single store. Each call to the returned subscribe wires up two
-    // unsub callbacks; both fire the same listener.
-    const subscribe = useMemo(
-        () => (cb: () => void) => {
-            const u1 = selector.catalog.subscribe(cb)
-            const u2 = selector.active.subscribe(cb)
-            return () => {
-                u1()
-                u2()
-            }
-        },
-        [selector],
+    const subscribe = useCallback(
+        (cb: () => void) => indicators.subscribe(cb),
+        [indicators],
     )
 
-    // Snapshot must be stable when neither underlying signal has changed.
-    // We cache the last tuple by reference so React's strict equality check
-    // does not see a fresh object every render.
-    const snapshotRef = useRef<{
-        catalog: ReturnType<IndicatorSelectorController['catalog']>
-        active: ReturnType<IndicatorSelectorController['active']>
-        tuple: IndicatorSelectorView
-    } | null>(null)
+    const getSnapshot = useCallback((): IndicatorsView => ({
+        indicators: indicators(),
+        add: controller.addIndicator.bind(controller),
+        remove: controller.removeIndicator.bind(controller),
+        updateParams: controller.updateIndicatorParams.bind(controller),
+    }), [indicators, controller])
 
-    const getSnapshot = useCallback((): IndicatorSelectorView => {
-        const catalog = selector.catalog()
-        const active = selector.active()
-        const cached = snapshotRef.current
-        if (
-            cached !== null &&
-            cached.catalog === catalog &&
-            cached.active === active
-        ) {
-            return cached.tuple
-        }
-        const tuple: IndicatorSelectorView = {
-            catalog,
-            active,
-            add: selector.add.bind(selector),
-            remove: selector.remove.bind(selector),
-        }
-        snapshotRef.current = { catalog, active, tuple }
-        return tuple
-    }, [selector])
-
-    // SSR fallback: read the current value without subscribing. Safe because
-    // signals are in-memory data and do not touch DOM.
     const getServerSnapshot = getSnapshot
 
-    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+
+    return snapshot
+}
+
+/**
+ * Subscribe to `controller.interactionState` via `useSyncExternalStore`.
+ */
+export function useInteractionState(
+    controller: ChartController,
+): InteractionSnapshot {
+    const store = controller.interactionState
+
+    const subscribe = useCallback(
+        (cb: () => void) => store.subscribe(cb),
+        [store],
+    )
+
+    const getSnapshot = useCallback(() => store(), [store])
+
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
 // ---------------------------------------------------------------------------

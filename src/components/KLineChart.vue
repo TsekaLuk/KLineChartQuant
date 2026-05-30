@@ -125,8 +125,6 @@ import { createChartStore, TRAILING_DRAWING_SLOTS, type ChartStore } from '@/cor
 import {
   zoomLevelToKWidth,
   kGapFromKWidth,
-  computeZoom,
-  computeZoomToLevel,
 } from '@/core/utils/zoom'
 import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
 import { createCandleRenderer } from '@/core/renderers/candle'
@@ -1047,39 +1045,11 @@ function scrollToRight() {
   scheduleRender()
 }
 
-/* 缩放到指定级别（Vue 层驱动） */
+/* 缩放到指定级别（通过 Chart facade API） */
 function applyZoomToLevel(targetLevel: number, anchorX?: number) {
   const chart = chartRef.value
-  const container = containerRef.value
-  if (!chart || !container) return
-  const dpr = chart.getCurrentDpr()
-  const centerX = anchorX ?? (chart.getViewport()?.plotWidth ?? container.clientWidth) / 2
-  const result = computeZoomToLevel(
-    targetLevel,
-    centerX,
-    container.scrollLeft,
-    zoomLevel.value,
-    kWidth.value,
-    kGap.value,
-    {
-      minKWidth: props.minKWidth,
-      maxKWidth: props.maxKWidth,
-      zoomLevelCount: props.zoomLevels,
-      dpr,
-    },
-  )
-  if (!result) return
-  store.actions.setZoomState(result.targetLevel, result.newKWidth, result.newKGap)
-  chart.interaction.clearHover()
-  nextTick(() => {
-    const c = containerRef.value
-    if (!c) return
-    const max = Math.max(0, c.scrollWidth - c.clientWidth)
-    const clampedScrollLeft = Math.min(Math.max(0, result.newScrollLeft), max)
-    c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
-    chart.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
-    emit('zoomLevelChange', result.targetLevel, result.newKWidth)
-  })
+  if (!chart) return
+  chart.zoomToLevel(targetLevel, anchorX)
 }
 
 defineExpose({
@@ -1109,39 +1079,8 @@ function setupWheelHandler(container: HTMLDivElement): (e: WheelEvent) => void {
     const chart = chartRef.value
     if (!chart) return
 
-    const rect = container.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const scrollLeft = container.scrollLeft
-    const dpr = chart.getCurrentDpr()
-
-    const result = computeZoom(
-      e.deltaY > 0 ? -1 : 1,
-      mouseX,
-      scrollLeft,
-      zoomLevel.value,
-      kWidth.value,
-      kGap.value,
-      {
-        minKWidth: props.minKWidth,
-        maxKWidth: props.maxKWidth,
-        zoomLevelCount: props.zoomLevels,
-        dpr,
-      },
-    )
-    if (!result) return
-
-    store.actions.setZoomState(result.targetLevel, result.newKWidth, result.newKGap)
-    chart.interaction.clearHover()
-
-    nextTick(() => {
-      const c = containerRef.value
-      if (!c) return
-      const maxScrollLeft = Math.max(0, c.scrollWidth - c.clientWidth)
-      const clampedScrollLeft = Math.min(Math.max(0, result.newScrollLeft), maxScrollLeft)
-      c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
-      chart.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
-      emit('zoomLevelChange', result.targetLevel, result.newKWidth)
-    })
+    // 使用 Chart facade API 处理滚轮事件
+    chart.handleWheelEvent(e)
   }
   container.addEventListener('wheel', onWheelHandler, { passive: false })
   return onWheelHandler
@@ -1247,17 +1186,8 @@ function setupChartCallbacks(chart: Chart): void {
     if (store.state.viewWidth !== vp.plotWidth) {
       store.actions.setViewWidth(vp.plotWidth)
     }
-
-    const newKGap = kGapFromKWidth(store.state.kWidth, vp.dpr)
-    const zoomStateChanged = store.state.kGap !== newKGap
-    if (zoomStateChanged) {
-      store.actions.setZoomState(store.state.zoomLevel, store.state.kWidth, newKGap)
-    }
-
-    const chartState = chart.getOption()
-    if (chartState.kWidth !== store.state.kWidth || chartState.kGap !== newKGap) {
-      chart.applyRenderState(store.state.kWidth, newKGap, store.state.zoomLevel)
-    }
+    // 注意：kWidth/kGap/zoomLevel 不再从这里同步
+    // 它们由 viewport signal 订阅者从 Chart 同步到 Vue store
   })
 
   chart.setOnPaneLayoutChange((panes) => {
@@ -1284,6 +1214,32 @@ function setupChartCallbacks(chart: Chart): void {
   chart.setOnDataChange((data) => {
     store.actions.setDataLength(data.length)
     store.actions.bumpDataVersion()
+  })
+
+  // 订阅 viewport signal，处理缩放后的 scrollLeft 更新
+  const unsubscribeViewport = chart.viewport.subscribe(() => {
+    const vp = chart.viewport.peek()
+    // 完整同步 zoom state 到 Vue store（Chart 是 SSOT）
+    if (store.state.zoomLevel !== vp.zoomLevel || store.state.kWidth !== vp.kWidth || store.state.kGap !== vp.kGap) {
+      store.actions.setZoomState(vp.zoomLevel, vp.kWidth, vp.kGap)
+    }
+
+    // 在 nextTick 中应用 desiredScrollLeft
+    if (vp.desiredScrollLeft !== undefined && vp.desiredScrollLeft !== containerRef.value?.scrollLeft) {
+      nextTick(() => {
+        const c = containerRef.value
+        if (!c) return
+        const maxScrollLeft = Math.max(0, c.scrollWidth - c.clientWidth)
+        const clampedScrollLeft = Math.min(Math.max(0, vp.desiredScrollLeft), maxScrollLeft)
+        const dpr = chart.getCurrentDpr()
+        c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
+      })
+    }
+  })
+
+  // 保存 unsubscribe 函数以便清理
+  onUnmounted(() => {
+    unsubscribeViewport()
   })
 }
 
@@ -1322,41 +1278,13 @@ function setupInteractionCallbacks(chart: Chart): void {
   })
 
   chart.interaction.setOnPinchZoom((delta, centerClientX) => {
+    if (!chart) return
     const container = containerRef.value
-    if (!container || !chart) return
+    if (!container) return
+    // centerClientX 是 clientX，需要转换为视口局部坐标
     const rect = container.getBoundingClientRect()
     const centerX = centerClientX - rect.left
-    const scrollLeft = container.scrollLeft
-    const dpr = chart.getCurrentDpr()
-
-    const result = computeZoom(
-      delta,
-      centerX,
-      scrollLeft,
-      zoomLevel.value,
-      kWidth.value,
-      kGap.value,
-      {
-        minKWidth: props.minKWidth,
-        maxKWidth: props.maxKWidth,
-        zoomLevelCount: props.zoomLevels,
-        dpr,
-      },
-    )
-    if (!result) return
-
-    store.actions.setZoomState(result.targetLevel, result.newKWidth, result.newKGap)
-    chart.interaction.clearHover()
-
-    nextTick(() => {
-      const c = containerRef.value
-      if (!c) return
-      const maxScrollLeft = Math.max(0, c.scrollWidth - c.clientWidth)
-      const clampedScrollLeft = Math.min(Math.max(0, result.newScrollLeft), maxScrollLeft)
-      c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
-      chart.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
-      emit('zoomLevelChange', result.targetLevel, result.newKWidth)
-    })
+    chart.handlePinchZoom(delta, centerX)
   })
 
   interactionState.value = chart.interaction.getInteractionSnapshot()

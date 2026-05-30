@@ -9,6 +9,7 @@ import { SharedWebGLSurface } from '@/core/renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from '@/core/utils/klineConfig'
 import { computeContentWidth } from '@/core/chart-store'
+import { computeZoom, computeZoomToLevel, type ZoomConfig } from '@/core/utils/zoom'
 import { IndicatorScheduler } from '@/core/indicators/scheduler'
 import { getRegisteredIndicatorDefinitions } from '@/core/indicators/indicatorDefinitionRegistry'
 import { SubPaneManager, type SubPaneEntry } from '@/core/subPaneManager'
@@ -159,11 +160,11 @@ type FrameData = {
 export class Chart {
     private dom: ChartDom
     private opt: ResolvedChartOptions
-    private data: KLineData[] = []
+    private _internalData: KLineData[] = []
 
     private raf: number | null = null
     private pendingUpdateLevel: UpdateLevel = UpdateLevel.All
-    private viewport: Viewport | null = null
+    private _internalViewport: Viewport | null = null
 
     private paneRenderers: PaneRenderer[] = []
     private markerManager: MarkerManager
@@ -198,7 +199,7 @@ export class Chart {
     private settings: ChartSettings = {}
 
     /** pane ratio 状态（按 paneId 维护，sum=1 仅对可见 pane） */
-    private paneRatios: Map<string, number> = new Map()
+    private _internalPaneRatios: Map<string, number> = new Map()
 
     /** 视口变化回调（供外部同步 DPR/尺寸） */
     private onViewportChange?: (viewport: Viewport) => void
@@ -781,7 +782,7 @@ export class Chart {
     }
 
     getViewport(): Viewport | null {
-        return this.viewport
+        return this._internalViewport
     }
 
     getCurrentDpr(): number {
@@ -888,7 +889,7 @@ export class Chart {
         const vp = useCachedFrame ? this.cachedDrawFrame!.viewport : this.computeViewport()
         if (!vp) return null
 
-        if (this.data.length === 0) return null
+        if (this._internalData.length === 0) return null
 
         const range = useCachedFrame
             ? this.cachedDrawFrame!.range
@@ -898,7 +899,7 @@ export class Chart {
                     vp.plotWidth,
                     this.opt.kWidth,
                     this.opt.kGap,
-                    this.data.length,
+                    this._internalData.length,
                     vp.dpr
                 )
                 return { start, end }
@@ -977,7 +978,7 @@ export class Chart {
 
             if (!useCachedFrame) {
                 const indicatorRange = pane.role === 'price' ? mainIndicatorRange : null
-                pane.updateRange(this.data, range, indicatorRange)
+                pane.updateRange(this._internalData, range, indicatorRange)
             }
 
             const shouldUpdateMain = level === UpdateLevel.Main || level === UpdateLevel.All
@@ -1009,7 +1010,7 @@ export class Chart {
                 ctx: mainCtx!,
                 overlayCtx: overlayCtx ?? undefined,
                 pane: wrapPaneInfo(pane),
-                data: this.data,
+                data: this._internalData,
                 range,
                 scrollLeft: vp.scrollLeft,
                 kWidth: this.opt.kWidth,
@@ -1091,7 +1092,7 @@ export class Chart {
                     },
                     priceRange: { maxPrice: 0, minPrice: 0 },
                 },
-                data: this.data,
+                data: this._internalData,
                 range,
                 scrollLeft: vp.scrollLeft,
                 kWidth: this.opt.kWidth,
@@ -1259,7 +1260,7 @@ export class Chart {
      * 时仍保留 prev 值以记住用户拖拽过的高度——只有显式的 layout replacement 才重置。
      */
     updatePaneLayout(panes: PaneSpec[]): void {
-        this.paneRatios.clear()
+        this._internalPaneRatios.clear()
         this.applyPaneLayoutSpecs(panes)
     }
 
@@ -1281,7 +1282,7 @@ export class Chart {
 
     removePaneDefinition(paneId: string): void {
         if (!this.opt.panes.some((pane) => pane.id === paneId)) return
-        this.paneRatios.delete(paneId)
+        this._internalPaneRatios.delete(paneId)
         this.applyPaneLayoutSpecs(this.opt.panes.filter((pane) => pane.id !== paneId))
     }
 
@@ -1318,10 +1319,10 @@ export class Chart {
     /** 获取当前 pane 布局快照（含 ratio） */
     getPaneLayoutSpecs(): PaneSpec[] {
         const visible = this.opt.panes.filter(p => p.visible !== false)
-        const sum = visible.reduce((s, p) => s + (this.paneRatios.get(p.id) ?? p.ratio ?? 0), 0)
+        const sum = visible.reduce((s, p) => s + (this._internalPaneRatios.get(p.id) ?? p.ratio ?? 0), 0)
         const safeSum = sum > 0 ? sum : 1
         return this.opt.panes.map((spec) => {
-            const base = this.paneRatios.get(spec.id) ?? spec.ratio ?? 0
+            const base = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
             const ratio = spec.visible === false ? base : base / safeSum
             const pane = this.paneRenderers.find((r) => r.getPane().id === spec.id)?.getPane()
             return {
@@ -1354,7 +1355,7 @@ export class Chart {
     resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
         // === 1. 参数校验 ===
         if (!Number.isFinite(deltaY) || deltaY === 0) return false
-        const vp = this.viewport
+        const vp = this._internalViewport
         if (!vp) return false
 
         // === 2. 定位相邻 pane 对（边界两侧） ===
@@ -1423,7 +1424,7 @@ export class Chart {
 
         for (const spec of visibleSpecs) {
             const h = heights.get(spec.id) ?? 0
-            this.paneRatios.set(spec.id, h / availableH)
+            this._internalPaneRatios.set(spec.id, h / availableH)
         }
 
         // === 6. 归一化并同步 ===
@@ -1465,7 +1466,7 @@ export class Chart {
         if (!this.opt.panes.some((spec) => spec.id === paneId)) return
 
         const next = this.opt.panes.filter((spec) => spec.id !== paneId)
-        this.paneRatios.delete(paneId)
+        this._internalPaneRatios.delete(paneId)
         this.applyPaneLayoutSpecs(next)
     }
 
@@ -1495,17 +1496,17 @@ export class Chart {
         if (pricePanes.length === 1) {
             const pricePane = pricePanes[0]
             if (pricePane) {
-                this.paneRatios.set(pricePane.id, 3)
+                this._internalPaneRatios.set(pricePane.id, 3)
             }
             for (const pane of indicatorPanes) {
-                this.paneRatios.set(pane.id, 1)
+                this._internalPaneRatios.set(pane.id, 1)
             }
-            this.paneRatios.set(paneId, 1)
+            this._internalPaneRatios.set(paneId, 1)
         } else {
-            this.paneRatios.set(paneId, 1)
+            this._internalPaneRatios.set(paneId, 1)
         }
 
-        this.upsertPane({ id: paneId, ratio: this.paneRatios.get(paneId) ?? 1, visible: true, role: 'indicator' })
+        this.upsertPane({ id: paneId, ratio: this._internalPaneRatios.get(paneId) ?? 1, visible: true, role: 'indicator' })
 
         const success = this.subPaneManager.create(this, paneId, indicatorId, params ?? this.getDefaultSubPaneParams(indicatorId))
         return success
@@ -1517,7 +1518,7 @@ export class Chart {
      */
     removeSubPane(paneId: string): void {
         this.subPaneManager.remove(this, paneId)
-        this.paneRatios.delete(paneId)
+        this._internalPaneRatios.delete(paneId)
     }
 
     /**
@@ -1553,7 +1554,7 @@ export class Chart {
 
         // 清理 pane ratios
         for (const paneId of subPaneIds) {
-            this.paneRatios.delete(paneId)
+            this._internalPaneRatios.delete(paneId)
         }
 
         // 更新布局，移除所有副图 pane
@@ -1678,8 +1679,8 @@ export class Chart {
      * @param data K 线数据数组
      */
     updateData(data: KLineData[]) {
-        this.data = data ?? []
-        this.onDataChange?.(this.data)
+        this._internalData = data ?? []
+        this.onDataChange?.(this._internalData)
 
         // 重算 DOM scrollLeft 状态, 防止左右滚动超出数据长度范围
         const container = this.dom.container
@@ -1696,14 +1697,14 @@ export class Chart {
         this.interaction.reset()
 
         // 触发指标计算（在 scheduleDraw 之前，确保渲染器读到最新状态）
-        this.indicatorScheduler.update(this.data, this.lastVisibleRange)
+        this.indicatorScheduler.update(this._internalData, this.lastVisibleRange)
 
         this.scheduleDraw()
     }
 
     /** 获取当前数据源（供 renderers 和 interaction 使用） */
     getData(): KLineData[] {
-        return this.data
+        return this._internalData
     }
 
     /** 获取指标调度器（供外部控制器更新指标配置） */
@@ -1716,18 +1717,18 @@ export class Chart {
     }
 
     getLogicalSlotCount(): number {
-        return this.data.length + this.getTrailingSlotCount()
+        return this._internalData.length + this.getTrailingSlotCount()
     }
 
     getTimestampAtLogicalIndex(index: number): number | null {
-        if (!Number.isInteger(index) || index < 0 || index >= this.data.length) return null
-        return this.data[index]?.timestamp ?? null
+        if (!Number.isInteger(index) || index < 0 || index >= this._internalData.length) return null
+        return this._internalData[index]?.timestamp ?? null
     }
 
     /** 根据视口内 X 坐标反查逻辑索引（允许超出最后一根 K 线） */
     getLogicalIndexAtX(mouseX: number): number | null {
-        const vp = this.viewport
-        if (!vp || this.data.length === 0) return null
+        const vp = this._internalViewport
+        if (!vp || this._internalData.length === 0) return null
         const dpr = this.getEffectiveDpr()
         const { startXPx, unitPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
         const worldX = Math.round((vp.scrollLeft + mouseX) * dpr)
@@ -1739,7 +1740,7 @@ export class Chart {
     /** 根据视口内 X 坐标反查数据索引（用于绘图落点） */
     getDataIndexAtX(mouseX: number): number | null {
         const index = this.getLogicalIndexAtX(mouseX)
-        if (index === null || index >= this.data.length) return null
+        if (index === null || index >= this._internalData.length) return null
         return index
     }
 
@@ -1747,10 +1748,10 @@ export class Chart {
     /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
     getContentWidth(): number {
         return computeContentWidth({
-            dataLength: this.data.length,
+            dataLength: this._internalData.length,
             kWidth: this.opt.kWidth,
             kGap: this.opt.kGap,
-            viewWidth: this.viewport?.plotWidth ?? 0,
+            viewWidth: this._internalViewport?.plotWidth ?? 0,
             viewportDpr: this.getEffectiveDpr(),
         })
     }
@@ -1823,7 +1824,7 @@ export class Chart {
             this.onScroll = undefined
         }
 
-        this.viewport = null
+        this._internalViewport = null
         this.cachedDrawFrame = null
         this.xAxisCtx = null
         this.paneRenderers.forEach((r) => r.destroy())
@@ -1914,23 +1915,23 @@ export class Chart {
     private syncPaneRatiosFromSpecs(specs: PaneSpec[]): void {
         const next = new Map<string, number>()
         for (const spec of specs) {
-            const prev = this.paneRatios.get(spec.id)
+            const prev = this._internalPaneRatios.get(spec.id)
             const incoming = Number.isFinite(spec.ratio) ? spec.ratio : 0
             const ratio = prev !== undefined ? prev : (incoming > 0 ? incoming : 1)
             next.set(spec.id, ratio)
         }
-        this.paneRatios = next
+        this._internalPaneRatios = next
         this.normalizeVisiblePaneRatios(specs)
         this.syncPaneRatiosToSpecs()
     }
 
     private syncPaneRatiosToSpecs(): void {
         const visible = this.opt.panes.filter(p => p.visible !== false)
-        const visibleSum = visible.reduce((s, p) => s + (this.paneRatios.get(p.id) ?? p.ratio ?? 0), 0)
+        const visibleSum = visible.reduce((s, p) => s + (this._internalPaneRatios.get(p.id) ?? p.ratio ?? 0), 0)
         const safeVisibleSum = visibleSum > 0 ? visibleSum : 1
 
         this.opt.panes = this.opt.panes.map((spec) => {
-            const ratio = this.paneRatios.get(spec.id) ?? spec.ratio ?? 0
+            const ratio = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
             if (spec.visible === false) {
                 return { ...spec, ratio }
             }
@@ -1944,23 +1945,23 @@ export class Chart {
 
         let sum = 0
         for (const spec of visible) {
-            const raw = this.paneRatios.get(spec.id) ?? spec.ratio ?? 0
+            const raw = this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0
             const safe = Number.isFinite(raw) && raw > 0 ? raw : 0
-            this.paneRatios.set(spec.id, safe)
+            this._internalPaneRatios.set(spec.id, safe)
             sum += safe
         }
 
         if (sum <= 0) {
             const equal = 1 / visible.length
             for (const spec of visible) {
-                this.paneRatios.set(spec.id, equal)
+                this._internalPaneRatios.set(spec.id, equal)
             }
             return
         }
 
         for (const spec of visible) {
-            const v = this.paneRatios.get(spec.id) ?? 0
-            this.paneRatios.set(spec.id, v / sum)
+            const v = this._internalPaneRatios.get(spec.id) ?? 0
+            this._internalPaneRatios.set(spec.id, v / sum)
         }
     }
 
@@ -1973,7 +1974,7 @@ export class Chart {
     private computePaneHeightsByRatio(visibleSpecs: PaneSpec[], availableH: number): number[] {
         if (visibleSpecs.length === 0) return []
 
-        const ratios = visibleSpecs.map(spec => this.paneRatios.get(spec.id) ?? spec.ratio ?? 0)
+        const ratios = visibleSpecs.map(spec => this._internalPaneRatios.get(spec.id) ?? spec.ratio ?? 0)
         const ratioSum = ratios.reduce((s, r) => s + (r > 0 ? r : 0), 0)
         const safeRatios = ratioSum > 0
             ? ratios.map(r => (r > 0 ? r : 0) / ratioSum)
@@ -2017,7 +2018,7 @@ export class Chart {
 
     /** 计算每个 pane 的布局（top 和 height） */
     private layoutPanes() {
-        const vp = this.viewport
+        const vp = this._internalViewport
         if (!vp) return
 
         const visibleSpecs = this.opt.panes.filter(p => p.visible !== false)
@@ -2069,7 +2070,7 @@ export class Chart {
             const renderer = this.paneRenderers.find(r => r.getPane().id === spec.id)
             if (!renderer) continue
             const h = renderer.getPane().height
-            this.paneRatios.set(spec.id, h / finalAvailable)
+            this._internalPaneRatios.set(spec.id, h / finalAvailable)
         }
         this.normalizeVisiblePaneRatios(visibleSpecs)
         this.syncPaneRatiosToSpecs()
@@ -2141,7 +2142,7 @@ export class Chart {
             scrollLeft,
             dpr,
         }
-        const prevViewport = this.viewport
+        const prevViewport = this._internalViewport
         const viewportChanged = !prevViewport
             || prevViewport.viewWidth !== vp.viewWidth
             || prevViewport.viewHeight !== vp.viewHeight
@@ -2150,7 +2151,7 @@ export class Chart {
             || prevViewport.scrollLeft !== vp.scrollLeft
             || prevViewport.dpr !== vp.dpr
 
-        this.viewport = vp
+        this._internalViewport = vp
         if (viewportChanged) {
             this.onViewportChange?.(vp)
         }
@@ -2161,13 +2162,15 @@ export class Chart {
 
     // ---------- Signals ----------
     private _viewportSignal = createSignal<ViewportState>({
-        zoomLevel: this.currentZoomLevel,
+        zoomLevel: 1,
         plotWidth: 0,
         plotHeight: 0,
         dpr: 1,
         visibleFrom: 0,
         visibleTo: 0,
-        desiredScrollLeft: 0,
+        desiredScrollLeft: undefined,
+        kWidth: 0,
+        kGap: 1,
     })
 
     private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
@@ -2234,7 +2237,7 @@ export class Chart {
      * 合并现有数据并更新
      */
     appendData(newData: KLineData[]): void {
-        const current = this.data.peek()
+        const current = this._dataSignal.peek()
         const merged = [...current, ...newData]
         this.setData(merged)
     }
@@ -2276,75 +2279,48 @@ export class Chart {
 
     /**
      * 内部缩放实现
+     * 使用 computeZoom 纯函数计算精确的 scrollLeft
      */
-    private applyZoom(targetLevel: number, anchorX?: number): void {
+    private applyZoom(targetLevel: number, anchorViewportX?: number): void {
         if (targetLevel === this.currentZoomLevel) return
 
-        const anchor = typeof anchorX === 'number' ? anchorX : 0
+        const delta = targetLevel - this.currentZoomLevel
         const scrollLeft = this.getCachedScrollLeft()
         const dpr = this.getCurrentDpr()
 
-        // 计算新的 kWidth/kGap
-        const { kWidth, kGap } = this.computeZoomState(targetLevel, dpr)
-
-        // 计算期望的 scrollLeft
-        const desiredScrollLeft = this.computeScrollLeftForZoom(
-            targetLevel,
-            this.currentZoomLevel,
-            kWidth,
-            kGap,
-            anchor,
+        const result = computeZoom(
+            delta,
+            anchorViewportX ?? 0,
             scrollLeft,
+            this.currentZoomLevel,
+            this.opt.kWidth,
+            this.opt.kGap,
+            {
+                minKWidth: this.opt.minKWidth,
+                maxKWidth: this.opt.maxKWidth,
+                zoomLevelCount: this.zoomLevelCount,
+                dpr,
+            },
         )
 
+        if (!result) return
+
         // 应用 render state
-        this.currentZoomLevel = targetLevel
-        this.applyRenderState(kWidth, kGap, targetLevel)
+        this.currentZoomLevel = result.targetLevel
+        this.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
 
         // 更新 viewport signal
         this._viewportSignal.set({
-            zoomLevel: targetLevel,
-            plotWidth: this.viewport?.plotWidth ?? 0,
-            plotHeight: this.viewport?.plotHeight ?? 0,
+            zoomLevel: result.targetLevel,
+            plotWidth: this._internalViewport?.plotWidth ?? 0,
+            plotHeight: this._internalViewport?.plotHeight ?? 0,
             dpr,
             visibleFrom: this.lastVisibleRange.start,
             visibleTo: this.lastVisibleRange.end,
-            desiredScrollLeft,
+            desiredScrollLeft: result.newScrollLeft,
+            kWidth: result.newKWidth,
+            kGap: result.newKGap,
         })
-    }
-
-    /**
-     * 计算缩放后的状态
-     */
-    private computeZoomState(level: number, dpr: number): { kWidth: number; kGap: number } {
-        const { minKWidth, maxKWidth } = this.opt
-        const zoomLevelCount = this.zoomLevelCount
-
-        // 线性插值计算 kWidth
-        const t = (level - 1) / (zoomLevelCount - 1)
-        const kWidth = minKWidth + (maxKWidth - minKWidth) * t
-        const kGap = Math.max(0, Math.floor(kWidth * 0.1)) // 间隙为宽度的 10%
-
-        return { kWidth, kGap }
-    }
-
-    /**
-     * 计算缩放后的期望 scrollLeft
-     */
-    private computeScrollLeftForZoom(
-        targetLevel: number,
-        currentLevel: number,
-        newKWidth: number,
-        newKGap: number,
-        anchorX: number,
-        scrollLeft: number,
-    ): number {
-        // 基于 anchorX 保持位置不变计算新的 scrollLeft
-        const { kWidth: oldKWidth } = this.opt
-        const contentWidthRatio = newKWidth / oldKWidth
-        const newScrollLeft = anchorX * contentWidthRatio - anchorX + scrollLeft * contentWidthRatio
-
-        return Math.max(0, newScrollLeft)
     }
 
     // ---------- Interaction (Zero-config unified entry) ----------
@@ -2417,7 +2393,7 @@ export class Chart {
 
     /**
      * 滚轮事件处理（高层 API）
-     * 计算缩放并更新 viewport signal
+     * 使用 computeZoom 计算精确的 scrollLeft，更新 viewport signal
      */
     handleWheelEvent(e: WheelEvent): void {
         e.preventDefault()
@@ -2427,11 +2403,11 @@ export class Chart {
 
         if (targetLevel === this.currentZoomLevel) return
 
-        // 获取鼠标在容器中的位置作为缩放锚点
+        // 获取鼠标在视口中的位置作为缩放锚点（视口局部坐标）
         const rect = this.dom.container.getBoundingClientRect()
-        const anchorX = e.clientX - rect.left + this.getCachedScrollLeft()
+        const mouseX = e.clientX - rect.left
 
-        this.applyZoom(targetLevel, anchorX)
+        this.applyZoom(targetLevel, mouseX)
     }
 
     /**
@@ -2445,10 +2421,23 @@ export class Chart {
     }
 
     /**
-     * 更新 viewport signal
+     * 双指捏合缩放处理（高层 API）
+     * @param delta 缩放增量（+1 放大 / -1 缩小）
+     * @param centerClientX 捏合中心在视口中的 X 坐标
+     */
+    handlePinchZoom(delta: number, centerClientX: number): void {
+        const targetLevel = Math.max(1, Math.min(this.zoomLevelCount, this.currentZoomLevel + delta))
+        if (targetLevel === this.currentZoomLevel) return
+
+        // centerClientX 已经是视口局部坐标，直接使用
+        this.applyZoom(targetLevel, centerClientX)
+    }
+
+    /**
+     * 更新 viewport signal（用于滚动事件，不更新 desiredScrollLeft）
      */
     private updateViewportSignal(): void {
-        const vp = this.viewport
+        const vp = this._internalViewport
         if (!vp) return
 
         this._viewportSignal.set({
@@ -2458,7 +2447,10 @@ export class Chart {
             dpr: vp.dpr,
             visibleFrom: this.lastVisibleRange.start,
             visibleTo: this.lastVisibleRange.end,
-            desiredScrollLeft: this.getCachedScrollLeft(),
+            // 滚动事件不设置 desiredScrollLeft
+            desiredScrollLeft: undefined,
+            kWidth: this.opt.kWidth,
+            kGap: this.opt.kGap,
         })
     }
 
@@ -2605,7 +2597,7 @@ export class Chart {
             paneId: entry.paneId,
             indicatorId: entry.indicatorId,
             params: entry.params,
-            ratio: this.paneRatios.get(entry.paneId) ?? 1,
+            ratio: this._internalPaneRatios.get(entry.paneId) ?? 1,
         }))
 
         this._subPanesSignal.set(subPanes)
@@ -2677,7 +2669,7 @@ export class Chart {
      */
     initFacadeSignals(): void {
         // 同步初始数据
-        this._dataSignal.set([...this.data])
+        this._dataSignal.set([...this._internalData])
 
         // 同步指标
         this.syncIndicatorsSignal()
@@ -2687,7 +2679,7 @@ export class Chart {
 
         // 同步 pane ratios
         const ratios: Record<string, number> = {}
-        this.paneRatios.forEach((ratio, id) => {
+        this._internalPaneRatios.forEach((ratio, id) => {
             ratios[id] = ratio
         })
         this._paneRatiosSignal.set(ratios)
@@ -2726,7 +2718,9 @@ export type ViewportState = {
     dpr: number
     visibleFrom: number
     visibleTo: number
-    desiredScrollLeft: number
+    desiredScrollLeft: number | undefined
+    kWidth: number
+    kGap: number
 }
 
 export type IndicatorRole = 'main' | 'sub'

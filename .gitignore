@@ -28,6 +28,12 @@ coverage
 
 *.tsbuildinfo
 
+# TypeScript build outputs (compiled alongside source)
+src/core/**/*.js
+src/core/**/*.js.map
+src/core/**/*.d.ts
+src/core/**/*.d.ts.map
+
 .eslintcache
 
 # Cypress

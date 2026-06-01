@@ -27,15 +27,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@klinechart-quant/core': fileURLToPath(
-                new URL('../../core/src/index.ts', import.meta.url),
+                new URL('../../core/src', import.meta.url),
             ),
-            '@klinechart-quant/core/reactivity': fileURLToPath(
-                new URL('../../core/src/reactivity/index.ts', import.meta.url),
-            ),
-            '@klinechart-quant/core/controllers': fileURLToPath(
-                new URL('../../core/src/controllers/index.ts', import.meta.url),
-            ),
-            '@': fileURLToPath(new URL('../../../src', import.meta.url)),
         },
     },
 })

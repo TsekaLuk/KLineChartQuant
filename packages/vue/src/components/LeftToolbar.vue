@@ -264,9 +264,9 @@ import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
   type SettingItem,
-} from '@/config/chartSettings'
-import { useFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
-import { setCanvasProfilerEnabled } from '@/debug/canvasProfiler'
+} from '@klinechart-quant/core/config'
+import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
 
 export interface ToolDef {
   id: string

@@ -20,6 +20,62 @@
     "./controllers": {
       "types": "./src/controllers/index.ts",
       "import": "./src/controllers/index.ts"
+    },
+    "./semantic": {
+      "types": "./src/semantic/index.ts",
+      "import": "./src/semantic/index.ts"
+    },
+    "./plugin": {
+      "types": "./src/plugin/index.ts",
+      "import": "./src/plugin/index.ts"
+    },
+    "./config": {
+      "types": "./src/config/chartSettings.ts",
+      "import": "./src/config/chartSettings.ts"
+    },
+    "./types/price": {
+      "types": "./src/types/price.ts",
+      "import": "./src/types/price.ts"
+    },
+    "./engine/chart": {
+      "types": "./src/engine/chart.ts",
+      "import": "./src/engine/chart.ts"
+    },
+    "./engine/chart-store": {
+      "types": "./src/engine/chart-store.ts",
+      "import": "./src/engine/chart-store.ts"
+    },
+    "./engine/utils/zoom": {
+      "types": "./src/engine/utils/zoom.ts",
+      "import": "./src/engine/utils/zoom.ts"
+    },
+    "./engine/utils/klineConfig": {
+      "types": "./src/engine/utils/klineConfig.ts",
+      "import": "./src/engine/utils/klineConfig.ts"
+    },
+    "./engine/renderers/Indicator": {
+      "types": "./src/engine/renderers/Indicator/index.ts",
+      "import": "./src/engine/renderers/Indicator/index.ts"
+    },
+    "./engine/renderers/Indicator/subPaneConfig": {
+      "types": "./src/engine/renderers/Indicator/subPaneConfig.ts",
+      "import": "./src/engine/renderers/Indicator/subPaneConfig.ts"
+    },
+    "./engine/renderers/Indicator/indicatorData": {
+      "types": "./src/engine/renderers/Indicator/indicatorData.ts",
+      "import": "./src/engine/renderers/Indicator/indicatorData.ts"
+    },
+    "./engine/renderers/paneTitle": {
+      "types": "./src/engine/renderers/paneTitle.ts",
+      "import": "./src/engine/renderers/paneTitle.ts"
+    },
+    "./engine/controller/interaction": {
+      "types": "./src/engine/controller/interaction.ts",
+      "import": "./src/engine/controller/interaction.ts"
+    },
+    "./engine/drawing": {
+      "types": "./src/engine/drawing/index.ts",
+      "import": "./src/engine/drawing/index.ts"
     }
   },
   "files": [

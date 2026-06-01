@@ -108,26 +108,26 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
-import { SemanticChartController, type SemanticChartConfig } from '@/semantic'
+import { SemanticChartController, type SemanticChartConfig } from '@klinechart-quant/core/semantic'
 import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
-import { Chart, type PaneSpec } from '@/core/chart'
-import type { KLineData } from '@/types/price'
-import { createChartStore, TRAILING_DRAWING_SLOTS, type ChartStore } from '@/core/chart-store'
-import { zoomLevelToKWidth, kGapFromKWidth } from '@/core/utils/zoom'
-import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
-import { type SubIndicatorType } from '@/core/renderers/Indicator'
+import { Chart, type PaneSpec } from '@klinechart-quant/core/engine/chart'
+import type { KLineData } from '@klinechart-quant/core/types/price'
+import { createChartStore, TRAILING_DRAWING_SLOTS, type ChartStore } from '@klinechart-quant/core/engine/chart-store'
+import { zoomLevelToKWidth, kGapFromKWidth } from '@klinechart-quant/core/engine/utils/zoom'
+import { getPhysicalKLineConfig } from '@klinechart-quant/core/engine/utils/klineConfig'
+import { type SubIndicatorType } from '@klinechart-quant/core/engine/renderers/Indicator'
 import {
   SUB_PANE_INDICATOR_CONFIGS,
   SUB_PANE_INDICATORS,
-} from '@/core/renderers/Indicator/subPaneConfig'
-import { createPaneTitleRendererPlugin, type TitleInfo } from '@/core/renderers/paneTitle'
-import type { InteractionSnapshot } from '@/core/controller/interaction'
-import type { DrawingStyle } from '@/plugin'
+} from '@klinechart-quant/core/engine/renderers/Indicator/subPaneConfig'
+import { createPaneTitleRendererPlugin, type TitleInfo } from '@klinechart-quant/core/engine/renderers/paneTitle'
+import type { InteractionSnapshot } from '@klinechart-quant/core/engine/controller/interaction'
+import type { DrawingStyle } from '@klinechart-quant/core/plugin'
 import LeftToolbar from './LeftToolbar.vue'
-import { DrawingInteractionController, type DrawingToolId } from '@/core/drawing'
+import { DrawingInteractionController, type DrawingToolId } from '@klinechart-quant/core/engine/drawing'
 
 const props = withDefaults(
   defineProps<{

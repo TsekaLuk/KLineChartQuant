@@ -238,9 +238,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import IndicatorParams from './IndicatorParams.vue'
-import { useFullscreenTeleportTarget } from '@/composables/useFullscreenTeleportTarget'
-import { mainIndicators, subIndicators, findIndicator, isSubIndicatorId } from '@/core/renderers/Indicator/indicatorData'
-import type { Indicator } from '@/core/renderers/Indicator/indicatorData'
+import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+import { mainIndicators, subIndicators, findIndicator, isSubIndicatorId } from '@klinechart-quant/core/engine/renderers/Indicator/indicatorData'
+import type { Indicator } from '@klinechart-quant/core/engine/renderers/Indicator/indicatorData'
 
 const props = defineProps<{
   activeIndicators?: string[]

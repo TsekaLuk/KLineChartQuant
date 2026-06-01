@@ -75,22 +75,7 @@
       >
         <IconTablerZoomOut class="tool-icon" aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        class="left-toolbar__button"
-        title="缩小"
-        aria-label="缩小"
-        @click="$emit('zoomOut')"
-        @pointerdown.stop
-        @pointermove.stop
-        @pointerup.stop
-      >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          <line x1="8" y1="11" x2="14" y2="11" />
-        </svg>
-      </button>
+
     </div>
 
     <span class="left-toolbar__divider"></span>

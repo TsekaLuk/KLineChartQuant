@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
-import { SemanticChartController, type SemanticChartConfig } from '@klinechart-quant/core/semantic'
+import { SemanticChartController, __setDataFetcher, type SemanticChartConfig, type DataFetcher } from '@klinechart-quant/core/semantic'
 import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
@@ -133,6 +133,9 @@ const props = withDefaults(
   defineProps<{
     /** 语义化配置（必需，唯一控制源） */
     semanticConfig: SemanticChartConfig
+
+    /** 数据获取函数（必需）。框架不绑定数据源，由使用者注入。 */
+    dataFetcher: DataFetcher
 
     yPaddingPx?: number
     minKWidth?: number
@@ -1246,6 +1249,7 @@ function setupInteractionCallbacks(chart: Chart): void {
 
 /** 语义化控制器：外部配置 → Chart API 的桥梁 */
 function setupSemanticController(chart: Chart): void {
+  __setDataFetcher(props.dataFetcher)
   semanticController.value = new SemanticChartController(chart)
 
   semanticController.value.on('config:error', (error) => {

@@ -1,12 +1,12 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { getColors, type ChartTheme } from '@/core/theme/colors'
-import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-import type { STOCHRenderState } from '@/core/indicators/stochState'
-import { createSTOCHStateKey } from '@/core/indicators/stochState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import { getColors, type ChartTheme } from '../../theme/colors'
+import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import type { STOCHRenderState } from '../../indicators/stochState'
+import { createSTOCHStateKey } from '../../indicators/stochState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 

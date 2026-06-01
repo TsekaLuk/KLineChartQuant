@@ -1,10 +1,10 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { KAMARenderState } from '@/core/indicators/kamaState'
-import { createKAMAStateKey } from '@/core/indicators/kamaState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KAMARenderState } from '../../indicators/kamaState'
+import { createKAMAStateKey } from '../../indicators/kamaState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 const KAMA_COLOR = '#0ea5e9'
 

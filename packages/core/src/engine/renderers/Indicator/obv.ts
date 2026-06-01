@@ -1,10 +1,10 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { OBVRenderState } from '@/core/indicators/obvState'
-import { createOBVStateKey } from '@/core/indicators/obvState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { OBVRenderState } from '../../indicators/obvState'
+import { createOBVStateKey } from '../../indicators/obvState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 const OBV_COLOR = '#16a34a'
 

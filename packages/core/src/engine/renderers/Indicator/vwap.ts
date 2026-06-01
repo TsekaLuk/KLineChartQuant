@@ -1,10 +1,10 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { VWAPRenderState } from '@/core/indicators/vwapState'
-import { createVWAPStateKey } from '@/core/indicators/vwapState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { VWAPRenderState } from '../../indicators/vwapState'
+import { createVWAPStateKey } from '../../indicators/vwapState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 const VWAP_COLOR = '#ec4899'
 

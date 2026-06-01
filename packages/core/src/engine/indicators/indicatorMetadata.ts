@@ -5,7 +5,7 @@
  * 每个指标通过 metadata 描述其状态 key、渲染器工厂等元信息
  */
 
-import type { PluginHost, RendererPluginWithHost } from '@/plugin'
+import type { PluginHost, RendererPluginWithHost } from '../../plugin'
 import type { IndicatorConfigSnapshot } from './workerProtocol'
 
 /**

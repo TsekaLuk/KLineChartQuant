@@ -4,7 +4,7 @@
  * 可被主线程（inline fallback）或 Worker 使用
  */
 
-import type { KLineData } from '@/types/price'
+import type { KLineData } from '../../types/price'
 import {
     calcMAData,
     calcBOLLData,

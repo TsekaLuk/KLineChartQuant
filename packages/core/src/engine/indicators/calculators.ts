@@ -1,4 +1,4 @@
-import type { KLineData } from '@/types/price'
+import type { KLineData } from '../../types/price'
 
 /**
  * MA 周期配置标志

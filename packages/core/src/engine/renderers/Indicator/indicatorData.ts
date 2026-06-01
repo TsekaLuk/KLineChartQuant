@@ -1,4 +1,13 @@
-import type { ParamConfig } from '@/components/IndicatorParams.vue'
+export interface ParamConfig {
+  key: string
+  label: string
+  type: 'number'
+  min?: number
+  max?: number
+  step?: number
+  default?: number
+  description?: string
+}
 
 export interface Indicator {
   id: string

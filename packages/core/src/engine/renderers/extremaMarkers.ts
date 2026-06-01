@@ -1,9 +1,9 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
-import type { KLineData } from '@/types/price'
-import { roundToPhysicalPixel, alignToPhysicalPixelCenter, createHorizontalLineRect } from '@/core/draw/pixelAlign'
-import { getColors, type ThemeColors } from '@/core/theme/colors'
-import { getFont, setCanvasFont } from '@/core/theme/fonts'
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { roundToPhysicalPixel, alignToPhysicalPixelCenter, createHorizontalLineRect } from '../draw/pixelAlign'
+import { getColors, type ThemeColors } from '../theme/colors'
+import { getFont, setCanvasFont } from '../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256

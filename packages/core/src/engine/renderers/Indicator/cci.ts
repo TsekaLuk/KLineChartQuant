@@ -1,11 +1,11 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { getColors, type ChartTheme } from '@/core/theme/colors'
-import type { CCIRenderState } from '@/core/indicators/cciState'
-import { createCCIStateKey } from '@/core/indicators/cciState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import { getColors, type ChartTheme } from '../../theme/colors'
+import type { CCIRenderState } from '../../indicators/cciState'
+import { createCCIStateKey } from '../../indicators/cciState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 

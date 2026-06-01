@@ -1,12 +1,12 @@
-import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { KLineData } from '@/types/price'
-import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-import { getColors } from '@/core/theme/colors'
-import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
+import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import { getColors } from '../../theme/colors'
+import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 

@@ -1,5 +1,5 @@
 import type { IndicatorMetadata, IndicatorCategory, StateKey, RendererFactory } from './indicatorMetadata'
-import type { PluginHost } from '@/plugin'
+import type { PluginHost } from '../../plugin'
 
 export interface IndicatorDefinitionConfig {
     name: string

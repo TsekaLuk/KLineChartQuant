@@ -1,19 +1,19 @@
-import type { KLineData } from '@/types/price'
-import type { ChartSettings } from '@/config/chartSettings'
+import type { KLineData } from '../types/price'
+import type { ChartSettings } from '../config/chartSettings'
 import { createSignal, type Signal } from '../reactivity/signal'
-import { getVisibleRange } from '@/core/viewport/viewport'
-import { Pane, type VisibleRange, UpdateLevel } from '@/core/layout/pane'
-import { InteractionController, type InteractionSnapshot } from '@/core/controller/interaction'
+import { getVisibleRange } from './viewport/viewport'
+import { Pane, type VisibleRange, UpdateLevel } from './layout/pane'
+import { InteractionController, type InteractionSnapshot } from './controller/interaction'
 export type { InteractionSnapshot }
-import { PaneRenderer } from '@/core/paneRenderer'
-import { SharedWebGLSurface } from '@/core/renderers/webgl/sharedWebGLSurface'
+import { PaneRenderer } from './paneRenderer'
+import { SharedWebGLSurface } from './renderers/webgl/sharedWebGLSurface'
 import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
-import { getPhysicalKLineConfig, calcKWidthPx } from '@/core/utils/klineConfig'
-import { computeContentWidth } from '@/core/chart-store'
-import { computeZoom, computeZoomToLevel, type ZoomConfig } from '@/core/utils/zoom'
-import { IndicatorScheduler } from '@/core/indicators/scheduler'
-import { getRegisteredIndicatorDefinitions } from '@/core/indicators/indicatorDefinitionRegistry'
-import { SubPaneManager, type SubPaneEntry } from '@/core/subPaneManager'
+import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
+import { computeContentWidth } from './chart-store'
+import { computeZoom, computeZoomToLevel, type ZoomConfig } from './utils/zoom'
+import { IndicatorScheduler } from './indicators/scheduler'
+import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
+import { SubPaneManager, type SubPaneEntry } from './subPaneManager'
 
 import {
     createPluginHost,
@@ -29,37 +29,37 @@ import {
     type XAxisLabel,
     type YAxisRange,
     type XAxisRange,
-} from '@/plugin'
-import { createSubIndicatorRenderer, type SubIndicatorType } from '@/core/renderers/Indicator'
-import { createMARendererPlugin } from '@/core/renderers/Indicator/ma'
-import { createBOLLRendererPlugin } from '@/core/renderers/Indicator/boll'
-import { createEXPMARendererPlugin } from '@/core/renderers/Indicator/expma'
-import { createENERendererPlugin } from '@/core/renderers/Indicator/ene'
-import { createWMARendererPlugin } from '@/core/renderers/Indicator/wma'
-import { createDEMARendererPlugin } from '@/core/renderers/Indicator/dema'
-import { createTEMARendererPlugin } from '@/core/renderers/Indicator/tema'
-import { createHMARendererPlugin } from '@/core/renderers/Indicator/hma'
-import { createKAMARendererPlugin } from '@/core/renderers/Indicator/kama'
-import { createSARRendererPlugin } from '@/core/renderers/Indicator/sar'
-import { createSuperTrendRendererPlugin } from '@/core/renderers/Indicator/supertrend'
-import { createKeltnerRendererPlugin } from '@/core/renderers/Indicator/keltner'
-import { createDonchianRendererPlugin } from '@/core/renderers/Indicator/donchian'
-import { createIchimokuRendererPlugin } from '@/core/renderers/Indicator/ichimoku'
-import { createPivotRendererPlugin } from '@/core/renderers/Indicator/pivot'
-import { createFibRendererPlugin } from '@/core/renderers/Indicator/fib'
-import { createStructureRendererPlugin } from '@/core/renderers/Indicator/structure'
-import { createZonesRendererPlugin } from '@/core/renderers/Indicator/zones'
-import { createMainIndicatorLegendRendererPlugin } from '@/core/renderers/Indicator/mainIndicatorLegend'
-import { DrawingStore } from '@/core/drawing'
-import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from '@/core/drawing/plugin'
-import { createGridLinesRendererPlugin } from '@/core/renderers/gridLines'
-import { createCandleRenderer } from '@/core/renderers/candle'
-import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from '@/core/renderers/lastPrice'
-import { createCustomMarkersRenderer } from '@/core/renderers/customMarkers'
-import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
-import { createCrosshairRendererPlugin } from '@/core/renderers/crosshair'
-import { createTimeAxisRendererPlugin } from '@/core/renderers/timeAxis'
-import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from '@/core/indicators/scheduler'
+} from '../plugin'
+import { createSubIndicatorRenderer, type SubIndicatorType } from './renderers/Indicator'
+import { createMARendererPlugin } from './renderers/Indicator/ma'
+import { createBOLLRendererPlugin } from './renderers/Indicator/boll'
+import { createEXPMARendererPlugin } from './renderers/Indicator/expma'
+import { createENERendererPlugin } from './renderers/Indicator/ene'
+import { createWMARendererPlugin } from './renderers/Indicator/wma'
+import { createDEMARendererPlugin } from './renderers/Indicator/dema'
+import { createTEMARendererPlugin } from './renderers/Indicator/tema'
+import { createHMARendererPlugin } from './renderers/Indicator/hma'
+import { createKAMARendererPlugin } from './renderers/Indicator/kama'
+import { createSARRendererPlugin } from './renderers/Indicator/sar'
+import { createSuperTrendRendererPlugin } from './renderers/Indicator/supertrend'
+import { createKeltnerRendererPlugin } from './renderers/Indicator/keltner'
+import { createDonchianRendererPlugin } from './renderers/Indicator/donchian'
+import { createIchimokuRendererPlugin } from './renderers/Indicator/ichimoku'
+import { createPivotRendererPlugin } from './renderers/Indicator/pivot'
+import { createFibRendererPlugin } from './renderers/Indicator/fib'
+import { createStructureRendererPlugin } from './renderers/Indicator/structure'
+import { createZonesRendererPlugin } from './renderers/Indicator/zones'
+import { createMainIndicatorLegendRendererPlugin } from './renderers/Indicator/mainIndicatorLegend'
+import { DrawingStore } from './drawing'
+import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from './drawing/plugin'
+import { createGridLinesRendererPlugin } from './renderers/gridLines'
+import { createCandleRenderer } from './renderers/candle'
+import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from './renderers/lastPrice'
+import { createCustomMarkersRenderer } from './renderers/customMarkers'
+import { createYAxisRendererPlugin } from './renderers/yAxis'
+import { createCrosshairRendererPlugin } from './renderers/crosshair'
+import { createTimeAxisRendererPlugin } from './renderers/timeAxis'
+import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from './indicators/scheduler'
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig, calcKWidthPx }
@@ -1372,7 +1372,7 @@ export class Chart {
     }
 
     /** 更新绘图对象 */
-    setDrawings(drawings: import('@/plugin').DrawingObject[]): void {
+    setDrawings(drawings: import('../plugin').DrawingObject[]): void {
         this.drawingStore.setAll(drawings)
         this._drawingsSignal.set(drawings)
         this.scheduleDraw()
@@ -2266,7 +2266,7 @@ export class Chart {
     private _indicatorsSignal = createSignal<ReadonlyArray<IndicatorInstance>>([])
     private _subPanesSignal = createSignal<ReadonlyArray<SubPaneInfo>>([])
     private _drawingToolSignal = createSignal<DrawingToolType | null>(null)
-    private _drawingsSignal = createSignal<ReadonlyArray<import('@/plugin').DrawingObject>>([])
+    private _drawingsSignal = createSignal<ReadonlyArray<import('../plugin').DrawingObject>>([])
     private _paneRatiosSignal = createSignal<Readonly<Record<string, number>>>({})
     private _interactionSignal = createSignal<InteractionSnapshot>({
         crosshairPos: null,
@@ -2316,7 +2316,7 @@ export class Chart {
     }
 
     /** 绘图对象列表信号 */
-    get drawings(): Signal<ReadonlyArray<import('@/plugin').DrawingObject>> {
+    get drawings(): Signal<ReadonlyArray<import('../plugin').DrawingObject>> {
         return this._drawingsSignal
     }
 

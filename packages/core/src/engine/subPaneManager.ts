@@ -1,17 +1,17 @@
 import type { Chart } from './chart'
-import type { SubIndicatorType } from '@/core/renderers/Indicator'
-import { createSubIndicatorRenderer } from '@/core/renderers/Indicator'
-import { createVolumeScaleRendererPlugin } from '@/core/renderers/Indicator/scale/volume_scale'
-import { createMacdScaleRendererPlugin } from '@/core/renderers/Indicator/scale/macd_scale'
-import { createRsiScaleRendererPlugin } from '@/core/renderers/Indicator/scale/rsi_scale'
-import { createCciScaleRendererPlugin } from '@/core/renderers/Indicator/scale/cci_scale'
-import { createStochScaleRendererPlugin } from '@/core/renderers/Indicator/scale/stoch_scale'
-import { createMomScaleRendererPlugin } from '@/core/renderers/Indicator/scale/mom_scale'
-import { createWmsrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/wmsr_scale'
-import { createKstScaleRendererPlugin } from '@/core/renderers/Indicator/scale/kst_scale'
-import { createFastkScaleRendererPlugin } from '@/core/renderers/Indicator/scale/fastk_scale'
-import { createAtrScaleRendererPlugin } from '@/core/renderers/Indicator/scale/atr_scale'
-import { createIndicatorScaleRendererPlugin } from '@/core/renderers/Indicator/scale/indicator_scale'
+import type { SubIndicatorType } from './renderers/Indicator'
+import { createSubIndicatorRenderer } from './renderers/Indicator'
+import { createVolumeScaleRendererPlugin } from './renderers/Indicator/scale/volume_scale'
+import { createMacdScaleRendererPlugin } from './renderers/Indicator/scale/macd_scale'
+import { createRsiScaleRendererPlugin } from './renderers/Indicator/scale/rsi_scale'
+import { createCciScaleRendererPlugin } from './renderers/Indicator/scale/cci_scale'
+import { createStochScaleRendererPlugin } from './renderers/Indicator/scale/stoch_scale'
+import { createMomScaleRendererPlugin } from './renderers/Indicator/scale/mom_scale'
+import { createWmsrScaleRendererPlugin } from './renderers/Indicator/scale/wmsr_scale'
+import { createKstScaleRendererPlugin } from './renderers/Indicator/scale/kst_scale'
+import { createFastkScaleRendererPlugin } from './renderers/Indicator/scale/fastk_scale'
+import { createAtrScaleRendererPlugin } from './renderers/Indicator/scale/atr_scale'
+import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
 import type {
     RSISchedulerConfig,
     CCISchedulerConfig,
@@ -47,8 +47,8 @@ import type {
     StructureSchedulerConfig,
     ZonesSchedulerConfig,
     VolumeProfileSchedulerConfig,
-} from '@/core/indicators/scheduler'
-import type { MACDSchedulerConfig } from '@/core/indicators/macdState'
+} from './indicators/scheduler'
+import type { MACDSchedulerConfig } from './indicators/macdState'
 
 export interface SubPaneEntry {
     paneId: string
@@ -308,7 +308,7 @@ export class SubPaneManager {
 
         const opts = { axisWidth, paneId, yPaddingPx, getCrosshair }
 
-        let renderer: import('@/plugin').RendererPluginWithHost
+        let renderer: import('../plugin').RendererPluginWithHost
         switch (indicatorId) {
             case 'VOLUME':
                 renderer = createVolumeScaleRendererPlugin(opts)

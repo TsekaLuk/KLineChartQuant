@@ -1,10 +1,10 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
-import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/axis'
-import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
-import { getColors } from '@/core/theme/colors'
-import type { KLineData } from '@/types/price'
-import type { ScaleType } from '@/core/utils/tickPosition'
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
+import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
+import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
+import { getColors } from '../theme/colors'
+import type { KLineData } from '../../types/price'
+import type { ScaleType } from '../utils/tickPosition'
 
 /**
  * 创建 Y 轴渲染器插件

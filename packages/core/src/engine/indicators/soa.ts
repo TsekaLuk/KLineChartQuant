@@ -1,4 +1,4 @@
-import type { KLineData } from '@/types/price'
+import type { KLineData } from '../../types/price'
 
 /**
  * KLineData 的 SoA (Structure of Arrays) 布局

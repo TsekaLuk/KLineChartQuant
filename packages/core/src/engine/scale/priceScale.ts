@@ -1,5 +1,5 @@
 import type { PriceRange } from './price'
-import type { ScaleType } from '@/core/utils/tickPosition'
+import type { ScaleType } from '../utils/tickPosition'
 import {
     type LogFormula,
     toLog,

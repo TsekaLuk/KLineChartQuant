@@ -1,10 +1,10 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '@/plugin'
-import type { KLineData } from '@/types/price'
-import { createHorizontalLineRect, createVerticalLineRect } from '@/core/draw/pixelAlign'
-import { findMonthBoundaries } from '@/utils/dateFormat'
-import { getColors } from '@/core/theme/colors'
-import { calculateTickPositions, calculateValueTickPositions, type ScaleType } from '@/core/utils/tickPosition'
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
+import { findMonthBoundaries } from '../../utils/dateFormat'
+import { getColors } from '../theme/colors'
+import { calculateTickPositions, calculateValueTickPositions, type ScaleType } from '../utils/tickPosition'
 
 /**
  * 创建网格线渲染器插件

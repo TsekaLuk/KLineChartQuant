@@ -9,7 +9,7 @@ import type {
     IndicatorConfigSnapshot,
 } from './workerProtocol'
 import { PROTOCOL_VERSION } from './workerProtocol'
-import type { KLineData } from '@/types/price'
+import type { KLineData } from '../../types/price'
 import { IndicatorRuntime } from './indicatorRuntime'
 
 // Worker 全局作用域

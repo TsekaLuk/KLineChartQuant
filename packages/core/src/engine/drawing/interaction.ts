@@ -1,6 +1,6 @@
-import type { DrawingObject, DrawingKind, DrawingAnchor, DrawingStyle } from '@/plugin'
-import type { Chart } from '@/core/chart'
-import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
+import type { DrawingObject, DrawingKind, DrawingAnchor, DrawingStyle } from '../../plugin'
+import type { Chart } from '../chart'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
 import { computeLinearRegression } from './index'
 
 export type DrawingToolId =

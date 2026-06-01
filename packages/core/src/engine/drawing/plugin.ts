@@ -1,5 +1,5 @@
-import type { RendererPlugin, RenderContext, DrawingStyle, DrawingPrimitive, YAxisLabel, XAxisLabel, YAxisRange, XAxisRange } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
+import type { RendererPlugin, RenderContext, DrawingStyle, DrawingPrimitive, YAxisLabel, XAxisLabel, YAxisRange, XAxisRange } from '../../plugin'
+import { RENDERER_PRIORITY } from '../../plugin'
 import {
   DrawingStore,
   DrawingDefinitionRegistry,
@@ -7,8 +7,8 @@ import {
   registerDefaultDrawingDefinitions,
 } from './index'
 import type { PrimitiveRendererSet } from './index'
-import type { KLineData } from '@/types/price'
-import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
+import type { KLineData } from '../../types/price'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 /**
  * 为选中的绘图推送锚点轴标签

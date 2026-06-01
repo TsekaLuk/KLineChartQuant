@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../plugin'
+import { createIndicatorStateKey } from '../../plugin/stateKeys'
 import type { KSTPoint } from './calculators'
 
 export interface KSTRenderState extends BaseIndicatorState {

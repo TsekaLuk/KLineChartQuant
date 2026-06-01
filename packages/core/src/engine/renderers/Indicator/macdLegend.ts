@@ -1,9 +1,9 @@
-import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { getColors } from '@/core/theme/colors'
-import { getFont, setCanvasFont } from '@/core/theme/fonts'
-import type { MACDRenderState } from '@/core/indicators/macdState'
-import { createMACDStateKey } from '@/core/indicators/macdState'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import { getColors } from '../../theme/colors'
+import { getFont, setCanvasFont } from '../../theme/fonts'
+import type { MACDRenderState } from '../../indicators/macdState'
+import { createMACDStateKey } from '../../indicators/macdState'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256

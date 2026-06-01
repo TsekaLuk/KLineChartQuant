@@ -1,12 +1,12 @@
 // 交互控制中心
 
 import type { Chart } from '../chart'
-import type { MarkerEntity, CustomMarkerEntity } from '@/core/marker/registry'
+import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
 import { computeTooltipPosition } from './tooltipPosition'
-import { UpdateLevel } from '@/core/layout/pane'
-import type { ChartSettings } from '@/config/chartSettings'
+import { UpdateLevel } from '../layout/pane'
+import type { ChartSettings } from '../../config/chartSettings'
 
 interface PointerLocation {
     mouseX: number

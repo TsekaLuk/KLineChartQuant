@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../plugin'
+import { createIndicatorStateKey } from '../../plugin/stateKeys'
 
 /**
  * RSI 渲染器状态（共享给渲染器、图例和 scale 渲染器）

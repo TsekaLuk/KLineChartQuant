@@ -1,6 +1,6 @@
 import { reactive, computed, type UnwrapNestedRefs } from 'vue'
-import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
-import type { DrawingObject } from '@/plugin'
+import { getPhysicalKLineConfig } from './utils/klineConfig'
+import type { DrawingObject } from '../plugin'
 
 /** 右侧空白绘制槽位数（逻辑 bar 数） */
 export const TRAILING_DRAWING_SLOTS = 24

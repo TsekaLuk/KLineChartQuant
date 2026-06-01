@@ -1,12 +1,12 @@
-import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { KLineData } from '@/types/price'
-import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
-import { BOLL_STATE_KEY, type BOLLRenderState } from '@/core/indicators/bollState'
-import { EXPMA_STATE_KEY, type EXPMARenderState } from '@/core/indicators/expmaState'
-import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/eneState'
-import { getColors } from '@/core/theme/colors'
-import { getFont, setCanvasFont } from '@/core/theme/fonts'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
+import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
+import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
+import { EXPMA_STATE_KEY, type EXPMARenderState } from '../../indicators/expmaState'
+import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
+import { getColors } from '../../theme/colors'
+import { getFont, setCanvasFont } from '../../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 512

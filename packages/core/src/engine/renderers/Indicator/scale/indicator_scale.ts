@@ -1,11 +1,11 @@
-import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorState } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
-import { getColors, type ThemeColors } from '@/core/theme/colors'
-import { getFont, setCanvasFont } from '@/core/theme/fonts'
-import { calculateValueTickPositions, type ScaleType } from '@/core/utils/tickPosition'
-import { drawCrosshairPriceLabel } from '@/utils/kLineDraw/axis'
-import { roundToPhysicalPixel, alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
+import type { RendererPluginWithHost, PluginHost, RenderContext, BaseIndicatorState } from '../../../../plugin'
+import { RENDERER_PRIORITY } from '../../../../plugin'
+import { createIndicatorStateKey } from '../../../../plugin/stateKeys'
+import { getColors, type ThemeColors } from '../../../theme/colors'
+import { getFont, setCanvasFont } from '../../../theme/fonts'
+import { calculateValueTickPositions, type ScaleType } from '../../../utils/tickPosition'
+import { drawCrosshairPriceLabel } from '../../../../utils/kLineDraw/axis'
+import { roundToPhysicalPixel, alignToPhysicalPixelCenter } from '../../../draw/pixelAlign'
 
 interface IndicatorScaleRenderState extends BaseIndicatorState {
     valueMin: number

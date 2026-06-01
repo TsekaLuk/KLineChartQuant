@@ -1,14 +1,14 @@
-import type { RendererPluginWithHost, PluginHost, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { MA_STATE_KEY, type MARenderState } from '@/core/indicators/maState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
-import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-import { getColors } from '@/core/theme/colors'
+import type { RendererPluginWithHost, PluginHost, RenderContext } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import { MA_STATE_KEY, type MARenderState } from '../../indicators/maState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import { getColors } from '../../theme/colors'
 
 // Re-export MAFlags from calculators for backward compatibility
-export type { MAFlags } from '@/core/indicators/calculators'
+export type { MAFlags } from '../../indicators/calculators'
 
 type LinePoint = { x: number; y: number }
 

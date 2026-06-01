@@ -1,12 +1,12 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { getColors, type ChartTheme } from '@/core/theme/colors'
-import { alignToPhysicalPixelCenter } from '@/core/draw/pixelAlign'
-import type { WMSRRenderState } from '@/core/indicators/wmsrState'
-import { createWMSRStateKey } from '@/core/indicators/wmsrState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import { getColors, type ChartTheme } from '../../theme/colors'
+import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import type { WMSRRenderState } from '../../indicators/wmsrState'
+import { createWMSRStateKey } from '../../indicators/wmsrState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 

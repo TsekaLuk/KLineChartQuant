@@ -1,7 +1,7 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { getColors } from '@/core/theme/colors'
-import { getFont, setCanvasFont } from '@/core/theme/fonts'
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY } from '../../plugin'
+import { getColors } from '../theme/colors'
+import { getFont, setCanvasFont } from '../theme/fonts'
 
 const textWidthCache = new Map<string, number>()
 const TEXT_WIDTH_CACHE_LIMIT = 256

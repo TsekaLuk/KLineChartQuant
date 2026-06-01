@@ -1,6 +1,6 @@
-import type { KLineData } from '@/types/price'
-import type { PriceRange } from '@/core/scale/price'
-import { getPhysicalKLineConfig } from '@/core/utils/klineConfig'
+import type { KLineData } from '../../types/price'
+import type { PriceRange } from '../scale/price'
+import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
 /**
  * 计算当前视口可见的 K 线索引范围（使用物理像素对齐）。

@@ -13,8 +13,8 @@
  * - Inline fallback backend（indicatorRuntime.ts）
  */
 
-import type { PluginHost } from '@/plugin'
-import type { KLineData } from '@/types/price'
+import type { PluginHost } from '../../plugin'
+import type { KLineData } from '../../types/price'
 import { IndicatorRuntime } from './indicatorRuntime'
 import type { IndicatorWorkerResponse } from './workerProtocol'
 import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
@@ -64,7 +64,7 @@ import type {
 import type { MAFlags } from './calculators'
 import { IndicatorRegistry } from './indicatorRegistry'
 import type { IndicatorMetadata } from './indicatorMetadata'
-import type { BaseIndicatorState } from '@/plugin'
+import type { BaseIndicatorState } from '../../plugin'
 
 // Default constants for default config
 import { DEFAULT_ATR_PERIOD } from './atrState'

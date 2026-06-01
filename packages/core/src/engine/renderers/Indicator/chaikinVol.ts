@@ -1,10 +1,10 @@
-import type { RendererPluginWithHost, RenderContext, PluginHost } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { ChaikinVolRenderState } from '@/core/indicators/chaikinVolState'
-import { createChaikinVolStateKey } from '@/core/indicators/chaikinVolState'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { ChaikinVolRenderState } from '../../indicators/chaikinVolState'
+import { createChaikinVolStateKey } from '../../indicators/chaikinVolState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
 
 const CHAIKIN_VOL_COLOR = '#f59e0b'
 

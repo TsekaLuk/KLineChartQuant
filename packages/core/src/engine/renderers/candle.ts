@@ -1,13 +1,13 @@
-import type { RendererPlugin, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { KLineData } from '@/types/price'
-import { getKLineTrend, type kLineTrend } from '@/types/kLine'
-import { createAlignedKLineFromPx, createVerticalLineRect } from '@/core/draw/pixelAlign'
-import { getColors, type PriceColors, type VolumePriceColors } from '@/core/theme/colors'
-import { getPhysicalKLineConfig } from '@/core/chart'
-import { VolumePriceRelation } from '@/types/volumePrice'
-import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '@/utils/volumePrice'
-import type { MarkerManager } from '@/core/marker/registry'
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { getKLineTrend, type kLineTrend } from '../../types/kLine'
+import { createAlignedKLineFromPx, createVerticalLineRect } from '../draw/pixelAlign'
+import { getColors, type PriceColors, type VolumePriceColors } from '../theme/colors'
+import { getPhysicalKLineConfig } from '../chart'
+import { VolumePriceRelation } from '../../types/volumePrice'
+import { analyzeVolumePriceRelationBatch, DEFAULT_VOLUME_PRICE_CONFIG } from '../../utils/volumePrice'
+import type { MarkerManager } from '../marker/registry'
 
 type CandleRenderData = {
     i: number

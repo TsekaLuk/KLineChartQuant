@@ -1,4 +1,4 @@
-import type { MarkerEntity, CustomMarkerEntity, MarkerManager } from '@/core/marker/registry'
+import type { MarkerEntity, CustomMarkerEntity, MarkerManager } from '../marker/registry'
 
 /** Marker交互状态，管理标记 hover/click 状态和回调，与 InteractionController 正交。 */
 export class MarkerInteractionState {

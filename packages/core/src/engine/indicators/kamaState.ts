@@ -1,5 +1,5 @@
-import type { BaseIndicatorState } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
+import type { BaseIndicatorState } from '../../plugin'
+import { createIndicatorStateKey } from '../../plugin/stateKeys'
 
 export interface KAMARenderState extends BaseIndicatorState {
     timestamp: number

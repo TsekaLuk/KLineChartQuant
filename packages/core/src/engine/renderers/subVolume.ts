@@ -1,11 +1,11 @@
-﻿import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import { createIndicatorStateKey } from '@/plugin/stateKeys'
-import type { KLineData } from '@/types/price'
-import { getColors, type VolumeColors } from '@/core/theme/colors'
-import { Indicator } from '@/core/indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '@/core/indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '@/core/indicators/scheduler'
+import type { RendererPluginWithHost, RenderContext, PluginHost, BaseIndicatorState } from '../../plugin'
+import { RENDERER_PRIORITY } from '../../plugin'
+import { createIndicatorStateKey } from '../../plugin/stateKeys'
+import type { KLineData } from '../../types/price'
+import { getColors, type VolumeColors } from '../theme/colors'
+import { Indicator } from '../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../indicators/scheduler'
 
 export interface VolumeRendererOptions {
     /** 目标 pane ID（默认 'sub'） */

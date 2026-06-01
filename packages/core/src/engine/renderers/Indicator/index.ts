@@ -2,7 +2,7 @@
  * 指标渲染器导出入口
  */
 
-import type { RendererPlugin } from '@/plugin'
+import type { RendererPlugin } from '../../../plugin'
 import { createVolumeRendererPlugin } from '../subVolume'
 
 // MA 均线

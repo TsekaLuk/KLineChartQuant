@@ -1,8 +1,8 @@
-import { getColors } from '@/core/theme/colors'
-import type { RendererPlugin, RenderContext } from '@/plugin'
-import { RENDERER_PRIORITY } from '@/plugin'
-import type { KLineData } from '@/types/price'
-import { drawTimeAxis, drawCrosshairTimeLabel, drawAxisTimeLabel } from '@/utils/kLineDraw/axis'
+import { getColors } from '../theme/colors'
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { drawTimeAxis, drawCrosshairTimeLabel, drawAxisTimeLabel } from '../../utils/kLineDraw/axis'
 
 /** 时间轴面板 ID（特殊标识，用于单独渲染） */
 export const TIME_AXIS_PANE_ID = Symbol('time-axis')

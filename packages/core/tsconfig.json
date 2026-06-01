@@ -13,8 +13,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
+    "baseUrl": "../..",
+    "paths": {
+      "@/core/*": ["packages/core/src/engine/*"],
+      "@/*": ["src/*"]
+    },
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "../.."
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/__tests__/**", "dist", "node_modules"]

@@ -26,15 +26,33 @@ import type {
     IndicatorDefinition,
     KLineData,
 } from './types'
-import { Chart, type ChartOptions, type Viewport as LegacyViewport } from '../../../../src/core/chart'
-import { zoomLevelToKWidth, kGapFromKWidth } from '../../../../src/core/utils/zoom'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
+import {
+    Chart,
+    type ChartOptions,
+    type Viewport as LegacyViewport,
+    type ViewportState as LegacyViewportState,
+    type IndicatorInstance as LegacyIndicatorInstance,
+    type SubPaneInfo as LegacySubPaneInfo,
+    type DrawingObject as LegacyDrawingObject,
+    type DrawingToolType as LegacyDrawingToolType,
+    type InteractionSnapshot as LegacyInteractionSnapshot,
+} from '../engine/chart'
+import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 
+// Plugin-backed drawings expose `kind` instead of legacy `type`.
+type PluginBackedDrawingObject = {
+    id: string
+    kind: string
+}
+ 
 // ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 
+
 const DEFAULT_OPTS = {
-    yPaddingPx: 0,
+    yPaddingPx: 20,
     minKWidth: 1,
     maxKWidth: 50,
     rightAxisWidth: 0,
@@ -98,6 +116,102 @@ interface MountedDom {
     rightAxisLayer: HTMLDivElement
     xAxisCanvas: HTMLCanvasElement
     cleanup: () => void
+}
+
+function mapViewportState(vp: LegacyViewportState): ChartViewport {
+    return {
+        zoomLevel: vp.zoomLevel,
+        plotWidth: vp.plotWidth,
+        plotHeight: vp.plotHeight,
+        dpr: vp.dpr,
+        visibleFrom: vp.visibleFrom,
+        visibleTo: vp.visibleTo,
+        desiredScrollLeft: vp.desiredScrollLeft,
+        kWidth: vp.kWidth,
+        kGap: vp.kGap,
+    }
+}
+
+function mapIndicatorInstance(indicator: LegacyIndicatorInstance): IndicatorInstance {
+    return {
+        id: indicator.id,
+        definitionId: indicator.definitionId,
+        label: indicator.label,
+        name: indicator.name,
+        role: indicator.role,
+        paneId: indicator.paneId,
+        params: { ...indicator.params },
+    }
+}
+
+function mapSubPaneInfo(subPane: LegacySubPaneInfo): SubPaneInfo {
+    return {
+        paneId: subPane.paneId,
+        indicatorId: subPane.indicatorId,
+        params: { ...subPane.params },
+        ratio: subPane.ratio,
+    }
+}
+
+function mapDrawingTool(tool: LegacyDrawingToolType | null): DrawingToolType | null {
+    return tool
+}
+
+function mapPluginDrawingKind(kind: PluginBackedDrawingObject['kind']): DrawingToolType {
+    switch (kind) {
+        case 'trend-line':
+        case 'ray':
+        case 'extended-line':
+            return 'trendline'
+        case 'horizontal-line':
+        case 'horizontal-ray':
+        case 'flat-line':
+            return 'horizontal'
+        default:
+            return 'trendline'
+    }
+}
+
+function mapDrawingObject(drawing: LegacyDrawingObject | PluginBackedDrawingObject): DrawingObject {
+    return {
+        id: drawing.id,
+        type: 'type' in drawing
+            ? (mapDrawingTool(drawing.type) ?? drawing.type)
+            : mapPluginDrawingKind(drawing.kind),
+    }
+}
+
+function mapPaneRatios(ratios: Readonly<Record<string, number>>): Readonly<Record<string, number>> {
+    return { ...ratios }
+}
+
+function mapInteractionRecord(
+    value: Record<string, any> | null | undefined,
+): Record<string, unknown> | null {
+    if (!value) {
+        return null
+    }
+
+    return { ...value }
+}
+
+function mapInteractionSnapshot(snapshot: LegacyInteractionSnapshot): InteractionSnapshot {
+    return {
+        crosshairPos: snapshot.crosshairPos ? { ...snapshot.crosshairPos } : null,
+        crosshairIndex: snapshot.crosshairIndex,
+        crosshairPrice: snapshot.crosshairPrice,
+        hoveredIndex: snapshot.hoveredIndex,
+        activePaneId: snapshot.activePaneId,
+        tooltipPos: { ...snapshot.tooltipPos },
+        tooltipAnchorPlacement: snapshot.tooltipAnchorPlacement,
+        hoveredMarkerData: mapInteractionRecord(snapshot.hoveredMarkerData),
+        hoveredCustomMarker: mapInteractionRecord(snapshot.hoveredCustomMarker),
+        isDragging: snapshot.isDragging,
+        isResizingPaneBoundary: snapshot.isResizingPaneBoundary,
+        isHoveringPaneBoundary: snapshot.isHoveringPaneBoundary,
+        hoveredPaneBoundaryId: snapshot.hoveredPaneBoundaryId,
+        isHoveringRightAxis: snapshot.isHoveringRightAxis,
+    }
 }
 
 function buildDom(container: HTMLElement): MountedDom {
@@ -272,18 +386,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     // viewport: after zoom/scroll through facade methods
     unsubs.push(
         chart.viewport.subscribe(() => {
-            const vp = chart.viewport.peek()
-            viewport.set({
-                zoomLevel: vp.zoomLevel,
-                plotWidth: vp.plotWidth,
-                plotHeight: vp.plotHeight,
-                dpr: vp.dpr,
-                visibleFrom: vp.visibleFrom,
-                visibleTo: vp.visibleTo,
-                desiredScrollLeft: vp.desiredScrollLeft,
-                kWidth: vp.kWidth,
-                kGap: vp.kGap,
-            })
+            viewport.set(mapViewportState(chart.viewport.peek()))
         }),
     )
 
@@ -299,32 +402,42 @@ export function createChartController(opts: ChartMountOptions): ChartController 
 
     // indicators
     unsubs.push(
-        chart.indicators.subscribe(() => indicators.set(chart.indicators.peek())),
+        chart.indicators.subscribe(() =>
+            indicators.set(chart.indicators.peek().map(mapIndicatorInstance)),
+        ),
     )
 
     // subPanes
     unsubs.push(
-        chart.subPanes.subscribe(() => subPanes.set(chart.subPanes.peek())),
+        chart.subPanes.subscribe(() =>
+            subPanes.set(chart.subPanes.peek().map(mapSubPaneInfo)),
+        ),
     )
 
     // drawingTool
     unsubs.push(
-        chart.drawingTool.subscribe(() => drawingTool.set(chart.drawingTool.peek())),
+        chart.drawingTool.subscribe(() =>
+            drawingTool.set(mapDrawingTool(chart.drawingTool.peek())),
+        ),
     )
 
     // drawings
     unsubs.push(
-        chart.drawings.subscribe(() => drawings.set(chart.drawings.peek())),
+        chart.drawings.subscribe(() =>
+            drawings.set(chart.drawings.peek().map(mapDrawingObject)),
+        ),
     )
 
     // paneRatios
     unsubs.push(
-        chart.paneRatios.subscribe(() => paneRatios.set(chart.paneRatios.peek())),
+        chart.paneRatios.subscribe(() => paneRatios.set(mapPaneRatios(chart.paneRatios.peek()))),
     )
 
     // interactionState
     unsubs.push(
-        chart.interactionState.subscribe(() => interactionState.set(chart.interactionState.peek())),
+        chart.interactionState.subscribe(() =>
+            interactionState.set(mapInteractionSnapshot(chart.interactionState.peek())),
+        ),
     )
 
     // -------------------------------------------------------------------
@@ -433,6 +546,11 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         return chart.updateIndicatorParams(instanceId, params)
     }
 
+    function updateRendererConfig(name: string, config: Record<string, unknown>): void {
+        if (disposed) return
+        chart.updateRendererConfig(name, config)
+    }
+
     function setDrawingTool(tool: DrawingToolType | null): void {
         if (disposed) return
         chart.setDrawingTool(tool)
@@ -448,9 +566,34 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.removeDrawing(drawingId)
     }
 
+    function createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean {
+        if (disposed) return false
+        return chart.createSubPane(paneId, indicatorId as never, params as Record<string, string | number | boolean> | undefined)
+    }
+
+    function clearSubPanes(): void {
+        if (disposed) return
+        chart.clearSubPanes()
+    }
+
     function resizeSubPane(paneId: string, deltaY: number): boolean {
         if (disposed) return false
         return chart.resizeSubPane(paneId, deltaY)
+    }
+
+    function updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void {
+        if (disposed) return
+        chart.updateCustomMarkers([...markers])
+    }
+
+    function clearCustomMarkers(): void {
+        if (disposed) return
+        chart.clearCustomMarkers()
+    }
+
+    function updateSettingsFacade(settings: Record<string, unknown>): void {
+        if (disposed) return
+        chart.updateSettingsFacade(settings)
     }
 
     function updateOptionsFacade(options: Record<string, unknown>): void {
@@ -494,6 +637,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         catalog: DEFAULT_INDICATOR_CATALOG,
         setData,
         appendData,
+        updateData: setData,
         setTheme,
         zoomToLevel,
         zoomIn,
@@ -505,10 +649,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         addIndicator,
         removeIndicator,
         updateIndicatorParams,
+        updateRendererConfig,
         setDrawingTool,
         clearDrawings,
         removeDrawing,
+        createSubPane,
+        clearSubPanes,
         resizeSubPane,
+        updateCustomMarkers,
+        clearCustomMarkers,
+        updateSettingsFacade,
         updateOptionsFacade,
         dispose,
     }

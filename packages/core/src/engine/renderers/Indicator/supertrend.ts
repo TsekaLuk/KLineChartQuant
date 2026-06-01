@@ -1,0 +1,115 @@
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { SuperTrendRenderState } from '../../indicators/supertrendState'
+import { createSuperTrendStateKey } from '../../indicators/supertrendState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
+
+const ST_UP_COLOR = '#22c55e'
+const ST_DOWN_COLOR = '#ef4444'
+
+export interface SuperTrendRendererOptions {
+    paneId?: string
+}
+
+function getSuperTrendStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn(`[SuperTrendRenderer] Scheduler not available via service locator`)
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('supertrend')
+    if (!meta) {
+        console.warn(`[SuperTrendRenderer] Indicator metadata for 'supertrend' not found, skip rendering`)
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
+export function createSuperTrendRendererPlugin(options: SuperTrendRendererOptions = {}): RendererPluginWithHost {
+    const { paneId = 'sub_SuperTrend' } = options
+    let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getSuperTrendStateKey(pluginHost, paneId)
+    }
+
+    return {
+        name: `supertrend_${paneId}`,
+        version: '1.0.0',
+        description: 'SuperTrend ATR 趋势带渲染器（趋势翻转处颜色切换）',
+        debugName: 'SuperTrend',
+        paneId,
+        priority: RENDERER_PRIORITY.MAIN,
+
+        onInstall(host: PluginHost) { pluginHost = host },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
+
+        draw(context: RenderContext) {
+            const { ctx, pane, range, scrollLeft, kLineCenters } = context
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
+            if (!state || !state.params.showSuperTrend || state.visibleMin > state.visibleMax) return
+
+            const { series } = state
+
+            ctx.save()
+            ctx.translate(-scrollLeft, 0)
+            ctx.lineWidth = 1
+            ctx.lineJoin = 'round'
+            ctx.lineCap = 'round'
+
+            const drawEnd = Math.min(range.end, series.length)
+            let prevX: number | null = null
+            let prevY: number | null = null
+            let prevTrend: 'up' | 'down' | null = null
+
+            for (let i = range.start; i < drawEnd; i++) {
+                const point = series[i]
+                if (point === undefined) continue
+                const centerX = kLineCenters[i - range.start]
+                if (centerX === undefined) continue
+                const y = pane.yAxis.priceToY(point.value)
+
+                if (prevX !== null && prevTrend === point.trend) {
+                    ctx.strokeStyle = point.trend === 'up' ? ST_UP_COLOR : ST_DOWN_COLOR
+                    ctx.beginPath()
+                    ctx.moveTo(prevX, prevY!)
+                    ctx.lineTo(centerX, y)
+                    ctx.stroke()
+                }
+
+                prevX = centerX
+                prevY = y
+                prevTrend = point.trend
+            }
+            ctx.restore()
+        },
+
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            const state = pluginHost?.getSharedState<SuperTrendRenderState>(stateKey)
+            return state?.params ?? {}
+        },
+        setConfig() {},
+    }
+}
+
+@Indicator({
+    name: 'supertrend',
+    displayName: 'SuperTrend',
+    category: 'oscillator',
+    stateKey: createSuperTrendStateKey,
+    defaultPaneId: 'sub_SuperTrend',
+    paneIdField: 'supertrendPaneId',
+    allowMainPane: true,
+    applyResult: (host, state, paneId) => {
+        host.setSharedState(createSuperTrendStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+})
+class SuperTrendIndicatorDefinition {
+    static rendererFactory = createSuperTrendRendererPlugin
+}

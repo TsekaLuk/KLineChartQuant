@@ -1,0 +1,105 @@
+import { getColors } from '../../theme/colors'
+import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import { RENDERER_PRIORITY } from '../../../plugin'
+import type { ZonesRenderState } from '../../indicators/zonesState'
+import { createZonesStateKey } from '../../indicators/zonesState'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
+
+function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
+    const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+    if (!scheduler) {
+        console.warn('[ZonesRenderer] Scheduler not available via service locator')
+        return null
+    }
+    const meta = scheduler.getIndicatorMetadata('zones')
+    if (!meta) {
+        console.warn('[ZonesRenderer] Indicator metadata for \'zones\' not found, skip rendering')
+        return null
+    }
+    return resolveStateKey(meta.stateKey, paneId)
+}
+
+export function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+    const { paneId = 'main' } = options
+    let pluginHost: PluginHost | null = null
+
+    function resolveKey(): string | null {
+        return getZonesStateKey(pluginHost, paneId)
+    }
+    return {
+        name: `zones_${paneId}`,
+        version: '1.0.0',
+        description: 'SMC 区域渲染器（FVG 缺口 + Order Blocks 订单块）',
+        debugName: 'Zones',
+        paneId,
+        priority: RENDERER_PRIORITY.MAIN,
+        onInstall(host) { pluginHost = host },
+        getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },
+        draw(context: RenderContext) {
+            const { ctx, pane, range, scrollLeft, kLineCenters } = context
+            const colors = getColors(context.theme)
+            const stateKey = resolveKey()
+            if (!stateKey) return
+            const state = pluginHost?.getSharedState<ZonesRenderState>(stateKey)
+            if (!state) return
+            const { showFVG, showOB, showFilledZones } = state.params
+            if (!showFVG && !showOB) return
+
+            const toY = (v: number) => pane.yAxis.priceToY(v)
+
+            ctx.save()
+            ctx.translate(-scrollLeft, 0)
+
+            for (const zone of state.series) {
+                const isFVG = zone.kind === 'FVG_BULL' || zone.kind === 'FVG_BEAR'
+                const isOB = zone.kind === 'OB_BULL' || zone.kind === 'OB_BEAR'
+                if (isFVG && !showFVG) continue
+                if (isOB && !showOB) continue
+                if (zone.endIndex !== undefined && !showFilledZones) continue
+
+                const startIdx = zone.startIndex
+                const endIdx = zone.endIndex ?? range.end - 1
+                if (endIdx < range.start || startIdx >= range.end) continue
+
+                const startX = kLineCenters[Math.max(startIdx, range.start) - range.start]
+                const endX = kLineCenters[Math.min(endIdx, range.end - 1) - range.start]
+                if (startX === undefined || endX === undefined) continue
+
+                const yHigh = toY(zone.high)
+                const yLow = toY(zone.low)
+                const fill = zone.kind === 'FVG_BULL' ? colors.ZONES.FVG_BULL_FILL
+                    : zone.kind === 'FVG_BEAR' ? colors.ZONES.FVG_BEAR_FILL
+                    : zone.kind === 'OB_BULL' ? colors.ZONES.OB_BULL_FILL
+                    : colors.ZONES.OB_BEAR_FILL
+                ctx.fillStyle = fill
+                ctx.fillRect(startX, yHigh, endX - startX, yLow - yHigh)
+            }
+
+            ctx.restore()
+        },
+        getConfig() {
+            const stateKey = resolveKey()
+            if (!stateKey) return {}
+            return pluginHost?.getSharedState<ZonesRenderState>(stateKey)?.params ?? {}
+        },
+        setConfig() {},
+    }
+}
+
+@Indicator({
+    name: 'zones',
+    displayName: 'Zones',
+    category: 'main',
+    stateKey: createZonesStateKey,
+    defaultPaneId: 'main',
+    paneIdField: 'zonesPaneId',
+    allowMainPane: true,
+    applyResult: (host, state, paneId) => {
+        host.setSharedState(createZonesStateKey(paneId), state as any, 'indicator_scheduler')
+    },
+})
+class ZonesDefinition {
+    static rendererFactory = createZonesRendererPlugin
+}

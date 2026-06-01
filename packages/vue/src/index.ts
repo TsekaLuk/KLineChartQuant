@@ -41,6 +41,20 @@ export type {
 } from '@klinechart-quant/core'
 
 // ---------------------------------------------------------------------------
+// SFC components (for consumers using Vite / SFC compiler)
+// ---------------------------------------------------------------------------
+
+export {
+    DrawingStyleToolbar,
+    IndicatorParams,
+    IndicatorSelector,
+    KLineChartVue,
+    KLineTooltip,
+    LeftToolbar,
+    MarkerTooltip,
+} from './components/index'
+
+// ---------------------------------------------------------------------------
 // Controller factory injection
 //
 // The concrete `createChartController` from packages/core/src/controllers/

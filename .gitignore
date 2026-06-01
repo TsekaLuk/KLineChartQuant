@@ -28,6 +28,15 @@ coverage
 
 *.tsbuildinfo
 
+# TypeScript build outputs (compiled alongside source)
+src/core/**/*.js
+src/core/**/*.js.map
+src/core/**/*.d.ts
+src/core/**/*.d.ts.map
+
+# Obsolete - code migrated to packages/core/
+/src/core/
+
 .eslintcache
 
 # Cypress

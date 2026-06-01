@@ -5,7 +5,6 @@
 
 import { EventBus } from '@/plugin/EventBus'
 import { fetchKLineData } from '@/api/data'
-import type { Chart } from '@/core/chart'
 import type { CustomMarkerEntity } from '@/core/marker/registry'
 import { SemanticConfigValidator } from './validator'
 import type {
@@ -21,12 +20,21 @@ import type { SubIndicatorType as CoreSubIndicatorType } from '@/core/renderers/
 /** 状态事件类型 */
 export type SemanticEventType = 'config:loading' | 'config:ready' | 'config:error'
 
+interface SemanticChartAdapter {
+  updateData(data: Parameters<typeof fetchKLineData> extends never ? never : Awaited<ReturnType<typeof fetchKLineData>>): void
+  updateRendererConfig(name: string, config: Record<string, unknown>): void
+  clearSubPanes(): void
+  createSubPane(paneId: string, indicatorId: CoreSubIndicatorType, params?: Record<string, unknown>): boolean
+  clearCustomMarkers(): void
+  updateCustomMarkers(markers: CustomMarkerEntity[]): void
+}
+
 export class SemanticChartController {
-  private chart: Chart
+  private chart: SemanticChartAdapter
   private validator: SemanticConfigValidator
   private events: EventBus
 
-  constructor(chart: Chart) {
+  constructor(chart: ChartController) {
     this.chart = chart
     this.validator = new SemanticConfigValidator()
     this.events = new EventBus()

@@ -1,0 +1,1205 @@
+/**
+ * IndicatorScheduler - 指标调度器（Worker 化重构版）
+ *
+ * 职责：
+ * 1. 维护当前图表激活的指标配置
+ * 2. 在数据/配置变更时触发 Worker 计算
+ * 3. 接收 Worker 结果，组装 RenderState 并写入 StateStore
+ * 4. 同步处理 visibleRange 变更（不走 Worker，避免异步延迟）
+ *
+ * 架构：
+ * - 主线程 facade（本文件）
+ * - Worker backend（indicator.worker.ts）
+ * - Inline fallback backend（indicatorRuntime.ts）
+ */
+
+import type { PluginHost } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { IndicatorRuntime } from './indicatorRuntime'
+import type { IndicatorWorkerResponse } from './workerProtocol'
+import { isWorkerResponse, PROTOCOL_VERSION } from './workerProtocol'
+import { composeRenderStates, composeVisibleSubIndicatorStates, computeMainIndicatorPriceRange } from './stateComposer'
+import type {
+    BOLLSchedulerConfig,
+    EXPMASchedulerConfig,
+    ENESchedulerConfig,
+    RSISchedulerConfig,
+    CCISchedulerConfig,
+    STOCHSchedulerConfig,
+    MOMSchedulerConfig,
+    WMSRSchedulerConfig,
+    KSTSchedulerConfig,
+    FASTKSchedulerConfig,
+    MACDSchedulerConfig,
+    ATRSchedulerConfig,
+    WMASchedulerConfig,
+    DEMASchedulerConfig,
+    TEMASchedulerConfig,
+    HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
+    SuperTrendSchedulerConfig,
+    KeltnerSchedulerConfig,
+    DonchianSchedulerConfig,
+    IchimokuSchedulerConfig,
+    ROCSchedulerConfig,
+    TRIXSchedulerConfig,
+    HVSchedulerConfig,
+    ParkinsonSchedulerConfig,
+    ChaikinVolSchedulerConfig,
+    VMASchedulerConfig,
+    OBVSchedulerConfig,
+    PVTSchedulerConfig,
+    VWAPSchedulerConfig,
+    CMFSchedulerConfig,
+    MFISchedulerConfig,
+    PivotSchedulerConfig,
+    FibSchedulerConfig,
+    StructureSchedulerConfig,
+    ZonesSchedulerConfig,
+    VolumeProfileSchedulerConfig,
+    IndicatorConfigSnapshot,
+    IndicatorSeriesBundle,
+} from './workerProtocol'
+import type { MAFlags } from './calculators'
+import { IndicatorRegistry } from './indicatorRegistry'
+import type { IndicatorMetadata } from './indicatorMetadata'
+import type { BaseIndicatorState } from '../../plugin'
+
+// Default constants for default config
+import { DEFAULT_ATR_PERIOD } from './atrState'
+import { DEFAULT_WMA_PERIOD } from './wmaState'
+import { DEFAULT_DEMA_PERIOD } from './demaState'
+import { DEFAULT_TEMA_PERIOD } from './temaState'
+import { DEFAULT_HMA_PERIOD } from './hmaState'
+import { DEFAULT_KAMA_PERIOD, DEFAULT_KAMA_FAST_PERIOD, DEFAULT_KAMA_SLOW_PERIOD } from './kamaState'
+import { DEFAULT_SAR_STEP, DEFAULT_SAR_MAX_STEP } from './sarState'
+import { DEFAULT_SUPERTREND_ATR_PERIOD, DEFAULT_SUPERTREND_MULTIPLIER } from './supertrendState'
+import { DEFAULT_KELTNER_EMA_PERIOD, DEFAULT_KELTNER_ATR_PERIOD, DEFAULT_KELTNER_MULTIPLIER } from './keltnerState'
+import { DEFAULT_DONCHIAN_PERIOD } from './donchianState'
+import { DEFAULT_ICHIMOKU_TENKAN, DEFAULT_ICHIMOKU_KIJUN, DEFAULT_ICHIMOKU_SPAN_B, DEFAULT_ICHIMOKU_DISPLACEMENT } from './ichimokuState'
+import { DEFAULT_ROC_PERIOD } from './rocState'
+import { DEFAULT_TRIX_PERIOD, DEFAULT_TRIX_SIGNAL_PERIOD } from './trixState'
+import { DEFAULT_HV_PERIOD, DEFAULT_HV_ANNUALIZATION } from './hvState'
+import { DEFAULT_PARKINSON_PERIOD, DEFAULT_PARKINSON_ANNUALIZATION } from './parkinsonState'
+import { DEFAULT_CHAIKIN_VOL_EMA_PERIOD, DEFAULT_CHAIKIN_VOL_ROC_PERIOD } from './chaikinVolState'
+import { DEFAULT_VMA_PERIOD } from './vmaState'
+import { DEFAULT_VWAP_SESSION_GAP_MS } from './vwapState'
+import { DEFAULT_CMF_PERIOD } from './cmfState'
+import { DEFAULT_MFI_PERIOD } from './mfiState'
+import { DEFAULT_FIB_PERIOD } from './fibState'
+import { DEFAULT_STRUCTURE_LEFT, DEFAULT_STRUCTURE_RIGHT } from './structureState'
+import { DEFAULT_ZONES_OB_LOOKBACK } from './zonesState'
+import { DEFAULT_VP_BINS, DEFAULT_VP_LOOKBACK, DEFAULT_VP_VALUE_AREA } from './volumeProfileState'
+
+/**
+ * 可见范围
+ */
+interface VisibleRange {
+    start: number
+    end: number
+}
+
+// 重新导出配置类型（保持向后兼容）
+export type {
+    BOLLSchedulerConfig,
+    EXPMASchedulerConfig,
+    ENESchedulerConfig,
+    RSISchedulerConfig,
+    CCISchedulerConfig,
+    STOCHSchedulerConfig,
+    MOMSchedulerConfig,
+    WMSRSchedulerConfig,
+    KSTSchedulerConfig,
+    FASTKSchedulerConfig,
+    MACDSchedulerConfig,
+    ATRSchedulerConfig,
+    WMASchedulerConfig,
+    DEMASchedulerConfig,
+    TEMASchedulerConfig,
+    HMASchedulerConfig,
+    KAMASchedulerConfig,
+    SARSchedulerConfig,
+    SuperTrendSchedulerConfig,
+    KeltnerSchedulerConfig,
+    DonchianSchedulerConfig,
+    IchimokuSchedulerConfig,
+    ROCSchedulerConfig,
+    TRIXSchedulerConfig,
+    HVSchedulerConfig,
+    ParkinsonSchedulerConfig,
+    ChaikinVolSchedulerConfig,
+    VMASchedulerConfig,
+    OBVSchedulerConfig,
+    PVTSchedulerConfig,
+    VWAPSchedulerConfig,
+    CMFSchedulerConfig,
+    MFISchedulerConfig,
+    PivotSchedulerConfig,
+    FibSchedulerConfig,
+    StructureSchedulerConfig,
+    ZonesSchedulerConfig,
+    VolumeProfileSchedulerConfig,
+} from './workerProtocol'
+
+/**
+ * IndicatorScheduler - 主线程 facade
+ */
+export class IndicatorScheduler {
+    private pluginHost: PluginHost | null = null
+    private visibleRange: VisibleRange = { start: 0, end: 0 }
+    private activeMainIndicators: Set<string> = new Set()
+
+    // 版本控制
+    private dataVersion = 0
+    private configVersion = 0
+    private requestId = 0
+    private lastAppliedRequestId = 0
+
+    // 当前数据和配置快照
+    private currentData: KLineData[] = []
+    private configSnapshot: IndicatorConfigSnapshot = this.getDefaultConfig()
+
+    // Worker 相关
+    private worker: Worker | null = null
+    private workerReady = false
+    private useWorker = false
+    private pendingRequest: {
+        requestId: number
+        dataVersion: number
+        configVersion: number
+    } | null = null
+
+    // Inline fallback runtime
+    private inlineRuntime: IndicatorRuntime | null = null
+
+    // 缓存的最新结果（用于 visibleRange 变更时同步更新）
+    private latestResult: IndicatorSeriesBundle | null = null
+
+    // 重绘回调
+    private invalidateCallback: (() => void) | null = null
+
+    /** 从 Chart 获取活跃副图 paneId 列表的回调 */
+    private getActiveSubPaneIds: (() => string[]) | null = null
+
+    // 注册表
+    private registry: IndicatorRegistry
+
+    constructor() {
+        this.registry = new IndicatorRegistry()
+        this.initBackend()
+    }
+
+    // ============================================================================
+    // 公共 API：指标注册/注销
+    // ============================================================================
+
+    /**
+     * 注册新指标（支持动态扩展）
+     */
+    registerIndicator<T>(meta: IndicatorMetadata<T>): void {
+        if (this.registry.has(meta.name)) {
+            console.warn(`[IndicatorScheduler] '${meta.name}' already registered, overwriting`)
+        }
+        this.registry.register(meta)
+        this.configVersion++
+        this.triggerRecompute()
+        console.log(`[IndicatorScheduler] Registered indicator '${meta.name}' (${meta.displayName})`)
+    }
+
+    /**
+     * 注销指标
+     */
+    unregisterIndicator(name: string): boolean {
+        const success = this.registry.unregister(name)
+        if (success) {
+            this.configVersion++
+            this.triggerRecompute()
+            console.log(`[IndicatorScheduler] Unregistered indicator '${name}'`)
+        }
+        return success
+    }
+
+    /**
+     * 获取指标元数据（供渲染器查询）
+     */
+    getIndicatorMetadata(name: string): IndicatorMetadata | undefined {
+        return this.registry.get(name)
+    }
+
+    /**
+     * 获取所有已注册指标
+     */
+    getAllIndicators(): readonly IndicatorMetadata[] {
+        return this.registry.getAll()
+    }
+
+    /**
+     * 设置 PluginHost
+     */
+    setPluginHost(host: PluginHost): void {
+        this.pluginHost = host
+        host.registerService('indicatorScheduler', this)
+    }
+
+    /**
+     * 设置重绘回调
+     */
+    setInvalidateCallback(callback: () => void): void {
+        this.invalidateCallback = callback
+    }
+
+    /**
+     * 副图增删后通知 scheduler 刷新 active mask
+     */
+    onSubPaneChanged(): void {
+        if (this.latestResult) this.updateVisibleStatesOnly()
+    }
+
+    /**
+     * 设置活跃副图 paneId 提供者（来自 Chart.getSubPaneIndicators）
+     */
+    setActiveSubPaneProvider(provider: () => string[]): void {
+        this.getActiveSubPaneIds = provider
+    }
+
+    /**
+     * 销毁调度器
+     */
+    destroy(): void {
+        this.terminateWorker()
+        this.inlineRuntime = null
+        this.latestResult = null
+        this.invalidateCallback = null
+    }
+
+    // ============================================================================
+    // 初始化
+    // ============================================================================
+
+    private getDefaultConfig(): IndicatorConfigSnapshot {
+        return {
+            ma: { ma5: true, ma10: true, ma20: true, ma30: true, ma60: true },
+            boll: {
+                period: 20,
+                multiplier: 2,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+                showBand: true,
+            },
+            expma: { fastPeriod: 12, slowPeriod: 50 },
+            ene: { period: 10, deviation: 11 },
+            rsi: {
+                period1: 6,
+                period2: 12,
+                period3: 24,
+                showRSI1: true,
+                showRSI2: true,
+                showRSI3: true,
+            },
+            cci: { period: 14, showCCI: true },
+            stoch: { n: 9, m: 3, showK: true, showD: true },
+            mom: { period: 10, showMOM: true },
+            wmsr: { period: 14, showWMSR: true },
+            kst: {
+                roc1: 10,
+                roc2: 15,
+                roc3: 20,
+                roc4: 30,
+                signalPeriod: 9,
+                showKST: true,
+                showSignal: true,
+            },
+            fastk: { period: 9, showFASTK: true },
+            macd: {
+                fastPeriod: 12,
+                slowPeriod: 26,
+                signalPeriod: 9,
+                showDIF: true,
+                showDEA: true,
+                showBAR: true,
+            },
+            atr: { period: DEFAULT_ATR_PERIOD, showATR: true },
+            wma: { period: DEFAULT_WMA_PERIOD, showWMA: true },
+            dema: { period: DEFAULT_DEMA_PERIOD, showDEMA: true },
+            tema: { period: DEFAULT_TEMA_PERIOD, showTEMA: true },
+            hma: { period: DEFAULT_HMA_PERIOD, showHMA: true },
+            kama: {
+                period: DEFAULT_KAMA_PERIOD,
+                fastPeriod: DEFAULT_KAMA_FAST_PERIOD,
+                slowPeriod: DEFAULT_KAMA_SLOW_PERIOD,
+                showKAMA: true,
+            },
+            sar: { step: DEFAULT_SAR_STEP, maxStep: DEFAULT_SAR_MAX_STEP, showSAR: true },
+            supertrend: {
+                atrPeriod: DEFAULT_SUPERTREND_ATR_PERIOD,
+                multiplier: DEFAULT_SUPERTREND_MULTIPLIER,
+                showSuperTrend: true,
+            },
+            keltner: {
+                emaPeriod: DEFAULT_KELTNER_EMA_PERIOD,
+                atrPeriod: DEFAULT_KELTNER_ATR_PERIOD,
+                multiplier: DEFAULT_KELTNER_MULTIPLIER,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+            },
+            donchian: {
+                period: DEFAULT_DONCHIAN_PERIOD,
+                showUpper: true,
+                showMiddle: true,
+                showLower: true,
+            },
+            ichimoku: {
+                tenkanPeriod: DEFAULT_ICHIMOKU_TENKAN,
+                kijunPeriod: DEFAULT_ICHIMOKU_KIJUN,
+                spanBPeriod: DEFAULT_ICHIMOKU_SPAN_B,
+                displacement: DEFAULT_ICHIMOKU_DISPLACEMENT,
+                showTenkan: true,
+                showKijun: true,
+                showSpanA: true,
+                showSpanB: true,
+                showCloud: true,
+                showChikou: true,
+            },
+            roc: { period: DEFAULT_ROC_PERIOD, showROC: true },
+            trix: {
+                period: DEFAULT_TRIX_PERIOD,
+                signalPeriod: DEFAULT_TRIX_SIGNAL_PERIOD,
+                showTRIX: true,
+                showSignal: true,
+            },
+            hv: { period: DEFAULT_HV_PERIOD, annualizationFactor: DEFAULT_HV_ANNUALIZATION, showHV: true },
+            parkinson: { period: DEFAULT_PARKINSON_PERIOD, annualizationFactor: DEFAULT_PARKINSON_ANNUALIZATION, showParkinson: true },
+            chaikinVol: { emaPeriod: DEFAULT_CHAIKIN_VOL_EMA_PERIOD, rocPeriod: DEFAULT_CHAIKIN_VOL_ROC_PERIOD, showChaikinVol: true },
+            vma: { period: DEFAULT_VMA_PERIOD, showVMA: true },
+            obv: { showOBV: true },
+            pvt: { showPVT: true },
+            vwap: { sessionResetGapMs: DEFAULT_VWAP_SESSION_GAP_MS, showVWAP: true },
+            cmf: { period: DEFAULT_CMF_PERIOD, showCMF: true },
+            mfi: { period: DEFAULT_MFI_PERIOD, showMFI: true },
+            pivot: { showPP: true, showR1: true, showR2: true, showR3: false, showS1: true, showS2: true, showS3: false },
+            fib: { period: DEFAULT_FIB_PERIOD, showLevels: true },
+            structure: {
+                leftWindow: DEFAULT_STRUCTURE_LEFT,
+                rightWindow: DEFAULT_STRUCTURE_RIGHT,
+                breakoutSource: 'close',
+                showSwingLabels: true,
+                showBOS: true,
+                showCHOCH: true,
+                showProvisional: false,
+            },
+            zones: {
+                showFVG: true,
+                showOB: true,
+                showFilledZones: false,
+                obLookback: DEFAULT_ZONES_OB_LOOKBACK,
+            },
+            volumeProfile: {
+                bins: DEFAULT_VP_BINS,
+                lookback: DEFAULT_VP_LOOKBACK,
+                valueAreaPercent: DEFAULT_VP_VALUE_AREA,
+                showPOC: true,
+                showValueArea: true,
+            },
+            rsiPaneId: 'sub_RSI',
+            cciPaneId: 'sub_CCI',
+            stochPaneId: 'sub_STOCH',
+            momPaneId: 'sub_MOM',
+            wmsrPaneId: 'sub_WMSR',
+            kstPaneId: 'sub_KST',
+            fastkPaneId: 'sub_FASTK',
+            macdPaneId: 'sub_MACD',
+            atrPaneId: 'sub_ATR',
+            wmaPaneId: 'sub_WMA',
+            demaPaneId: 'sub_DEMA',
+            temaPaneId: 'sub_TEMA',
+            hmaPaneId: 'sub_HMA',
+            kamaPaneId: 'sub_KAMA',
+            sarPaneId: 'sub_SAR',
+            supertrendPaneId: 'sub_SuperTrend',
+            keltnerPaneId: 'sub_Keltner',
+            donchianPaneId: 'sub_Donchian',
+            ichimokuPaneId: 'sub_Ichimoku',
+            rocPaneId: 'sub_ROC',
+            trixPaneId: 'sub_TRIX',
+            hvPaneId: 'sub_HV',
+            parkinsonPaneId: 'sub_Parkinson',
+            chaikinVolPaneId: 'sub_ChaikinVol',
+            vmaPaneId: 'sub_VMA',
+            obvPaneId: 'sub_OBV',
+            pvtPaneId: 'sub_PVT',
+            vwapPaneId: 'sub_VWAP',
+            cmfPaneId: 'sub_CMF',
+            mfiPaneId: 'sub_MFI',
+            pivotPaneId: 'sub_Pivot',
+            fibPaneId: 'sub_Fib',
+            structurePaneId: 'sub_Structure',
+            zonesPaneId: 'sub_Zones',
+            volumeProfilePaneId: 'sub_VolumeProfile',
+        }
+    }
+
+    private initBackend(): void {
+        // 尝试初始化 Worker
+        if (this.tryInitWorker()) {
+            return
+        }
+        // 失败则使用 inline fallback
+        this.initInlineRuntime()
+    }
+
+    private tryInitWorker(): boolean {
+        console.log('[IndicatorScheduler] tryInitWorker: Worker available?', typeof Worker !== 'undefined')
+        if (typeof Worker === 'undefined') {
+            return false
+        }
+        try {
+            // Vite 模块 Worker
+            const workerUrl = new URL('./indicator.worker.ts', import.meta.url)
+            console.log('[IndicatorScheduler] Creating worker from:', workerUrl.href)
+            this.worker = new Worker(workerUrl, { type: 'module' })
+            console.log('[IndicatorScheduler] Worker created, waiting for ready...')
+            this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
+            this.worker.onerror = (err) => {
+                console.error('[IndicatorScheduler] Worker error:', err)
+                this.fallbackToInline()
+            }
+            // 发送 init
+            this.worker.postMessage({
+                type: 'init',
+                protocolVersion: PROTOCOL_VERSION,
+            })
+            return true
+        } catch (err) {
+            console.warn('[IndicatorScheduler] Failed to init worker:', err)
+            return false
+        }
+    }
+
+    private initInlineRuntime(): void {
+        console.log('[IndicatorScheduler] Using INLINE runtime (fallback)')
+        this.inlineRuntime = new IndicatorRuntime()
+        this.useWorker = false
+        this.workerReady = true
+    }
+
+    private fallbackToInline(): void {
+        console.warn('[IndicatorScheduler] Falling back to inline runtime')
+        this.terminateWorker()
+        this.initInlineRuntime()
+        // 如果有待处理的请求，用 inline 重新执行
+        if (this.pendingRequest) {
+            this.computeWithInline()
+        }
+    }
+
+    private terminateWorker(): void {
+        if (this.worker) {
+            this.worker.terminate()
+            this.worker = null
+        }
+        this.workerReady = false
+        this.useWorker = false
+    }
+
+    // ============================================================================
+    // Worker 消息处理
+    // ============================================================================
+
+    private handleWorkerMessage(msg: unknown): void {
+        if (!isWorkerResponse(msg)) {
+            console.warn('[IndicatorScheduler] Invalid worker response:', msg)
+            return
+        }
+
+        switch (msg.type) {
+            case 'ready':
+                this.workerReady = true
+                this.useWorker = true
+                console.log('[IndicatorScheduler] Worker READY - using Worker backend')
+                // Worker 就绪后立即补算一次，确保后续走 Worker
+                this.triggerRecompute()
+                break
+
+            case 'seriesResult':
+                this.handleSeriesResult(msg)
+                break
+
+            case 'error':
+                console.error('[IndicatorScheduler] Worker error:', msg.stage, msg.message)
+                if (this.pendingRequest && msg.requestId === this.pendingRequest.requestId) {
+                    this.fallbackToInline()
+                }
+                break
+
+            default: {
+                const _exhaustive: never = msg
+                console.warn('[IndicatorScheduler] Unknown response type:', (_exhaustive as unknown as { type: string }).type)
+            }
+        }
+    }
+
+    private handleSeriesResult(msg: Extract<IndicatorWorkerResponse, { type: 'seriesResult' }>): void {
+        // 检查版本是否过期
+        if (msg.requestId < this.lastAppliedRequestId) {
+            return // 丢弃旧结果
+        }
+        if (msg.dataVersion !== this.dataVersion || msg.configVersion !== this.configVersion) {
+            return // 数据或配置已变更，丢弃旧结果
+        }
+
+        console.log(`[IndicatorScheduler] << Worker result: requestId=${msg.requestId} metrics=`, msg.metrics)
+        this.lastAppliedRequestId = msg.requestId
+        this.pendingRequest = null
+        this.latestResult = msg.results
+
+        // 组装并写入 states
+        this.applyResults(msg.results)
+
+        // 触发重绘
+        this.invalidateCallback?.()
+    }
+
+    // ============================================================================
+    // 结果应用
+    // ============================================================================
+
+    /**
+     * 检查 state 中的 visibleMin/visibleMax 是否为 Infinity，如果是则输出 warning
+     */
+    private checkVisibleExtremes(state: { visibleMin: number; visibleMax: number }, indicatorName: string): void {
+        if (!Number.isFinite(state.visibleMin) || !Number.isFinite(state.visibleMax)) {
+            console.warn(`[IndicatorScheduler] ${indicatorName} state has non-finite visibleMin/visibleMax:`, {
+                visibleMin: state.visibleMin,
+                visibleMax: state.visibleMax,
+            })
+        }
+    }
+
+    /** 遍历注册表中的所有指标，通过 applyResult 回调写入 StateStore */
+    private applyResults(bundle: IndicatorSeriesBundle): void {
+        if (!this.pluginHost) return
+
+        const changed = new Set(bundle._changed)
+        const timestamp = Date.now()
+        const states = composeRenderStates(bundle, this.visibleRange, timestamp)
+
+        for (const meta of this.registry.getAll()) {
+            if (!changed.has(meta.name)) continue
+            if (!meta.applyResult) continue
+
+            const state = (states as Record<string, unknown>)[meta.name]
+            if (!state) continue
+
+            this.checkVisibleExtremes(
+                state as { visibleMin: number; visibleMax: number },
+                meta.displayName,
+            )
+
+            const paneId = meta.paneIdField
+                ? (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string]
+                : meta.defaultPaneId
+
+            meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
+        }
+    }
+
+    /** 仅副图：重算可见范围极值并回调 applyResult（视口变更时同步更新，不走 Worker） */
+    private updateVisibleStatesOnly(): void {
+        if (!this.pluginHost || !this.latestResult) return
+
+        const timestamp = Date.now()
+        const activeMask = this.buildActiveSubIndicatorMask()
+        const states = composeVisibleSubIndicatorStates(this.latestResult, this.visibleRange, timestamp, activeMask)
+
+        for (const meta of this.registry.getAll()) {
+            if (!meta.applyResult) continue
+            if (!meta.paneIdField && meta.category === 'main') continue
+
+            const state = (states as Record<string, unknown>)[meta.name]
+            if (state === undefined) continue
+
+            this.checkVisibleExtremes(
+                state as { visibleMin: number; visibleMax: number },
+                meta.displayName,
+            )
+
+            const paneId = meta.paneIdField
+                ? (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string]
+                : meta.defaultPaneId
+
+            meta.applyResult(this.pluginHost, state as BaseIndicatorState, paneId)
+        }
+    }
+
+    /** 遍历注册表，标记当前可见副图，仅这些指标参与计算 */
+    private buildActiveSubIndicatorMask(): Record<string, boolean> {
+        const activeIds = this.getActiveSubPaneIds?.() ?? []
+        const mask: Record<string, boolean> = {}
+        for (const meta of this.registry.getAll()) {
+            if (!meta.paneIdField) continue
+            const paneId = (this.configSnapshot as unknown as Record<string, string>)[meta.paneIdField as string] ?? meta.defaultPaneId
+            mask[meta.name] = activeIds.includes(paneId) || !!(meta.allowMainPane && paneId === 'main')
+        }
+        return mask
+    }
+
+    /** 遍历注册表，禁用非活跃副图指标的 show* 字段，后端只算活跃指标 */
+    private buildActiveConfig(): IndicatorConfigSnapshot {
+        const activeIds = this.getActiveSubPaneIds?.() ?? []
+        if (activeIds.length === 0) return { ...this.configSnapshot }
+
+        const cfg: Record<string, unknown> = { ...this.configSnapshot }
+        for (const meta of this.registry.getAll()) {
+            if (!meta.paneIdField) continue
+            const paneId = cfg[meta.paneIdField] as string
+            if (!activeIds.includes(paneId) && paneId !== 'main') {
+                const subCfg = { ...(cfg[meta.name] as Record<string, unknown>) }
+                for (const k of Object.keys(subCfg)) {
+                    if (k.startsWith('show')) {
+                        subCfg[k] = false
+                    }
+                }
+                cfg[meta.name] = subCfg
+            }
+        }
+        return cfg as unknown as IndicatorConfigSnapshot
+    }
+
+
+    // ============================================================================
+    // Public API
+    // ============================================================================
+
+    /**
+     * 数据变更时调用
+     */
+    update(data: KLineData[], visibleRange: VisibleRange): void {
+        this.currentData = data
+        this.visibleRange = visibleRange
+        this.dataVersion++
+
+        if (this.useWorker && this.worker && this.workerReady) {
+            this.computeWithWorker()
+        } else {
+            this.computeWithInline()
+        }
+    }
+
+    /**
+     * 视口变更时调用 - 同步处理，不走 Worker
+     */
+    updateVisibleRange(visibleRange: VisibleRange): void {
+        this.visibleRange = visibleRange
+
+        // 基于缓存的 series 同步更新极值
+        if (this.latestResult) {
+            this.updateVisibleStatesOnly()
+        }
+    }
+
+    /**
+     * MA 配置变更
+     */
+    updateMAConfig(config: MAFlags): void {
+        this.configSnapshot.ma = { ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * BOLL 配置变更
+     */
+    updateBOLLConfig(config: Partial<BOLLSchedulerConfig>): void {
+        this.configSnapshot.boll = { ...this.configSnapshot.boll, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * EXPMA 配置变更
+     */
+    updateEXPMAConfig(config: Partial<EXPMASchedulerConfig>): void {
+        this.configSnapshot.expma = { ...this.configSnapshot.expma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ENE 配置变更
+     */
+    updateENEConfig(config: Partial<ENESchedulerConfig>): void {
+        this.configSnapshot.ene = { ...this.configSnapshot.ene, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * RSI 配置变更
+     */
+    updateRSIConfig(config: Partial<RSISchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.rsiPaneId = paneId
+        }
+        this.configSnapshot.rsi = { ...this.configSnapshot.rsi, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * CCI 配置变更
+     */
+    updateCCIConfig(config: Partial<CCISchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.cciPaneId = paneId
+        }
+        this.configSnapshot.cci = { ...this.configSnapshot.cci, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * STOCH 配置变更
+     */
+    updateSTOCHConfig(config: Partial<STOCHSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.stochPaneId = paneId
+        }
+        this.configSnapshot.stoch = { ...this.configSnapshot.stoch, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * MOM 配置变更
+     */
+    updateMOMConfig(config: Partial<MOMSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.momPaneId = paneId
+        }
+        this.configSnapshot.mom = { ...this.configSnapshot.mom, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * WMSR 配置变更
+     */
+    updateWMSRConfig(config: Partial<WMSRSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.wmsrPaneId = paneId
+        }
+        this.configSnapshot.wmsr = { ...this.configSnapshot.wmsr, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * KST 配置变更
+     */
+    updateKSTConfig(config: Partial<KSTSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.kstPaneId = paneId
+        }
+        this.configSnapshot.kst = { ...this.configSnapshot.kst, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * FASTK 配置变更
+     */
+    updateFASTKConfig(config: Partial<FASTKSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.fastkPaneId = paneId
+        }
+        this.configSnapshot.fastk = { ...this.configSnapshot.fastk, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * MACD 配置变更
+     */
+    updateMACDConfig(config: Partial<MACDSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.macdPaneId = paneId
+        }
+        this.configSnapshot.macd = { ...this.configSnapshot.macd, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ATR 配置变更
+     */
+    updateATRConfig(config: Partial<ATRSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.atrPaneId = paneId
+        }
+        this.configSnapshot.atr = { ...this.configSnapshot.atr, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * WMA 配置变更
+     */
+    updateWMAConfig(config: Partial<WMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.wmaPaneId = paneId
+        }
+        this.configSnapshot.wma = { ...this.configSnapshot.wma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * DEMA 配置变更
+     */
+    updateDEMAConfig(config: Partial<DEMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.demaPaneId = paneId
+        }
+        this.configSnapshot.dema = { ...this.configSnapshot.dema, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * TEMA 配置变更
+     */
+    updateTEMAConfig(config: Partial<TEMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.temaPaneId = paneId
+        }
+        this.configSnapshot.tema = { ...this.configSnapshot.tema, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * HMA 配置变更
+     */
+    updateHMAConfig(config: Partial<HMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.hmaPaneId = paneId
+        }
+        this.configSnapshot.hma = { ...this.configSnapshot.hma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * KAMA 配置变更
+     */
+    updateKAMAConfig(config: Partial<KAMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.kamaPaneId = paneId
+        }
+        this.configSnapshot.kama = { ...this.configSnapshot.kama, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * SAR 配置变更
+     */
+    updateSARConfig(config: Partial<SARSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) {
+            this.configSnapshot.sarPaneId = paneId
+        }
+        this.configSnapshot.sar = { ...this.configSnapshot.sar, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * SuperTrend 配置变更
+     */
+    updateSuperTrendConfig(config: Partial<SuperTrendSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.supertrendPaneId = paneId
+        this.configSnapshot.supertrend = { ...this.configSnapshot.supertrend, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Keltner 配置变更
+     */
+    updateKeltnerConfig(config: Partial<KeltnerSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.keltnerPaneId = paneId
+        this.configSnapshot.keltner = { ...this.configSnapshot.keltner, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Donchian 配置变更
+     */
+    updateDonchianConfig(config: Partial<DonchianSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.donchianPaneId = paneId
+        this.configSnapshot.donchian = { ...this.configSnapshot.donchian, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Ichimoku 配置变更
+     */
+    updateIchimokuConfig(config: Partial<IchimokuSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.ichimokuPaneId = paneId
+        this.configSnapshot.ichimoku = { ...this.configSnapshot.ichimoku, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ROC 配置变更
+     */
+    updateROCConfig(config: Partial<ROCSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.rocPaneId = paneId
+        this.configSnapshot.roc = { ...this.configSnapshot.roc, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * TRIX 配置变更
+     */
+    updateTRIXConfig(config: Partial<TRIXSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.trixPaneId = paneId
+        this.configSnapshot.trix = { ...this.configSnapshot.trix, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * HV 配置变更
+     */
+    updateHVConfig(config: Partial<HVSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.hvPaneId = paneId
+        this.configSnapshot.hv = { ...this.configSnapshot.hv, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * Parkinson 配置变更
+     */
+    updateParkinsonConfig(config: Partial<ParkinsonSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.parkinsonPaneId = paneId
+        this.configSnapshot.parkinson = { ...this.configSnapshot.parkinson, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * ChaikinVol 配置变更
+     */
+    updateChaikinVolConfig(config: Partial<ChaikinVolSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.chaikinVolPaneId = paneId
+        this.configSnapshot.chaikinVol = { ...this.configSnapshot.chaikinVol, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * VMA 配置变更
+     */
+    updateVMAConfig(config: Partial<VMASchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.vmaPaneId = paneId
+        this.configSnapshot.vma = { ...this.configSnapshot.vma, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * OBV 配置变更
+     */
+    updateOBVConfig(config: Partial<OBVSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.obvPaneId = paneId
+        this.configSnapshot.obv = { ...this.configSnapshot.obv, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * PVT 配置变更
+     */
+    updatePVTConfig(config: Partial<PVTSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.pvtPaneId = paneId
+        this.configSnapshot.pvt = { ...this.configSnapshot.pvt, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * VWAP 配置变更
+     */
+    updateVWAPConfig(config: Partial<VWAPSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.vwapPaneId = paneId
+        this.configSnapshot.vwap = { ...this.configSnapshot.vwap, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** CMF 配置变更 */
+    updateCMFConfig(config: Partial<CMFSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.cmfPaneId = paneId
+        this.configSnapshot.cmf = { ...this.configSnapshot.cmf, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** MFI 配置变更 */
+    updateMFIConfig(config: Partial<MFISchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.mfiPaneId = paneId
+        this.configSnapshot.mfi = { ...this.configSnapshot.mfi, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Pivot 配置变更 */
+    updatePivotConfig(config: Partial<PivotSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.pivotPaneId = paneId
+        this.configSnapshot.pivot = { ...this.configSnapshot.pivot, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Fib 配置变更 */
+    updateFibConfig(config: Partial<FibSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.fibPaneId = paneId
+        this.configSnapshot.fib = { ...this.configSnapshot.fib, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Structure 配置变更 */
+    updateStructureConfig(config: Partial<StructureSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.structurePaneId = paneId
+        this.configSnapshot.structure = { ...this.configSnapshot.structure, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Zones 配置变更 */
+    updateZonesConfig(config: Partial<ZonesSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.zonesPaneId = paneId
+        this.configSnapshot.zones = { ...this.configSnapshot.zones, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /** Volume Profile 配置变更 */
+    updateVolumeProfileConfig(config: Partial<VolumeProfileSchedulerConfig>, paneId?: string): void {
+        if (paneId !== undefined) this.configSnapshot.volumeProfilePaneId = paneId
+        this.configSnapshot.volumeProfile = { ...this.configSnapshot.volumeProfile, ...config }
+        this.configVersion++
+        this.triggerRecompute()
+    }
+
+    /**
+     * 设置当前激活的主图指标
+     */
+    setActiveMainIndicators(indicators: string[]): void {
+        this.activeMainIndicators = new Set(indicators.map(i => i.toLowerCase()))
+    }
+
+    /**
+     * 获取主图指标价格范围
+     */
+    getMainIndicatorPriceRange(): { min: number; max: number } | null {
+        if (!this.latestResult) return null
+        return computeMainIndicatorPriceRange(
+            this.latestResult,
+            this.visibleRange,
+            this.activeMainIndicators
+        )
+    }
+
+    /**
+     * 强制全部重算
+     */
+    recompute(): void {
+        // 强制 inline runtime 重新计算（无视脏标记）
+        if (this.inlineRuntime) {
+            this.inlineRuntime.forceDirty()
+        }
+        // 递增版本号，确保 worker 端也会重新计算
+        this.dataVersion++
+        this.triggerRecompute()
+    }
+
+    // ============================================================================
+    // 计算触发
+    // ============================================================================
+
+    private triggerRecompute(): void {
+        if (this.useWorker && this.worker && this.workerReady) {
+            this.computeWithWorker()
+        } else {
+            this.computeWithInline()
+        }
+    }
+
+    private computeWithWorker(): void {
+        if (!this.worker || !this.workerReady) return
+
+        console.log(`[IndicatorScheduler] >> Worker compute: requestId=${this.requestId + 1} dataV=${this.dataVersion} configV=${this.configVersion}`)
+        this.requestId++
+        this.pendingRequest = {
+            requestId: this.requestId,
+            dataVersion: this.dataVersion,
+            configVersion: this.configVersion,
+        }
+
+        // 发送数据（首次或变更时）
+        this.worker.postMessage({
+            type: 'setData',
+            dataVersion: this.dataVersion,
+            format: 'aos',
+            data: this.currentData,
+        })
+
+        // 发送配置（仅活跃副图）
+        this.worker.postMessage({
+            type: 'setConfig',
+            configVersion: this.configVersion,
+            configs: this.buildActiveConfig(),
+        })
+
+        // 请求计算
+        this.worker.postMessage({
+            type: 'computeSeries',
+            requestId: this.requestId,
+            dataVersion: this.dataVersion,
+            configVersion: this.configVersion,
+        })
+    }
+
+    private computeWithInline(): void {
+        if (!this.inlineRuntime) {
+            this.inlineRuntime = new IndicatorRuntime()
+        }
+
+        console.log(`[IndicatorScheduler] >> INLINE compute: dataV=${this.dataVersion} configV=${this.configVersion}`)
+
+        // 设置数据和配置（仅活跃副图）
+        this.inlineRuntime.setData(this.currentData, this.dataVersion)
+        this.inlineRuntime.setConfig(this.buildActiveConfig(), this.configVersion)
+
+        // 同步计算
+        const results = this.inlineRuntime.computeSeries()
+        this.latestResult = results
+
+        // 组装并写入 states
+        this.applyResults(results)
+
+        // 触发重绘
+        this.invalidateCallback?.()
+    }
+}

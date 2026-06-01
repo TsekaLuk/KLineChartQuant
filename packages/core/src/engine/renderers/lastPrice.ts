@@ -1,0 +1,97 @@
+import type { RendererPlugin, RenderContext } from '../../plugin'
+import { RENDERER_PRIORITY } from '../../plugin'
+import type { KLineData } from '../../types/price'
+import { getColors } from '../theme/colors'
+
+function getLastPriceInfo(context: RenderContext) {
+    const { pane, data } = context
+    const klineData = data as KLineData[]
+    const last = klineData[klineData.length - 1]
+    if (!last) return null
+
+    const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
+    if (last.close < displayRange.minPrice || last.close > displayRange.maxPrice) {
+        return null
+    }
+
+    return {
+        price: last.close,
+        y: Math.round(pane.yAxis.priceToY(last.close)),
+        dataIndex: klineData.length - 1,
+    }
+}
+
+/**
+ * 最新价 label 注册渲染器（overlay 层，确保悬停时 label 也注册到 yAxisLabels）
+ */
+export function createLastPriceLabelRegistrarPlugin(): RendererPlugin {
+    return {
+        name: 'lastPriceLabelRegistrar',
+        version: '1.0.0',
+        description: '最新价 label 注册',
+        debugName: '最新价标签注册',
+        paneId: 'main',
+        layer: 'overlay',
+        priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
+
+        draw(context: RenderContext) {
+            const colors = getColors(context.theme)
+            const info = getLastPriceInfo(context)
+            if (!info) return
+
+            if (!context.yAxisLabels) context.yAxisLabels = []
+            context.yAxisLabels.push({
+                dataIndex: info.dataIndex,
+                price: info.price,
+                y: info.y,
+                type: 'lastPrice',
+                style: {
+                    bgColor: colors.LAST_PRICE_LABEL.BG,
+                    borderColor: colors.PRICE.LAST_PRICE,
+                    textColor: colors.PRICE.LAST_PRICE,
+                }
+            })
+        },
+    }
+}
+
+/**
+ * 创建最新价虚线渲染器插件（绘制虚线）
+ */
+export function createLastPriceLineRendererPlugin(): RendererPlugin {
+    return {
+        name: 'lastPriceLine',
+        version: '1.0.0',
+        description: '最新价虚线渲染器',
+        debugName: '最新价线',
+        paneId: 'main',
+        priority: RENDERER_PRIORITY.LAST_PRICE_LABEL,
+
+        draw(context: RenderContext) {
+            const { ctx, scrollLeft, dpr, kLinePositions, paneWidth } = context
+            const colors = getColors(context.theme)
+            const info = getLastPriceInfo(context)
+            if (!info) return
+
+            const y = info.y
+
+            ctx.save()
+            ctx.translate(-scrollLeft, 0)
+
+            const startX = kLinePositions[0] ?? 0
+            const endX = paneWidth + scrollLeft
+
+            ctx.strokeStyle = colors.PRICE.LAST_PRICE
+            ctx.lineWidth = 1
+            ctx.setLineDash([4, 3])
+            ctx.beginPath()
+            const yy = (Math.floor(y * dpr) + 0.5) / dpr
+            ctx.moveTo(Math.round(startX * dpr) / dpr, yy)
+            ctx.lineTo(Math.round(endX * dpr) / dpr, yy)
+            ctx.stroke()
+            ctx.setLineDash([])
+
+            ctx.restore()
+        },
+    }
+}

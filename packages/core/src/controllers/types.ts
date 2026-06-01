@@ -9,18 +9,48 @@
  */
 
 import type { Signal } from '../reactivity'
-import type {
-    IndicatorRole,
-    IndicatorInstance,
-    SubPaneInfo,
-    DrawingToolType,
-    DrawingObject,
-    ViewportState,
-} from '../../../../src/core/chart'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
 
-// Re-export shared facade types with API-surface names
-export type ChartViewport = ViewportState
-export type { IndicatorRole, IndicatorInstance, SubPaneInfo, DrawingToolType, DrawingObject }
+// Controller-owned public surface. Legacy engine types may mirror these
+// shapes internally, but adapters depend only on core-defined contracts.
+export interface ChartViewport {
+    zoomLevel: number
+    plotWidth: number
+    plotHeight: number
+    dpr: number
+    visibleFrom: number
+    visibleTo: number
+    desiredScrollLeft: number | undefined
+    kWidth: number
+    kGap: number
+}
+
+export type IndicatorRole = 'main' | 'sub'
+
+export interface IndicatorInstance {
+    id: string
+    definitionId: string
+    label: string
+    name: string
+    role: IndicatorRole
+    paneId?: string
+    params: Record<string, unknown>
+}
+
+export interface SubPaneInfo {
+    paneId: string
+    indicatorId: string
+    params: Record<string, unknown>
+    ratio: number
+}
+
+export type DrawingToolType = 'trendline' | 'horizontal' | 'fib' | 'rectangle' | 'arrow'
+
+export interface DrawingObject {
+    id: string
+    type: DrawingToolType
+}
+
 export type IndicatorPaneRole = IndicatorRole
 
 // ---------------------------------------------------------------------------
@@ -128,6 +158,7 @@ export interface ChartController {
     // ---- Data ----
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void
+    updateData(next: ReadonlyArray<KLineData>): void
 
     // ---- Theme ----
     setTheme(theme: 'light' | 'dark'): void
@@ -151,6 +182,7 @@ export interface ChartController {
     ): string | null
     removeIndicator(instanceId: string): boolean
     updateIndicatorParams(instanceId: string, params: Record<string, unknown>): boolean
+    updateRendererConfig(name: string, config: Record<string, unknown>): void
 
     // ---- Drawing ----
     setDrawingTool(tool: DrawingToolType | null): void
@@ -159,8 +191,15 @@ export interface ChartController {
 
     // ---- Layout ----
     resizeSubPane(paneId: string, deltaY: number): boolean
+    createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean
+    clearSubPanes(): void
+
+    // ---- Drawing / Markers ----
+    updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void
+    clearCustomMarkers(): void
 
     // ---- Settings ----
+    updateSettingsFacade(settings: Record<string, unknown>): void
     updateOptionsFacade(options: Record<string, unknown>): void
 
     /** tear down DOM + listeners; idempotent */

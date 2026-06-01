@@ -173,6 +173,9 @@ export function createMockChartController(
         appendData(next) {
             data.set([...data(), ...next])
         },
+        updateData(next) {
+            data.set(next)
+        },
         setTheme(next) {
             theme.set(next)
         },
@@ -184,6 +187,60 @@ export function createMockChartController(
         },
         zoomOut() {
             viewport.set({ ...viewport(), zoomLevel: Math.max(1, viewport().zoomLevel - 1) })
+        },
+        handlePointerEvent() {
+            return false
+        },
+        handleWheelEvent() {
+            /* no-op */
+        },
+        handleScrollEvent() {
+            /* no-op */
+        },
+        handlePinchZoom() {
+            /* no-op */
+        },
+        addIndicator() {
+            return null
+        },
+        removeIndicator() {
+            return false
+        },
+        updateIndicatorParams() {
+            return false
+        },
+        updateRendererConfig() {
+            /* no-op */
+        },
+        setDrawingTool(tool) {
+            drawing.setActiveTool(tool)
+        },
+        clearDrawings() {
+            drawing.clearAll()
+        },
+        removeDrawing() {
+            /* no-op */
+        },
+        resizeSubPane() {
+            return false
+        },
+        createSubPane() {
+            return false
+        },
+        clearSubPanes() {
+            /* no-op */
+        },
+        updateCustomMarkers() {
+            /* no-op */
+        },
+        clearCustomMarkers() {
+            /* no-op */
+        },
+        updateSettingsFacade() {
+            /* no-op */
+        },
+        updateOptionsFacade() {
+            /* no-op */
         },
         dispose() {
             disposeCount += 1

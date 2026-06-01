@@ -64,7 +64,7 @@ function matchesQuery(def: IndicatorDefinition, q: string): boolean {
     const needle = q.toLowerCase()
     return (
         def.label.toLowerCase().includes(needle) ||
-        def.name.toLowerCase().includes(needle)
+        def.name?.toLowerCase().includes(needle) === true
     )
 }
 
@@ -166,7 +166,7 @@ export function createIndicatorSelectorController(
             id: instanceId,
             definitionId: def.id,
             label: def.label,
-            name: def.name,
+            name: def.name ?? def.label,
             role: def.role,
             params: buildDefaultParams(def),
         }

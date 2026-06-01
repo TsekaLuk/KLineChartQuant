@@ -1,7 +1,7 @@
 /**
- * @klinechart-quant/vue — public API surface.
+ * @363045841yyt/klinechart — public API surface.
  *
- * Vue 3 bindings for @klinechart-quant/core. Bridges core signals to Vue's
+ * Vue 3 bindings for @363045841yyt/klinechart-core. Bridges core signals to Vue's
  * reactivity via `shallowRef` + `effect` so each adapter owns its own
  * reactivity boundary — no proxy wrapping of immutable signal values.
  *
@@ -23,7 +23,7 @@ import {
     type PropType,
     type Ref,
 } from 'vue'
-import type { Signal } from '@klinechart-quant/core/reactivity'
+import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
     ChartController,
     ChartControllerFactory,
@@ -32,13 +32,13 @@ import type {
     IndicatorInstance,
     InteractionSnapshot,
     KLineData,
-} from '@klinechart-quant/core'
+} from '@363045841yyt/klinechart-core'
 
 export type {
     ChartController,
     ChartMountOptions,
     ChartViewport,
-} from '@klinechart-quant/core'
+} from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // SFC components (for consumers using Vite / SFC compiler)
@@ -76,7 +76,7 @@ export function __setControllerFactory(
 }
 
 // ---------------------------------------------------------------------------
-// createChart — imperative mount
+// createChart �?imperative mount
 // ---------------------------------------------------------------------------
 
 /**
@@ -87,12 +87,12 @@ export function __setControllerFactory(
 export function createChart(opts: ChartMountOptions): ChartController {
     if (opts.container == null) {
         throw new Error(
-            '[@klinechart-quant/vue] createChart: `container` is required and must be a non-null HTMLElement',
+            '[@363045841yyt/klinechart] createChart: `container` is required and must be a non-null HTMLElement',
         )
     }
     if (controllerFactory === null) {
         throw new Error(
-            '[@klinechart-quant/vue] createChart: no ChartController factory registered. ' +
+            '[@363045841yyt/klinechart] createChart: no ChartController factory registered. ' +
                 'Call __setControllerFactory(...) before mounting (the core package wires this in production).',
         )
     }
@@ -100,7 +100,7 @@ export function createChart(opts: ChartMountOptions): ChartController {
 }
 
 // ---------------------------------------------------------------------------
-// coreSignalToVueRef — reactivity bridge
+// coreSignalToVueRef �?reactivity bridge
 //
 // Subscribe to a core Signal and mirror its value in a shallowRef. Auto-cleanup
 // on component teardown via onScopeDispose (works inside effectScope or SFC).
@@ -116,7 +116,7 @@ export function createChart(opts: ChartMountOptions): ChartController {
  *
  * Subscription is torn down via `onScopeDispose`, so this is safe to call
  * inside a Vue component setup, a composable, or a manually-created
- * `effectScope`. Calling it outside any scope still returns a working ref —
+ * `effectScope`. Calling it outside any scope still returns a working ref �?
  * the caller is then responsible for unsubscribing.
  */
 export function coreSignalToVueRef<T>(signal: Signal<T>): Ref<T> {
@@ -129,7 +129,7 @@ export function coreSignalToVueRef<T>(signal: Signal<T>): Ref<T> {
 }
 
 // ---------------------------------------------------------------------------
-// useChart — composable
+// useChart �?composable
 // ---------------------------------------------------------------------------
 
 /**
@@ -180,7 +180,7 @@ export function useChart(
 }
 
 // ---------------------------------------------------------------------------
-// useIndicators — composable
+// useIndicators �?composable
 // ---------------------------------------------------------------------------
 
 /**
@@ -373,9 +373,9 @@ export const KLineChart = defineComponent({
 })
 
 // ---------------------------------------------------------------------------
-// KMapPlugin — legacy Vue plugin
+// KMapPlugin �?legacy Vue plugin
 //
-// PRESERVE THIS EXACT SHAPE — legacy consumers do:
+// PRESERVE THIS EXACT SHAPE �?legacy consumers do:
 //   import { KMapPlugin } from '@363045841yyt/klinechart'
 //   app.use(KMapPlugin)
 // ---------------------------------------------------------------------------
@@ -394,8 +394,9 @@ export const KMapPlugin = {
 // override via __setControllerFactory in their setup and reset to null in
 // afterEach, so this default registration is transparent to them.
 //
-// Importing the factory is side-effect-free at module load — the engine's
+// Importing the factory is side-effect-free at module load �?the engine's
 // DOM access only happens when `createChart(opts)` is actually called.
 // ---------------------------------------------------------------------------
-import { createChartController } from '@klinechart-quant/core'
+import { createChartController } from '@363045841yyt/klinechart-core'
 __setControllerFactory(createChartController)
+export { VERSION, CORE_VERSION } from './version'

@@ -5,7 +5,6 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noImplicitOverride": true,
-    "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
     "declaration": true,
     "declarationMap": true,
@@ -13,6 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
+    "types": ["vite/client"],
     "outDir": "dist",
     "rootDir": "src"
   },

@@ -1,5 +1,5 @@
 /**
- * Vitest setup for @klinechart-quant/angular.
+ * Vitest setup for @363045841yyt/klinechart-angular.
  *
  * Loads @angular/compiler so the JIT path is available for components
  * decorated with @Component when they run outside a TestBed (Angular's

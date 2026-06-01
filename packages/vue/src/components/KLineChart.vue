@@ -108,26 +108,41 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
-import { SemanticChartController, __setDataFetcher, type SemanticChartConfig, type DataFetcher } from '@klinechart-quant/core/semantic'
+import {
+  SemanticChartController,
+  __setDataFetcher,
+  type SemanticChartConfig,
+  type DataFetcher,
+} from '@363045841yyt/klinechart-core/semantic'
 import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
-import { Chart, type PaneSpec } from '@klinechart-quant/core/engine/chart'
-import type { KLineData } from '@klinechart-quant/core/types/price'
-import { createChartStore, TRAILING_DRAWING_SLOTS, type ChartStore } from '@klinechart-quant/core/engine/chart-store'
-import { zoomLevelToKWidth, kGapFromKWidth } from '@klinechart-quant/core/engine/utils/zoom'
-import { getPhysicalKLineConfig } from '@klinechart-quant/core/engine/utils/klineConfig'
-import { type SubIndicatorType } from '@klinechart-quant/core/engine/renderers/Indicator'
+import { Chart, type PaneSpec } from '@363045841yyt/klinechart-core/engine/chart'
+import type { KLineData } from '@363045841yyt/klinechart-core/types/price'
+import {
+  createChartStore,
+  TRAILING_DRAWING_SLOTS,
+  type ChartStore,
+} from '@363045841yyt/klinechart-core/engine/chart-store'
+import { zoomLevelToKWidth, kGapFromKWidth } from '@363045841yyt/klinechart-core/engine/utils/zoom'
+import { getPhysicalKLineConfig } from '@363045841yyt/klinechart-core/engine/utils/klineConfig'
+import { type SubIndicatorType } from '@363045841yyt/klinechart-core/engine/renderers/Indicator'
 import {
   SUB_PANE_INDICATOR_CONFIGS,
   SUB_PANE_INDICATORS,
-} from '@klinechart-quant/core/engine/renderers/Indicator/subPaneConfig'
-import { createPaneTitleRendererPlugin, type TitleInfo } from '@klinechart-quant/core/engine/renderers/paneTitle'
-import type { InteractionSnapshot } from '@klinechart-quant/core/engine/controller/interaction'
-import type { DrawingStyle } from '@klinechart-quant/core/plugin'
+} from '@363045841yyt/klinechart-core/engine/renderers/Indicator/subPaneConfig'
+import {
+  createPaneTitleRendererPlugin,
+  type TitleInfo,
+} from '@363045841yyt/klinechart-core/engine/renderers/paneTitle'
+import type { InteractionSnapshot } from '@363045841yyt/klinechart-core/engine/controller/interaction'
+import type { DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import LeftToolbar from './LeftToolbar.vue'
-import { DrawingInteractionController, type DrawingToolId } from '@klinechart-quant/core/engine/drawing'
+import {
+  DrawingInteractionController,
+  type DrawingToolId,
+} from '@363045841yyt/klinechart-core/engine/drawing'
 
 const props = withDefaults(
   defineProps<{

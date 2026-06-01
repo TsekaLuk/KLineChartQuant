@@ -2,14 +2,14 @@
  * Mock ChartController for Vue adapter tests.
  *
  * Mirrors the framework-agnostic signal-bearing shape from
- * @klinechart-quant/core without spinning up the real Chart engine.
+ * @363045841yyt/klinechart-core without spinning up the real Chart engine.
  *
  * To keep this test file runnable from the repo root vitest (which does not
- * alias @klinechart-quant/core), we inline a tiny `Signal` implementation
+ * alias @363045841yyt/klinechart-core), we inline a tiny `Signal` implementation
  * that is shape-compatible with `packages/core/src/reactivity/signal.ts`.
  */
 
-import type { Signal } from '@klinechart-quant/core/reactivity'
+import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
     ActiveIndicator,
     ChartController,
@@ -23,11 +23,11 @@ import type {
     ToolbarController,
     ToolDefinition,
     ToolId,
-} from '@klinechart-quant/core'
+} from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
-// Inline mini-signal â€” Object.is-equality, sync notify. Drop-in compatible
-// with `@klinechart-quant/core/reactivity` for shape-only test purposes.
+// Inline mini-signal â€?Object.is-equality, sync notify. Drop-in compatible
+// with `@363045841yyt/klinechart-core/reactivity` for shape-only test purposes.
 // ---------------------------------------------------------------------------
 
 function createSignal<T>(initial: T): Signal<T> {

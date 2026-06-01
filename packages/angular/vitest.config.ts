@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-// Legacy engine root â€” needed so `@/...` imports inside src/core/chart.ts
+// Legacy engine root â€?needed so `@/...` imports inside src/core/chart.ts
 // resolve while the package transitively loads createChartController.
 const repoSrc = fileURLToPath(new URL('../../src', import.meta.url))
 
@@ -20,15 +20,15 @@ export default defineConfig({
         // alias matches as a prefix and appends the subpath.
         alias: [
             {
-                find: '@klinechart-quant/core/reactivity',
+                find: '@363045841yyt/klinechart-core/reactivity',
                 replacement: new URL('../core/src/reactivity/index.ts', import.meta.url).pathname,
             },
             {
-                find: '@klinechart-quant/core/controllers',
+                find: '@363045841yyt/klinechart-core/controllers',
                 replacement: new URL('../core/src/controllers/index.ts', import.meta.url).pathname,
             },
             {
-                find: '@klinechart-quant/core',
+                find: '@363045841yyt/klinechart-core',
                 replacement: new URL('../core/src/index.ts', import.meta.url).pathname,
             },
             { find: /^@\//, replacement: `${repoSrc}/` },

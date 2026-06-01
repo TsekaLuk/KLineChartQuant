@@ -1,5 +1,5 @@
 {
-  "name": "@klinechart-quant/ui-schema",
+  "name": "@363045841yyt/klinechart-ui-schema",
   "version": "0.0.0",
   "description": "Framework-agnostic UI metadata (toolbar/indicator-picker/tooltip config trees).",
   "license": "MIT",
@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "test": "vitest run"
   },
   "devDependencies": {

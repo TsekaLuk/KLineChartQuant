@@ -1,81 +1,85 @@
 {
-  "name": "@klinechart-quant/core",
-  "version": "0.0.0",
+  "name": "@363045841yyt/klinechart-core",
+  "version": "0.7.3",
   "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./reactivity": {
-      "types": "./src/reactivity/index.ts",
-      "import": "./src/reactivity/index.ts"
+      "types": "./dist/reactivity/index.d.ts",
+      "import": "./dist/reactivity/index.js"
     },
     "./controllers": {
-      "types": "./src/controllers/index.ts",
-      "import": "./src/controllers/index.ts"
+      "types": "./dist/controllers/index.d.ts",
+      "import": "./dist/controllers/index.js"
     },
     "./semantic": {
-      "types": "./src/semantic/index.ts",
-      "import": "./src/semantic/index.ts"
+      "types": "./dist/semantic/index.d.ts",
+      "import": "./dist/semantic/index.js"
     },
     "./plugin": {
-      "types": "./src/plugin/index.ts",
-      "import": "./src/plugin/index.ts"
+      "types": "./dist/plugin/index.d.ts",
+      "import": "./dist/plugin/index.js"
     },
     "./config": {
-      "types": "./src/config/chartSettings.ts",
-      "import": "./src/config/chartSettings.ts"
+      "types": "./dist/config/chartSettings.d.ts",
+      "import": "./dist/config/chartSettings.js"
     },
     "./types/price": {
-      "types": "./src/types/price.ts",
-      "import": "./src/types/price.ts"
+      "types": "./dist/types/price.d.ts",
+      "import": "./dist/types/price.js"
     },
     "./engine/chart": {
-      "types": "./src/engine/chart.ts",
-      "import": "./src/engine/chart.ts"
+      "types": "./dist/engine/chart.d.ts",
+      "import": "./dist/engine/chart.js"
     },
     "./engine/chart-store": {
-      "types": "./src/engine/chart-store.ts",
-      "import": "./src/engine/chart-store.ts"
+      "types": "./dist/engine/chart-store.d.ts",
+      "import": "./dist/engine/chart-store.js"
     },
     "./engine/utils/zoom": {
-      "types": "./src/engine/utils/zoom.ts",
-      "import": "./src/engine/utils/zoom.ts"
+      "types": "./dist/engine/utils/zoom.d.ts",
+      "import": "./dist/engine/utils/zoom.js"
     },
     "./engine/utils/klineConfig": {
-      "types": "./src/engine/utils/klineConfig.ts",
-      "import": "./src/engine/utils/klineConfig.ts"
+      "types": "./dist/engine/utils/klineConfig.d.ts",
+      "import": "./dist/engine/utils/klineConfig.js"
     },
     "./engine/renderers/Indicator": {
-      "types": "./src/engine/renderers/Indicator/index.ts",
-      "import": "./src/engine/renderers/Indicator/index.ts"
+      "types": "./dist/engine/renderers/Indicator/index.d.ts",
+      "import": "./dist/engine/renderers/Indicator/index.js"
     },
     "./engine/renderers/Indicator/subPaneConfig": {
-      "types": "./src/engine/renderers/Indicator/subPaneConfig.ts",
-      "import": "./src/engine/renderers/Indicator/subPaneConfig.ts"
+      "types": "./dist/engine/renderers/Indicator/subPaneConfig.d.ts",
+      "import": "./dist/engine/renderers/Indicator/subPaneConfig.js"
     },
     "./engine/renderers/Indicator/indicatorData": {
-      "types": "./src/engine/renderers/Indicator/indicatorData.ts",
-      "import": "./src/engine/renderers/Indicator/indicatorData.ts"
+      "types": "./dist/engine/renderers/Indicator/indicatorData.d.ts",
+      "import": "./dist/engine/renderers/Indicator/indicatorData.js"
     },
     "./engine/renderers/paneTitle": {
-      "types": "./src/engine/renderers/paneTitle.ts",
-      "import": "./src/engine/renderers/paneTitle.ts"
+      "types": "./dist/engine/renderers/paneTitle.d.ts",
+      "import": "./dist/engine/renderers/paneTitle.js"
     },
     "./engine/controller/interaction": {
-      "types": "./src/engine/controller/interaction.ts",
-      "import": "./src/engine/controller/interaction.ts"
+      "types": "./dist/engine/controller/interaction.d.ts",
+      "import": "./dist/engine/controller/interaction.js"
     },
     "./engine/drawing": {
-      "types": "./src/engine/drawing/index.ts",
-      "import": "./src/engine/drawing/index.ts"
+      "types": "./dist/engine/drawing/index.d.ts",
+      "import": "./dist/engine/drawing/index.js"
+    },
+    "./version": {
+      "types": "./dist/version.d.ts",
+      "import": "./dist/version.js"
     }
   },
   "files": [
@@ -83,11 +87,12 @@
     "src"
   ],
   "publishConfig": {
-    "provenance": true,
     "access": "public"
   },
   "scripts": {
+    "version": "node -e \"require('fs').writeFileSync('src/version.ts', 'export const VERSION = ' + JSON.stringify(require('./package.json').version) + '\\\\n')\" && git add src/version.ts",
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",

@@ -1,8 +1,8 @@
 {
-    "name": "@klinechart-quant-examples/next-app",
+    "name": "@363045841yyt/klinechart-examples-next-app",
     "version": "0.0.0",
     "private": true,
-    "description": "Next.js 15 App Router SSR smoke test for @klinechart-quant/react.",
+    "description": "Next.js 15 App Router SSR smoke test for @363045841yyt/klinechart-react.",
     "type": "module",
     "scripts": {
         "dev": "next dev",
@@ -10,8 +10,8 @@
         "start": "next start"
     },
     "dependencies": {
-        "@klinechart-quant/react": "link:../../packages/react",
-"@klinechart-quant/core": "link:../../packages/core",
+        "@363045841yyt/klinechart-react": "link:../../packages/react",
+"@363045841yyt/klinechart-core": "link:../../packages/core",
         "next": "^15.0.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"

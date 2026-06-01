@@ -3,14 +3,32 @@
     <div class="debug-controls">
       <div class="debug-left">
         <button @click="showModal = true" title="打开 Modal">
-          <svg class="debug-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg
+            class="debug-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <line x1="3" y1="9" x2="21" y2="9" />
             <line x1="9" y1="3" x2="9" y2="21" />
           </svg>
         </button>
         <button @click="toggleEmbedSize" title="切换嵌入容器尺寸">
-          <svg class="debug-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg
+            class="debug-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <path d="M8 3H5a2 2 0 0 0-2 2v3" />
             <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
             <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
@@ -22,7 +40,7 @@
         <span class="size-info">嵌入尺寸：{{ embedWidth }} × {{ embedHeight }}</span>
       </div>
       <div class="debug-right">
-        <span class="version-badge">v{{ packageVersion }}</span>
+        <span class="version-badge">{{ displayVersion }}</span>
         <a
           class="debug-link"
           href="https://github.com/363045841/KLineChartQuant"
@@ -92,12 +110,13 @@
 <script setup lang="ts">
 import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
 import KLineChart from '../src/components/KLineChart.vue'
-import type { DataFetcher } from '@klinechart-quant/core/semantic'
+import { VERSION, CORE_VERSION } from '../src/version'
+import type { DataFetcher } from '@363045841yyt/klinechart-core/semantic'
 import debugConfig from './debug-config.json'
-import packageJson from '../../../package.json'
 
-const FULLSCREEN_TARGET_KEY: InjectionKey<Ref<HTMLElement | null>> =
-  Symbol('fullscreen-teleport-target')
+const FULLSCREEN_TARGET_KEY: InjectionKey<Ref<HTMLElement | null>> = Symbol(
+  'fullscreen-teleport-target',
+)
 
 function provideFullscreenTeleportTarget(targetRef: Ref<HTMLElement | null>): void {
   provide(FULLSCREEN_TARGET_KEY, targetRef)
@@ -118,7 +137,15 @@ const dataFetcher: DataFetcher = async (_source, config) => {
   const end = new Date(config.endDate).getTime()
   const dayMs = 86400000
   const totalDays = Math.floor((end - start) / dayMs) + 1
-  const data: Array<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number; turnover: number }> = []
+  const data: Array<{
+    timestamp: number
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    turnover: number
+  }> = []
   let price = 10 + Math.random() * 5
   for (let i = 0; i < totalDays; i++) {
     const ts = start + i * dayMs
@@ -128,12 +155,21 @@ const dataFetcher: DataFetcher = async (_source, config) => {
     const high = Math.round(Math.max(open, close) * (1 + Math.random() * 0.03) * 100) / 100
     const low = Math.round(Math.min(open, close) * (1 - Math.random() * 0.03) * 100) / 100
     const volume = Math.round(Math.random() * 10000000 + 1000000)
-    data.push({ timestamp: ts, open, high, low, close, volume, turnover: Math.round(volume * (open + close) / 2) })
+    data.push({
+      timestamp: ts,
+      open,
+      high,
+      low,
+      close,
+      volume,
+      turnover: Math.round((volume * (open + close)) / 2),
+    })
     price = close
   }
   return data
 }
-const packageVersion = packageJson.version
+
+const displayVersion = `Vue@${VERSION}-Core@${CORE_VERSION}`
 
 const showModal = ref(false)
 
@@ -157,9 +193,7 @@ const embedContainerRef = ref<HTMLElement | null>(null)
 
 provideFullscreenTeleportTarget(embedContainerRef)
 
-const teleportTarget = computed<HTMLElement | string>(
-  () => embedContainerRef.value ?? 'body'
-)
+const teleportTarget = computed<HTMLElement | string>(() => embedContainerRef.value ?? 'body')
 
 async function toggleFullscreen() {
   if (!embedContainerRef.value) return

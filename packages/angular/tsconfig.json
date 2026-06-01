@@ -16,7 +16,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@klinechart-quant/core": ["../core/src"]
+      "@363045841yyt/klinechart-core": ["../core/src"]
     }
   },
   "include": ["src/**/*"],

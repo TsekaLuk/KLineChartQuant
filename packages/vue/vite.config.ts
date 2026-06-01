@@ -22,7 +22,7 @@ export default defineConfig({
             fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
         },
         rollupOptions: {
-            external: ['vue', /@klinechart-quant\/core/],
+            external: ['vue', /@363045841yyt\/klinechart-core/],
             output: {
                 globals: { vue: 'Vue' },
             },

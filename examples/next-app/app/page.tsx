@@ -1,7 +1,7 @@
 /**
  * Server component for the SSR smoke test.
  *
- * KEY ASSERTION: this file imports `@klinechart-quant/react` at module top
+ * KEY ASSERTION: this file imports `@363045841yyt/klinechart-react` at module top
  * level (no dynamic imports, no `'use client'`). If the adapter touched
  * `window` or `document` at module scope, `next build` would fail with
  * "ReferenceError: window is not defined" during the server-side prerender.
@@ -9,7 +9,7 @@
  * The fact that this file builds cleanly proves the SSR-safety contract
  * (Round 1H, criteria item #1).
  */
-import * as KLineReact from '@klinechart-quant/react'
+import * as KLineReact from '@363045841yyt/klinechart-react'
 import { buildMockCandles } from '@/lib/mockData'
 import Chart from './chart'
 
@@ -21,7 +21,7 @@ export default function Page(): JSX.Element {
     const data = buildMockCandles(100)
     return (
         <main style={{ padding: 16, fontFamily: 'sans-serif' }}>
-            <h1>KLineChart Quant â€” Next.js 15 SSR smoke</h1>
+            <h1>KLineChart Quant â€?Next.js 15 SSR smoke</h1>
             <p>
                 Adapter loaded at module scope:{' '}
                 <strong>{adapterLoaded ? 'yes' : 'no'}</strong>

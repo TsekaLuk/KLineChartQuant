@@ -6,7 +6,7 @@ const repoRoot = path.resolve(__dirname, '../..')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    transpilePackages: ['@klinechart-quant/react', '@klinechart-quant/core'],
+    transpilePackages: ['@363045841yyt/klinechart-react', '@363045841yyt/klinechart-core'],
     outputFileTracingRoot: repoRoot,
     reactStrictMode: true,
     webpack(config) {

@@ -1,34 +1,45 @@
 {
-  "name": "@klinechart-quant/vue",
-  "version": "0.0.0",
-  "description": "Vue 3 bindings for @klinechart-quant/core. Idiomatic composables, SFC components.",
+  "name": "@363045841yyt/klinechart",
+  "version": "0.7.3-alpha.5",
+  "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./style.css": "./dist/klinechart.css"
   },
   "files": [
     "dist",
     "src"
   ],
   "publishConfig": {
-    "provenance": true,
     "access": "public"
   },
   "scripts": {
     "dev": "vite --config preview/vite.config.ts",
-    "build": "vite build",
+    "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
+    "postbuild": "node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",
     "lint:publish": "publint --strict .",
+    "prepublishOnly": "npm run build",
     "lint:types": "attw --pack ."
   },
   "size-limit": [
@@ -39,12 +50,12 @@
       "gzip": true,
       "ignore": [
         "vue",
-        "@klinechart-quant/core"
+        "@363045841yyt/klinechart-core"
       ]
     }
   ],
   "peerDependencies": {
-    "@klinechart-quant/core": "workspace:*",
+    "@363045841yyt/klinechart-core": "workspace:^",
     "vue": "^3.4.0"
   },
   "devDependencies": {

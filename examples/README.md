@@ -1,7 +1,7 @@
 # `examples/` — Framework SSR Smoke Tests
 
 These are **not feature demos**. They exist to verify that each adapter
-package (`@klinechart-quant/{react,vue,angular}`) is SSR-safe: the adapter
+package (`@363045841yyt/klinechart-{react,vue,angular}`) is SSR-safe: the adapter
 modules can be imported on a server (Next.js RSC pass, Nuxt server render,
 Angular Universal prerender) without crashing, and DOM access is gated to
 the client.

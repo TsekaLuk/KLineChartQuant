@@ -75,7 +75,6 @@
       >
         <IconTablerZoomOut class="tool-icon" aria-hidden="true" />
       </button>
-
     </div>
 
     <span class="left-toolbar__divider"></span>
@@ -154,10 +153,7 @@
                         />
                       </template>
                       <template v-else-if="item.type === 'select' && item.options">
-                        <select
-                          class="settings-select"
-                          v-model="settings[item.key]"
-                        >
+                        <select class="settings-select" v-model="settings[item.key]">
                           <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
                             {{ opt.label }}
                           </option>
@@ -185,10 +181,7 @@
                         />
                       </template>
                       <template v-else-if="item.type === 'select' && item.options">
-                        <select
-                          class="settings-select"
-                          v-model="settings[item.key]"
-                        >
+                        <select class="settings-select" v-model="settings[item.key]">
                           <option v-for="opt in item.options" :key="opt.value" :value="opt.value">
                             {{ opt.label }}
                           </option>
@@ -249,7 +242,7 @@ import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
   type SettingItem,
-} from '@klinechart-quant/core/config'
+} from '@363045841yyt/klinechart-core/config'
 import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import { setCanvasProfilerEnabled } from '../debug/canvasProfiler'
 
@@ -307,9 +300,11 @@ const showSettings = ref(false)
 
 const teleportTarget = useFullscreenTeleportTarget()
 
-const mainSettings = computed(() => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[])
-const experimentalSettings = computed(() =>
-  DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
+const mainSettings = computed(
+  () => DEFAULT_SETTINGS.filter((s) => s.group === 'main') as unknown as SettingItem[],
+)
+const experimentalSettings = computed(
+  () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
 )
 
 function loadSettings(): Record<string, boolean | string> {
@@ -323,8 +318,7 @@ function loadSettings(): Record<string, boolean | string> {
       })
       return result
     }
-  } catch {
-  }
+  } catch {}
   const defaults: Record<string, boolean | string> = {}
   DEFAULT_SETTINGS.forEach((item) => {
     defaults[item.key] = item.default
@@ -335,8 +329,7 @@ function loadSettings(): Record<string, boolean | string> {
 function saveSettings(settings: Record<string, boolean | string>) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-  }
+  } catch {}
 }
 
 const appliedSettings = ref<Record<string, boolean | string>>(loadSettings())

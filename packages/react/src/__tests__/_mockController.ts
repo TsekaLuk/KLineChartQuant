@@ -1,13 +1,13 @@
 /**
  * Minimal in-memory ChartController for adapter contract tests.
  *
- * Honours the public `ChartController` shape from @klinechart-quant/core but
- * skips the rendering pipeline â€” signals are real (so subscribe/notify works
+ * Honours the public `ChartController` shape from @363045841yyt/klinechart-core but
+ * skips the rendering pipeline â€?signals are real (so subscribe/notify works
  * end-to-end through useSyncExternalStore) but mutation methods only update
  * those signals; no canvas, no DOM.
  */
 
-import { createSignal } from '@klinechart-quant/core/reactivity'
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
     ActiveIndicator,
     ChartController,
@@ -20,7 +20,7 @@ import type {
     ToolbarController,
     ToolDefinition,
     ToolId,
-} from '@klinechart-quant/core'
+} from '@363045841yyt/klinechart-core'
 
 function createMockIndicatorSelector(): IndicatorSelectorController {
     const catalog = createSignal<ReadonlyArray<IndicatorDefinition>>([])

@@ -1,7 +1,7 @@
 {
-  "name": "@klinechart-quant/react",
+  "name": "@363045841yyt/klinechart-react",
   "version": "0.0.0",
-  "description": "React bindings for @klinechart-quant/core. Idiomatic hooks, SSR-safe, tree-shakable.",
+  "description": "React bindings for @363045841yyt/klinechart-core. Idiomatic hooks, SSR-safe, tree-shakable.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,6 +24,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",
@@ -36,11 +37,11 @@
       "path": "src/index.ts",
       "limit": "8 KB",
       "gzip": true,
-      "ignore": ["react", "react-dom", "@klinechart-quant/core"]
+      "ignore": ["react", "react-dom", "@363045841yyt/klinechart-core"]
     }
   ],
   "peerDependencies": {
-    "@klinechart-quant/core": "workspace:*",
+    "@363045841yyt/klinechart-core": "workspace:*",
     "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 /**
- * Contract test for @klinechart-quant/react.
+ * Contract test for @363045841yyt/klinechart-react.
  *
  * Phase 1B agent's brief: make these pass without weakening assertions.
  *
@@ -27,9 +27,9 @@ import type { ReactElement, RefObject } from 'react'
 import * as ReactAdapter from '../index'
 import { __setChartFactory, useChart } from '../index'
 import { createMockChartController, type MockControllerHandle } from './_mockController'
-import type { ChartController, ChartMountOptions, ChartViewport, KLineData } from '@klinechart-quant/core'
+import type { ChartController, ChartMountOptions, ChartViewport, KLineData } from '@363045841yyt/klinechart-core'
 
-describe('@klinechart-quant/react â€” public API surface', () => {
+describe('@363045841yyt/klinechart-react â€?public API surface', () => {
     it('exports createChart, useChart, useIndicatorSelector, KLineChart', () => {
         expect(typeof ReactAdapter.createChart).toBe('function')
         expect(typeof ReactAdapter.useChart).toBe('function')
@@ -38,7 +38,7 @@ describe('@klinechart-quant/react â€” public API surface', () => {
     })
 })
 
-describe('@klinechart-quant/react â€” SSR safety', () => {
+describe('@363045841yyt/klinechart-react â€?SSR safety', () => {
     it('importing the module does not touch window or document', async () => {
         // The mere act of `import * as ReactAdapter` above happened in a node env
         // (no jsdom for this file). If the module touched `window` at top level,
@@ -99,7 +99,7 @@ function makeHost(
     }
 }
 
-describe('@klinechart-quant/react â€” useChart lifecycle', () => {
+describe('@363045841yyt/klinechart-react â€?useChart lifecycle', () => {
     let lastHandle: MockControllerHandle | null = null
 
     beforeEach(() => {
@@ -144,7 +144,7 @@ describe('@klinechart-quant/react â€” useChart lifecycle', () => {
             const ref = createRef<HTMLElement>() as RefObject<HTMLElement | null>
             const controller = useChart(ref, { data: [] })
             renderCalls.push(controller)
-            // Render no element bound to the ref â†’ ref.current stays null.
+            // Render no element bound to the ref â†?ref.current stays null.
             return createElement('div')
         }
 

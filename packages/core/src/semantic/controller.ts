@@ -1,4 +1,4 @@
-import { EventBus } from '../../plugin/EventBus'
+import { EventBus } from '../plugin/EventBus'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { SemanticConfigValidator } from './validator'
 import type {

@@ -102,6 +102,9 @@
       "gzip": true
     }
   ],
+  "optionalDependencies": {
+    "ajv": "^8.20.0"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.0",
     "@size-limit/preset-small-lib": "^11.1.6",

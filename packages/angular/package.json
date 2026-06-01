@@ -1,7 +1,7 @@
 {
-  "name": "@klinechart-quant/angular",
+  "name": "@363045841yyt/klinechart-angular",
   "version": "0.0.0",
-  "description": "Angular bindings for @klinechart-quant/core. Standalone components, signals, DI.",
+  "description": "Angular bindings for @363045841yyt/klinechart-core. Standalone components, signals, DI.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,6 +24,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "size": "size-limit",
@@ -36,13 +37,13 @@
       "path": "src/index.ts",
       "limit": "10 KB",
       "gzip": true,
-      "ignore": ["@angular/common", "@angular/core", "rxjs", "@klinechart-quant/core"]
+      "ignore": ["@angular/common", "@angular/core", "rxjs", "@363045841yyt/klinechart-core"]
     }
   ],
   "peerDependencies": {
     "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0",
     "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0",
-    "@klinechart-quant/core": "workspace:*",
+    "@363045841yyt/klinechart-core": "workspace:*",
     "rxjs": "^7.0.0"
   },
   "devDependencies": {

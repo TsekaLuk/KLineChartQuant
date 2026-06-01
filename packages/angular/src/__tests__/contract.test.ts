@@ -1,5 +1,5 @@
 /**
- * Contract test for @klinechart-quant/angular.
+ * Contract test for @363045841yyt/klinechart-angular.
  *
  * Approach: instantiate the component class directly inside a hand-built
  * Injector via `runInInjectionContext`, instead of TestBed + zone.js. This
@@ -26,14 +26,14 @@ import {
     provideKLineChart,
 } from '../index'
 import { createMockChartController } from './_mockController'
-import { createSignal } from '@klinechart-quant/core/reactivity'
-import type { ChartControllerFactory, ChartViewport } from '@klinechart-quant/core'
+import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
+import type { ChartControllerFactory, ChartViewport } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
 // API surface
 // ---------------------------------------------------------------------------
 
-describe('@klinechart-quant/angular â€” public API surface', () => {
+describe('@363045841yyt/klinechart-angular â€?public API surface', () => {
     it('exports KLineChartComponent, provideKLineChart, createChart', () => {
         expect(AngularAdapter.KLineChartComponent).toBeDefined()
         expect(typeof AngularAdapter.provideKLineChart).toBe('function')
@@ -45,7 +45,7 @@ describe('@klinechart-quant/angular â€” public API surface', () => {
 // SSR / import safety
 // ---------------------------------------------------------------------------
 
-describe('@klinechart-quant/angular â€” SSR safety', () => {
+describe('@363045841yyt/klinechart-angular â€?SSR safety', () => {
     it('module import does not touch window or document', () => {
         // The import at the top of this file occurred in Node (no jsdom).
         // If the module touched `window`/`document` at top level, that import
@@ -103,7 +103,7 @@ function buildInjector(
 }
 
 function makeContainerRef(): ElementRef<HTMLElement> {
-    // We don't need a real HTMLElement â€” the mock factory ignores it.
+    // We don't need a real HTMLElement â€?the mock factory ignores it.
     return { nativeElement: {} as HTMLElement }
 }
 
@@ -177,7 +177,7 @@ describe('coreSignalToAngular()', () => {
     it('mirrors initial value and reacts synchronously to core signal changes', () => {
         const destroyRef = new MockDestroyRef()
         const source = createSignal<number>(7)
-        // Pass DestroyRef explicitly â€” `inject(DestroyRef)` is special-cased
+        // Pass DestroyRef explicitly â€?`inject(DestroyRef)` is special-cased
         // by Angular's runtime and only resolves inside a NodeInjector / view,
         // so we cannot override it from a plain Injector.create() provider.
         const ng = coreSignalToAngular(source, destroyRef)
@@ -196,8 +196,8 @@ describe('coreSignalToAngular()', () => {
 // Component lifecycle (formerly .todo)
 // ---------------------------------------------------------------------------
 
-describe('@klinechart-quant/angular â€” component lifecycle', () => {
-    it('renders <kline-chart> with default theme â€” ngAfterViewInit calls createChart', () => {
+describe('@363045841yyt/klinechart-angular â€?component lifecycle', () => {
+    it('renders <kline-chart> with default theme â€?ngAfterViewInit calls createChart', () => {
         const handle = createMockChartController()
         const factory = vi.fn<ChartControllerFactory>(() => handle.controller)
         const { injector } = buildInjector(factory, { theme: 'light' })
@@ -227,7 +227,7 @@ describe('@klinechart-quant/angular â€” component lifecycle', () => {
         expect(initial).not.toBeNull()
         expect((initial as ChartViewport).zoomLevel).toBe(1)
 
-        // Mutate via the controller's public API â€” this fires through the
+        // Mutate via the controller's public API â€?this fires through the
         // core signal, the bridge listener writes into the Angular signal,
         // and component.viewport() returns the new value on the next read.
         handle.controller.zoomToLevel(5)
@@ -256,6 +256,6 @@ describe('@klinechart-quant/angular â€” component lifecycle', () => {
     })
 
     it.todo(
-        'provideKLineChart provides theme via DI through the full bootstrap pipeline â€” requires TestBed + zone.js; covered indirectly by the provideKLineChart() injector-level test above',
+        'provideKLineChart provides theme via DI through the full bootstrap pipeline â€?requires TestBed + zone.js; covered indirectly by the provideKLineChart() injector-level test above',
     )
 })

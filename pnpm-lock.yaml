@@ -90,7 +90,7 @@ importers:
 
   packages/angular:
     dependencies:
-      '@klinechart-quant/core':
+      '@363045841yyt/klinechart-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -161,7 +161,7 @@ importers:
 
   packages/react:
     dependencies:
-      '@klinechart-quant/core':
+      '@363045841yyt/klinechart-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -213,8 +213,8 @@ importers:
 
   packages/vue:
     dependencies:
-      '@klinechart-quant/core':
-        specifier: workspace:*
+      '@363045841yyt/klinechart-core':
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@arethetypeswrong/cli':

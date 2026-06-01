@@ -1,6 +1,6 @@
 import { Component } from '@angular/core'
 /**
- * KEY ASSERTION: this file imports `@klinechart-quant/angular` at module top
+ * KEY ASSERTION: this file imports `@363045841yyt/klinechart-angular` at module top
  * level from a standalone component used by an SSR-enabled Angular app. If
  * the adapter regressed and accessed `window` / `document` at module init,
  * the `@angular/ssr` server pass would crash on `ng build`.
@@ -9,15 +9,15 @@ import { Component } from '@angular/core'
  * to gate DOM access inside `ngAfterViewInit`, so server rendering produces
  * an empty container shell and the client takes over on hydration.
  */
-import { KLineChartComponent } from '@klinechart-quant/angular'
-import type { KLineData } from '@klinechart-quant/core'
+import { KLineChartComponent } from '@363045841yyt/klinechart-angular'
+import type { KLineData } from '@363045841yyt/klinechart-core'
 
 @Component({
     selector: 'app-root',
     standalone: true,
     imports: [KLineChartComponent],
     template: `
-        <h1>&#64;klinechart-quant/angular â€” Angular 19 SSR smoke</h1>
+        <h1>&#64;klinechart-quant/angular â€?Angular 19 SSR smoke</h1>
         <p>Chart mounts on the client. SSR pass renders the shell only.</p>
         <kline-chart
             [data]="mockData"

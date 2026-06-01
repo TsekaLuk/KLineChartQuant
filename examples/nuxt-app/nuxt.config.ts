@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-    // SSR is the default in Nuxt 3 â€” left explicit for clarity.
+    // SSR is the default in Nuxt 3 â€?left explicit for clarity.
     ssr: true,
 
     compatibilityDate: '2025-01-01',
@@ -8,10 +8,10 @@ export default defineNuxtConfig({
     // Transpile the workspace adapter so Nuxt's Vite pipeline can resolve
     // workspace `.ts` sources directly (no `dist/` published yet).
     build: {
-        transpile: ['@klinechart-quant/vue', '@klinechart-quant/core'],
+        transpile: ['@363045841yyt/klinechart', '@363045841yyt/klinechart-core'],
     },
 
-    // No analytics, no telemetry, no auth â€” this is a smoke test.
+    // No analytics, no telemetry, no auth â€?this is a smoke test.
     devtools: { enabled: false },
     telemetry: false,
 })

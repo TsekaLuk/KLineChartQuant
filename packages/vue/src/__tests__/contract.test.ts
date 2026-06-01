@@ -1,5 +1,5 @@
 /**
- * Contract test for @klinechart-quant/vue.
+ * Contract test for @363045841yyt/klinechart.
  *
  * Phase 1D agent's brief: make these pass without weakening assertions,
  * preserving the legacy KMapPlugin.install signature.
@@ -12,7 +12,7 @@ import * as VueAdapter from '../index'
 import { coreSignalToVueRef } from '../index'
 import { createMockChartController, createTestSignal } from './_mockController'
 
-describe('@klinechart-quant/vue â€” public API surface', () => {
+describe('@363045841yyt/klinechart â€?public API surface', () => {
     it('exports createChart, useChart, useIndicatorSelector, KLineChart, KMapPlugin', () => {
         expect(typeof VueAdapter.createChart).toBe('function')
         expect(typeof VueAdapter.useChart).toBe('function')
@@ -33,7 +33,7 @@ describe('@klinechart-quant/vue â€” public API surface', () => {
     })
 })
 
-describe('@klinechart-quant/vue â€” SSR safety', () => {
+describe('@363045841yyt/klinechart â€?SSR safety', () => {
     it('module import does not touch window or document', () => {
         // Import above ran in node env without jsdom. If it touched window, this
         // file would not have loaded. Test documents the contract.
@@ -41,7 +41,7 @@ describe('@klinechart-quant/vue â€” SSR safety', () => {
     })
 })
 
-describe('@klinechart-quant/vue â€” useChart lifecycle', () => {
+describe('@363045841yyt/klinechart â€?useChart lifecycle', () => {
     afterEach(() => {
         // Reset the injected factory so other tests start clean.
         VueAdapter.__setControllerFactory(null)

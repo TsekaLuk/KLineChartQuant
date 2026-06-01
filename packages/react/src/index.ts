@@ -1,12 +1,12 @@
 /**
- * @klinechart-quant/react â€” public API surface.
+ * @363045841yyt/klinechart-react â€?public API surface.
  *
  * React 18/19 bindings that bridge zero-dep core signals to React rendering
  * via `useSyncExternalStore`. SSR-safe: no DOM access at module scope.
  *
  * Pluggable factory: tests inject a mock controller via `__setChartFactory`.
  * Production builds will register the real factory from
- * `@klinechart-quant/core/controllers/createChartController` (Phase 1 deliverable).
+ * `@363045841yyt/klinechart-core/controllers/createChartController` (Phase 1 deliverable).
  */
 
 import {
@@ -30,18 +30,18 @@ import type {
     InteractionSnapshot,
     KLineData,
     DrawingControllerCallbacks,
-} from '@klinechart-quant/core'
+} from '@363045841yyt/klinechart-core'
 
 export type {
     ChartController,
     ChartMountOptions,
     ChartViewport,
-} from '@klinechart-quant/core'
+} from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
-// Factory registry â€” allows tests / consumers to inject the concrete
+// Factory registry â€?allows tests / consumers to inject the concrete
 // controller without forcing this package to depend on the production
-// implementation (which lives in @klinechart-quant/core/controllers).
+// implementation (which lives in @363045841yyt/klinechart-core/controllers).
 // ---------------------------------------------------------------------------
 
 let chartFactory: ChartControllerFactory | null = null
@@ -59,32 +59,32 @@ export function __setChartFactory(factory: ChartControllerFactory | null): void 
 function resolveFactory(): ChartControllerFactory {
     if (chartFactory === null) {
         throw new Error(
-            '[@klinechart-quant/react] No ChartControllerFactory registered. ' +
+            '[@363045841yyt/klinechart-react] No ChartControllerFactory registered. ' +
                 'Call __setChartFactory(factory) before mounting, or import the ' +
-                'production factory from @klinechart-quant/core/controllers.',
+                'production factory from @363045841yyt/klinechart-core/controllers.',
         )
     }
     return chartFactory
 }
 
 // ---------------------------------------------------------------------------
-// createChart â€” imperative mount
+// createChart â€?imperative mount
 // ---------------------------------------------------------------------------
 
 /**
  * Imperative mount API. Returns a controller; caller is responsible for `dispose`.
  *
- * Throws synchronously if `opts.container` is null/undefined â€” the only valid
+ * Throws synchronously if `opts.container` is null/undefined â€?the only valid
  * entry path is with a real DOM element. This guards against half-mounts in
  * SSR contexts that accidentally invoke the function.
  */
 export function createChart(opts: ChartMountOptions): ChartController {
     if (opts === null || opts === undefined) {
-        throw new Error('[@klinechart-quant/react] createChart: opts is required')
+        throw new Error('[@363045841yyt/klinechart-react] createChart: opts is required')
     }
     if (opts.container === null || opts.container === undefined) {
         throw new Error(
-            '[@klinechart-quant/react] createChart: opts.container must be a non-null HTMLElement',
+            '[@363045841yyt/klinechart-react] createChart: opts.container must be a non-null HTMLElement',
         )
     }
     const factory = resolveFactory()
@@ -92,7 +92,7 @@ export function createChart(opts: ChartMountOptions): ChartController {
 }
 
 // ---------------------------------------------------------------------------
-// useChart â€” React lifecycle wrapper around createChart
+// useChart â€?React lifecycle wrapper around createChart
 // ---------------------------------------------------------------------------
 
 /**
@@ -143,7 +143,7 @@ export function useChart(
 }
 
 // ---------------------------------------------------------------------------
-// useIndicators â€” subscribe to controller indicators signal
+// useIndicators â€?subscribe to controller indicators signal
 // ---------------------------------------------------------------------------
 
 type IndicatorsView = {
@@ -243,7 +243,7 @@ export function useViewport(
 }
 
 // ---------------------------------------------------------------------------
-// <KLineChart /> â€” convenience component
+// <KLineChart /> â€?convenience component
 // ---------------------------------------------------------------------------
 
 export interface KLineChartProps {
@@ -303,7 +303,7 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
                 controllerRef.current = null
                 created.dispose()
             }
-            // Mount once â€” prop changes handled by separate effects
+            // Mount once â€?prop changes handled by separate effects
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [])
 
@@ -353,8 +353,8 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
 // package override the factory in `beforeEach` and reset to null in
 // `afterEach`, so this default registration is transparent to them.
 //
-// Importing the factory is side-effect-free at module load â€” the engine's
+// Importing the factory is side-effect-free at module load â€?the engine's
 // DOM access only happens when `createChart(opts)` is actually called.
 // ---------------------------------------------------------------------------
-import { createChartController } from '@klinechart-quant/core'
+import { createChartController } from '@363045841yyt/klinechart-core'
 __setChartFactory(createChartController)

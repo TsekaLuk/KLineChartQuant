@@ -1,26 +1,26 @@
-# @klinechart-quant/core
+# @363045841yyt/klinechart-core
 
 Headless, reactive K-line (candlestick) chart engine with zero framework dependencies.
 
 ## Overview
 
-`@klinechart-quant/core` provides the foundational charting engine powering the `@klinechart-quant` monorepo. It handles data management, rendering coordination, viewport calculations, and plugin orchestration — all without touching any UI framework.
+`@363045841yyt/klinechart-core` provides the foundational charting engine powering the `@363045841yyt/klinechart` monorepo. It handles data management, rendering coordination, viewport calculations, and plugin orchestration �?all without touching any UI framework.
 
 ## Installation
 
 ```bash
-npm install @klinechart-quant/core
+npm install @363045841yyt/klinechart-core
 # or
-pnpm add @klinechart-quant/core
+pnpm add @363045841yyt/klinechart-core
 # or
-yarn add @klinechart-quant/core
+yarn add @363045841yyt/klinechart-core
 ```
 
 ## Quick Start
 
 ```typescript
-import { createChartController } from '@klinechart-quant/core/controllers'
-import type { KLineData } from '@klinechart-quant/core'
+import { createChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { KLineData } from '@363045841yyt/klinechart-core'
 
 const controller = createChartController({
   container: document.getElementById('chart'),
@@ -43,27 +43,27 @@ controller.dispose()
 ## Exports
 
 ### Controllers
-- `createChartController` — Factory for creating chart instances
-- `ChartController` — Main controller interface
+- `createChartController` �?Factory for creating chart instances
+- `ChartController` �?Main controller interface
 
 ### Reactivity
-- `Signal<T>` — Reactive primitive for state management
-- `effect`, `peek` — Reactive utilities
+- `Signal<T>` �?Reactive primitive for state management
+- `effect`, `peek` �?Reactive utilities
 
 ### Engine
-- `Chart` — Low-level chart instance (via `@klinechart-quant/core/engine/chart`)
-- `ChartStore` — Data management
+- `Chart` �?Low-level chart instance (via `@363045841yyt/klinechart-core/engine/chart`)
+- `ChartStore` �?Data management
 - Renderers (via subpath imports)
 
 ### Plugin System
-- `PluginHost` — Plugin registration and lifecycle
-- `EventBus` — Cross-component communication
-- `StateStore` — Global state management
+- `PluginHost` �?Plugin registration and lifecycle
+- `EventBus` �?Cross-component communication
+- `StateStore` �?Global state management
 
 ### Types
-- `KLineData` — Candlestick data point
-- `ChartViewport` — Viewport state
-- `InteractionSnapshot` — Interaction state
+- `KLineData` �?Candlestick data point
+- `ChartViewport` �?Viewport state
+- `InteractionSnapshot` �?Interaction state
 
 ### Subpath Exports
 
@@ -71,36 +71,36 @@ The package provides granular subpath imports for tree-shaking:
 
 ```typescript
 // Core engine
-import { Chart } from '@klinechart-quant/core/engine/chart'
-import { ChartStore } from '@klinechart-quant/core/engine/chart-store'
+import { Chart } from '@363045841yyt/klinechart-core/engine/chart'
+import { ChartStore } from '@363045841yyt/klinechart-core/engine/chart-store'
 
 // Utils
-import { zoom } from '@klinechart-quant/core/engine/utils/zoom'
+import { zoom } from '@363045841yyt/klinechart-core/engine/utils/zoom'
 
 // Config
-import { DEFAULT_SETTINGS } from '@klinechart-quant/core/config'
+import { DEFAULT_SETTINGS } from '@363045841yyt/klinechart-core/config'
 
 // Plugin
-import { EventBus } from '@klinechart-quant/core/plugin'
+import { EventBus } from '@363045841yyt/klinechart-core/plugin'
 
 // Version
-import { VERSION } from '@klinechart-quant/core/version'
+import { VERSION } from '@363045841yyt/klinechart-core/version'
 ```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────┐
-│           Controllers               │  ← High-level API
-├─────────────────────────────────────┤
-│         Plugin System               │  ← EventBus, StateStore
-├─────────────────────────────────────┤
-│           Engine                    │  ← Chart, ChartStore
-├─────────────────────────────────────┤
-│         Renderers                   │  ← Canvas/WebGL renderers
-├─────────────────────────────────────┤
-│         Reactivity                  │  ← Signal-based state
-└─────────────────────────────────────┘
+┌─────────────────────────────────────�?
+�?          Controllers               �? �?High-level API
+├─────────────────────────────────────�?
+�?        Plugin System               �? �?EventBus, StateStore
+├─────────────────────────────────────�?
+�?          Engine                    �? �?Chart, ChartStore
+├─────────────────────────────────────�?
+�?        Renderers                   �? �?Canvas/WebGL renderers
+├─────────────────────────────────────�?
+�?        Reactivity                  �? �?Signal-based state
+└─────────────────────────────────────�?
 ```
 
 ## ChartController API
@@ -108,7 +108,7 @@ import { VERSION } from '@klinechart-quant/core/version'
 ### Creating a Controller
 
 ```typescript
-import { createChartController } from '@klinechart-quant/core/controllers'
+import { createChartController } from '@363045841yyt/klinechart-core/controllers'
 
 const controller = createChartController({
   container: HTMLElement,
@@ -124,14 +124,14 @@ const controller = createChartController({
 
 ### Methods
 
-- `setData(data: KLineData[]): void` — Update chart data
-- `setTheme(theme: 'light' | 'dark'): void` — Change theme
-- `zoomToLevel(level: number, anchorX?: number): void` — Zoom to specific level
-- `zoomIn(anchorX?: number): void` — Zoom in
-- `zoomOut(anchorX?: number): void` — Zoom out
-- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` — Add indicator
-- `removeIndicator(instanceId: string): boolean` — Remove indicator
-- `dispose(): void` — Cleanup and destroy
+- `setData(data: KLineData[]): void` �?Update chart data
+- `setTheme(theme: 'light' | 'dark'): void` �?Change theme
+- `zoomToLevel(level: number, anchorX?: number): void` �?Zoom to specific level
+- `zoomIn(anchorX?: number): void` �?Zoom in
+- `zoomOut(anchorX?: number): void` �?Zoom out
+- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` �?Add indicator
+- `removeIndicator(instanceId: string): boolean` �?Remove indicator
+- `dispose(): void` �?Cleanup and destroy
 
 ### Reactive State
 
@@ -159,7 +159,7 @@ controller.interactionState.subscribe((state) => {
 For AI/LLM-driven chart configuration, use the semantic controller:
 
 ```typescript
-import { SemanticChartController } from '@klinechart-quant/core/semantic'
+import { SemanticChartController } from '@363045841yyt/klinechart-core/semantic'
 
 const semantic = new SemanticChartController(chartInstance)
 
@@ -196,6 +196,6 @@ MIT © 363045841
 
 ## Related Packages
 
-- `@klinechart-quant/vue` — Vue 3 bindings
-- `@klinechart-quant/react` — React bindings (coming soon)
-- `@klinechart-quant/angular` — Angular bindings (coming soon)
+- `@363045841yyt/klinechart` �?Vue 3 bindings
+- `@363045841yyt/klinechart-react` �?React bindings (coming soon)
+- `@363045841yyt/klinechart-angular` �?Angular bindings (coming soon)

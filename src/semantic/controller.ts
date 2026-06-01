@@ -34,7 +34,7 @@ export class SemanticChartController {
   private validator: SemanticConfigValidator
   private events: EventBus
 
-  constructor(chart: ChartController) {
+  constructor(chart: SemanticChartAdapter) {
     this.chart = chart
     this.validator = new SemanticConfigValidator()
     this.events = new EventBus()

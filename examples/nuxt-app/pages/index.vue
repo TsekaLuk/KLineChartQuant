@@ -1,17 +1,17 @@
 <script setup lang="ts">
 /**
- * KEY ASSERTION: this file imports `@klinechart-quant/vue` at module top level
- * from a Nuxt page. Nuxt 3 SSRs every page by default â€” if the adapter touched
+ * KEY ASSERTION: this file imports `@363045841yyt/klinechart` at module top level
+ * from a Nuxt page. Nuxt 3 SSRs every page by default â€?if the adapter touched
  * `window` / `document` at import time, `nuxt build` would crash during the
  * server prerender pass.
  *
  * The composable `useChart` is invoked here with a template ref. Nuxt's SSR
- * pipeline does NOT call `onMounted` on the server â€” so DOM access is gated
+ * pipeline does NOT call `onMounted` on the server â€?so DOM access is gated
  * to the client only, satisfying the adapter's SSR-safety contract.
  */
 import { ref } from 'vue'
-import { useChart, type ChartMountOptions } from '@klinechart-quant/vue'
-import type { KLineData } from '@klinechart-quant/core'
+import { useChart, type ChartMountOptions } from '@363045841yyt/klinechart'
+import type { KLineData } from '@363045841yyt/klinechart-core'
 
 const containerRef = ref<HTMLElement | null>(null)
 

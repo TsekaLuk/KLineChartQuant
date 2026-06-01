@@ -34,9 +34,9 @@
               >
                 <span class="btn-content">
                   {{ indicator.label }}
-<span v-if="indicator.params?.length" class="param-hint">
-  ({{ getParamDisplay(indicator) }})
-</span>
+                  <span v-if="indicator.params?.length" class="param-hint">
+                    ({{ getParamDisplay(indicator) }})
+                  </span>
                 </span>
                 <!-- 悬浮操作层 -->
                 <Transition name="fade">
@@ -102,11 +102,19 @@
                     @click="isCompactView = !isCompactView"
                     title="简洁模式"
                   >
-                    <svg v-if="!isCompactView" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                    <svg
+                      v-if="!isCompactView"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      fill="currentColor"
+                    >
+                      <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
                     </svg>
                     <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h4v4H7V7zm0 6h4v4H7v-4zm6-6h4v4h-4V7zm0 6h4v4h-4v-4z"/>
+                      <path
+                        d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h4v4H7V7zm0 6h4v4H7v-4zm6-6h4v4h-4V7zm0 6h4v4h-4v-4z"
+                      />
                     </svg>
                   </button>
                   <button class="modal-close" @click="closeAddMenu" title="关闭">
@@ -133,7 +141,11 @@
                       :key="indicator.id"
                       class="indicator-card"
                       :class="{ active: isActive(indicator.id), compact: isCompactView }"
-                      @click="isActive(indicator.id) ? removeIndicator(indicator.id) : addIndicator(indicator.id)"
+                      @click="
+                        isActive(indicator.id)
+                          ? removeIndicator(indicator.id)
+                          : addIndicator(indicator.id)
+                      "
                     >
                       <template v-if="isCompactView">
                         <span class="card-label">{{ indicator.label }}</span>
@@ -150,10 +162,11 @@
                               title="编辑参数"
                             >
                               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                <path
+                                  d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                                />
                               </svg>
                             </button>
-
                           </div>
                         </div>
                         <div class="card-name">{{ indicator.name }}</div>
@@ -177,7 +190,11 @@
                       :key="indicator.id"
                       class="indicator-card"
                       :class="{ active: isActive(indicator.id), compact: isCompactView }"
-                      @click="isActive(indicator.id) ? removeIndicator(indicator.id) : addIndicator(indicator.id)"
+                      @click="
+                        isActive(indicator.id)
+                          ? removeIndicator(indicator.id)
+                          : addIndicator(indicator.id)
+                      "
                     >
                       <template v-if="isCompactView">
                         <span class="card-label">{{ indicator.label }}</span>
@@ -194,10 +211,11 @@
                               title="编辑参数"
                             >
                               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                <path
+                                  d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                                />
                               </svg>
                             </button>
-
                           </div>
                         </div>
                         <div class="card-name">{{ indicator.name }}</div>
@@ -212,7 +230,7 @@
                 <div class="footer-info">
                   <span class="info-text">已激活 {{ activeCount }} 个指标</span>
                 </div>
-                <button class="btn btn-confirm" @click="closeAddMenu">完成</button>
+                <button class="btn btn-confirm" @click="closeAddMenu">确认</button>
               </div>
             </div>
           </Transition>
@@ -239,8 +257,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import IndicatorParams from './IndicatorParams.vue'
 import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
-import { mainIndicators, subIndicators, findIndicator, isSubIndicatorId } from '@klinechart-quant/core/engine/renderers/Indicator/indicatorData'
-import type { Indicator } from '@klinechart-quant/core/engine/renderers/Indicator/indicatorData'
+import {
+  mainIndicators,
+  subIndicators,
+  findIndicator,
+  isSubIndicatorId,
+} from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData'
+import type { Indicator } from '@363045841yyt/klinechart-core/engine/renderers/Indicator/indicatorData'
 
 const props = defineProps<{
   activeIndicators?: string[]

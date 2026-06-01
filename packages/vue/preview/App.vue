@@ -111,7 +111,7 @@
 import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
 import KLineChart from '../src/components/KLineChart.vue'
 import { VERSION, CORE_VERSION } from '../src/version'
-import type { DataFetcher } from '@klinechart-quant/core/semantic'
+import type { DataFetcher } from '@363045841yyt/klinechart-core/semantic'
 import debugConfig from './debug-config.json'
 
 const FULLSCREEN_TARGET_KEY: InjectionKey<Ref<HTMLElement | null>> = Symbol(

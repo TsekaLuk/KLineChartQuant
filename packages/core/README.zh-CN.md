@@ -1,22 +1,22 @@
 # @363045841yyt/klinechart-core
 
-无头、响应式 K 线（蜡烛图）图表引擎，零框架依赖�?
+无头、响应式 K 线（蜡烛图）图表引擎，零框架依赖。
 
-## 概览
+## 概述
 
-`@363045841yyt/klinechart-core` �?`@363045841yyt/klinechart` 生态的底层图表引擎。它处理数据管理、渲染协调、视口计算和插件编排 —�?完全不依赖任�?UI 框架�?
+`@363045841yyt/klinechart-core` 是为 `@363045841yyt/klinechart` monorepo 提供驱动力的基础图表引擎。它负责数据管理、渲染协调、视口计算和插件编排——完全不依赖任何 UI 框架。
 
 ## 安装
 
 ```bash
 npm install @363045841yyt/klinechart-core
-# �?
+# 或
 pnpm add @363045841yyt/klinechart-core
-# �?
+# 或
 yarn add @363045841yyt/klinechart-core
 ```
 
-## 快速开�?
+## 快速开始
 
 ```typescript
 import { createChartController } from '@363045841yyt/klinechart-core/controllers'
@@ -36,45 +36,45 @@ const data: KLineData[] = [
 ]
 controller.setData(data)
 
-// 清理
+// 使用完毕后清理
 controller.dispose()
 ```
 
-## 导出�?
+## 导出内容
 
-### 控制�?
-- `createChartController` �?图表实例工厂
-- `ChartController` �?主控制器接口
+### 控制器
+- `createChartController` —— 创建图表实例的工厂函数
+- `ChartController` —— 主控制器接口
 
-### 响应�?
-- `Signal<T>` �?响应式状态原�?
-- `effect`, `peek` �?响应式工�?
+### 响应式系统
+- `Signal<T>` —— 用于状态管理的响应式原语
+- `effect`、`peek` —— 响应式工具函数
 
 ### 引擎
-- `Chart` �?底层图表实例（通过 `@363045841yyt/klinechart-core/engine/chart`�?
-- `ChartStore` �?数据管理
+- `Chart` —— 底层图表实例（通过 `@363045841yyt/klinechart-core/engine/chart` 导入）
+- `ChartStore` —— 数据管理
 - 渲染器（通过子路径导入）
 
 ### 插件系统
-- `PluginHost` �?插件注册和生命周�?
-- `EventBus` �?跨组件通信
-- `StateStore` �?全局状态管�?
+- `PluginHost` —— 插件注册与生命周期管理
+- `EventBus` —— 跨组件通信
+- `StateStore` —— 全局状态管理
 
 ### 类型
-- `KLineData` �?K 线数据点
-- `ChartViewport` �?视口状�?
-- `InteractionSnapshot` �?交互状�?
+- `KLineData` —— K 线数据点
+- `ChartViewport` —— 视口状态
+- `InteractionSnapshot` —— 交互状态
 
-### 子路径导�?
+### 子路径导出
 
-本包支持细粒度的子路径导入，便于 tree-shaking�?
+该包提供细粒度的子路径导入，支持 Tree-shaking：
 
 ```typescript
 // 核心引擎
 import { Chart } from '@363045841yyt/klinechart-core/engine/chart'
 import { ChartStore } from '@363045841yyt/klinechart-core/engine/chart-store'
 
-// 工具
+// 工具函数
 import { zoom } from '@363045841yyt/klinechart-core/engine/utils/zoom'
 
 // 配置
@@ -90,22 +90,22 @@ import { VERSION } from '@363045841yyt/klinechart-core/version'
 ## 架构
 
 ```
-┌─────────────────────────────────────�?
-�?          控制器层                   �? �?高级 API
-├─────────────────────────────────────�?
-�?         插件系统�?                 �? �?EventBus, StateStore
-├─────────────────────────────────────�?
-�?          引擎�?                    �? �?Chart, ChartStore
-├─────────────────────────────────────�?
-�?         渲染器层                    �? �?Canvas/WebGL 渲染�?
-├─────────────────────────────────────�?
-�?         响应式层                    �? �?Signal 状态管�?
-└─────────────────────────────────────�?
+┌─────────────────────────────────────┐
+│          控制器 (Controllers)        │  ← 高层 API
+├─────────────────────────────────────┤
+│         插件系统 (Plugin System)     │  ← EventBus、StateStore
+├─────────────────────────────────────┤
+│           引擎 (Engine)             │  ← Chart、ChartStore
+├─────────────────────────────────────┤
+│         渲染器 (Renderers)           │  ← Canvas/WebGL 渲染器
+├─────────────────────────────────────┤
+│       响应式系统 (Reactivity)        │  ← 基于 Signal 的状态管理
+└─────────────────────────────────────┘
 ```
 
 ## ChartController API
 
-### 创建控制�?
+### 创建控制器
 
 ```typescript
 import { createChartController } from '@363045841yyt/klinechart-core/controllers'
@@ -124,16 +124,16 @@ const controller = createChartController({
 
 ### 方法
 
-- `setData(data: KLineData[]): void` �?更新图表数据
-- `setTheme(theme: 'light' | 'dark'): void` �?切换主题
-- `zoomToLevel(level: number, anchorX?: number): void` �?缩放到指定级�?
-- `zoomIn(anchorX?: number): void` �?放大
-- `zoomOut(anchorX?: number): void` �?缩小
-- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` �?添加指标
-- `removeIndicator(instanceId: string): boolean` �?移除指标
-- `dispose(): void` �?清理销�?
+- `setData(data: KLineData[]): void` —— 更新图表数据
+- `setTheme(theme: 'light' | 'dark'): void` —— 切换主题
+- `zoomToLevel(level: number, anchorX?: number): void` —— 缩放到指定级别
+- `zoomIn(anchorX?: number): void` —— 放大
+- `zoomOut(anchorX?: number): void` —— 缩小
+- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` —— 添加指标
+- `removeIndicator(instanceId: string): boolean` —— 移除指标
+- `dispose(): void` —— 清理并销毁
 
-### 响应式状�?
+### 响应式状态
 
 通过 Signal 访问响应式状态：
 
@@ -148,15 +148,15 @@ controller.indicators.subscribe((inds) => {
   console.log('活跃指标:', inds)
 })
 
-// 交互状�?
+// 交互状态
 controller.interactionState.subscribe((state) => {
   console.log('悬停:', state.hover)
 })
 ```
 
-## 语义化配�?
+## 语义化配置
 
-对于 AI/LLM 驱动的图表配置，使用语义控制器：
+对于 AI/LLM 驱动的图表配置，可使用语义化控制器：
 
 ```typescript
 import { SemanticChartController } from '@363045841yyt/klinechart-core/semantic'
@@ -179,23 +179,23 @@ semantic.applyConfig({
 })
 ```
 
-## 浏览器支�?
+## 浏览器支持
 
 - Chrome/Edge 90+
 - Firefox 88+
 - Safari 14+
 
-需要支持：
+需要支持以下特性：
 - ResizeObserver
 - Canvas 2D Context
-- ES2022（或转译�?
+- ES2022（或转译）
 
-## 许可�?
+## 许可证
 
 MIT © 363045841
 
-## 相关�?
+## 相关包
 
-- `@363045841yyt/klinechart` �?Vue 3 绑定
-- `@363045841yyt/klinechart-react` �?React 绑定（即将推出）
-- `@363045841yyt/klinechart-angular` �?Angular 绑定（即将推出）
+- `@363045841yyt/klinechart` —— Vue 3 绑定
+- `@363045841yyt/klinechart-react` —— React 绑定（即将推出）
+- `@363045841yyt/klinechart-angular` —— Angular 绑定（即将推出）

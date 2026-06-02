@@ -1,11 +1,11 @@
-High-performance financial chart library with a single-frame generation time of just 2ms, stable scrolling at 190â€?00fps in a 200Hz environment, native support for AI Agent control, full-link ResizeObserver-driven crisp rendering, and a pluggable architecture.
+High-performance financial chart library with a single-frame generation time of just 2ms, stable scrolling at 190fps in a 200Hz environment, native support for AI Agent control, full-link ResizeObserver-driven crisp rendering, and a pluggable architecture.
 <div align="center">
 
-English | [ç®€ä½“ä¸­æ–‡](README_CN.md)
+English | [????](README_CN.md)
 
-# ðŸ“ˆ KLineChartQuant
+#  KLineChartQuant
 
-**Crisp Rendering Â· High Performance Â· Optimized Interaction**
+**Crisp Rendering · High Performance · Optimized Interaction**
 
 [![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/npm/l/@363045841yyt/klinechart.svg?style=flat&color=orange)](https://github.com/363045841/klinechart/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-Online-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
 
@@ -25,7 +25,7 @@ A lightweight financial K-line charting library focused on quantitative trading 
   <img src="https://files.seeusercontent.com/2026/05/18/Lb5p/7MNQT2E_2X1UL3626R.png" width="400" style="border-radius: 12px; margin: 8px;" />
 </div>
 
-## âœ?Core Features
+## ? Core Features
 
 - **Agent First** - Supports AI Agent direct control of charts, zoom, pan, and draw operations can all be called programmatically
 - **Crisp Rendering** - Full-chain ResizeObserver driven, physical pixel alignment, K-lines, wicks, and lines are sharp and clear on all DPR screens
@@ -35,7 +35,7 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **WebGL Rendering** - K-lines, volume bars, and MACD bars rendered via WebGL for GPU-accelerated performance, reaching **190fps on 200Hz displays** with per-frame GPU time under **1ms**
 - **Optimized Interaction** - Stable zoom anchor, precise crosshair cursor, smooth drag
 
-## ðŸš€ Quick Start
+## ?? Quick Start
 
 ### Prerequisites
 
@@ -98,13 +98,13 @@ const config: SemanticChartConfig = {
 </template>
 ```
 
-## ðŸ“– More Documentation
+## ?? More Documentation
 
 - [Rendering Engine Architecture](./docs/rendering-engine-architecture.md) - Core rendering pipeline and physical pixel alignment mechanism
 - [Plugin System](./docs/PLUGIN_SYSTEM.md) - Extension mechanism and custom development
 - [Renderer Development Guide](./docs/renderer-development-guide.md) - Custom renderer development
 
-## ðŸ“‹ Component Props
+## ?? Component Props
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -118,7 +118,7 @@ const config: SemanticChartConfig = {
 | zoomLevels | `number` | 20 | Total number of zoom levels |
 | initialZoomLevel | `number` | 3 | Initial zoom level (1 ~ zoomLevels) |
 
-## ðŸ—ºï¸?Roadmap
+## ??? Roadmap
 
 - [x] K-line zoom anchor stability, improved zoom feel
 - [x] Right axis detached from scroll container, completely solving clipping issues
@@ -135,7 +135,7 @@ const config: SemanticChartConfig = {
 - [ ] Support for minute, multi-day, monthly, and yearly K-line display
 - [ ] Support convert the drawing to quant code
 
-## ðŸš€ What's New
+## ?? What's New
 
 - **v0.7.0** **Monorepo Refactor + Multi-Framework Support** â€?Core engine extracted into `@363045841yyt/klinechart-core`; Vue bindings moved to `@363045841yyt/klinechart`; React and Angular packages scaffolded. Framework-agnostic design with injectable data fetcher (`__setDataFetcher`) and semantic configuration support
 - **v0.6.10** Unified WebGL rendering context sharing for all panes, plus sub-pane lifecycle refactoring â€?centralized pane instance management via SubPaneManager with first-class paneId identity
@@ -148,6 +148,6 @@ const config: SemanticChartConfig = {
 - **v0.5.0** Complete drawing tool system, supporting line, rectangle, text drawing and style editing
 - **v0.4** Modern UI, left toolbar, right axis optimization, TradingView-style zoom feel
 
-## ðŸ“„ License
+## ?? License
 
 [MIT](LICENSE)

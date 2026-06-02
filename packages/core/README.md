@@ -4,7 +4,7 @@ Headless, reactive K-line (candlestick) chart engine with zero framework depende
 
 ## Overview
 
-`@363045841yyt/klinechart-core` provides the foundational charting engine powering the `@363045841yyt/klinechart` monorepo. It handles data management, rendering coordination, viewport calculations, and plugin orchestration �?all without touching any UI framework.
+`@363045841yyt/klinechart-core` provides the foundational charting engine powering the `@363045841yyt/klinechart` monorepo. It handles data management, rendering coordination, viewport calculations, and plugin orchestration — all without touching any UI framework.
 
 ## Installation
 
@@ -43,27 +43,27 @@ controller.dispose()
 ## Exports
 
 ### Controllers
-- `createChartController` �?Factory for creating chart instances
-- `ChartController` �?Main controller interface
+- `createChartController` — Factory for creating chart instances
+- `ChartController` — Main controller interface
 
 ### Reactivity
-- `Signal<T>` �?Reactive primitive for state management
-- `effect`, `peek` �?Reactive utilities
+- `Signal<T>` — Reactive primitive for state management
+- `effect`, `peek` — Reactive utilities
 
 ### Engine
-- `Chart` �?Low-level chart instance (via `@363045841yyt/klinechart-core/engine/chart`)
-- `ChartStore` �?Data management
+- `Chart` — Low-level chart instance (via `@363045841yyt/klinechart-core/engine/chart`)
+- `ChartStore` — Data management
 - Renderers (via subpath imports)
 
 ### Plugin System
-- `PluginHost` �?Plugin registration and lifecycle
-- `EventBus` �?Cross-component communication
-- `StateStore` �?Global state management
+- `PluginHost` — Plugin registration and lifecycle
+- `EventBus` — Cross-component communication
+- `StateStore` — Global state management
 
 ### Types
-- `KLineData` �?Candlestick data point
-- `ChartViewport` �?Viewport state
-- `InteractionSnapshot` �?Interaction state
+- `KLineData` — Candlestick data point
+- `ChartViewport` — Viewport state
+- `InteractionSnapshot` — Interaction state
 
 ### Subpath Exports
 
@@ -90,17 +90,17 @@ import { VERSION } from '@363045841yyt/klinechart-core/version'
 ## Architecture
 
 ```
-┌─────────────────────────────────────�?
-�?          Controllers               �? �?High-level API
-├─────────────────────────────────────�?
-�?        Plugin System               �? �?EventBus, StateStore
-├─────────────────────────────────────�?
-�?          Engine                    �? �?Chart, ChartStore
-├─────────────────────────────────────�?
-�?        Renderers                   �? �?Canvas/WebGL renderers
-├─────────────────────────────────────�?
-�?        Reactivity                  �? �?Signal-based state
-└─────────────────────────────────────�?
+┌─────────────────────────────────────┐
+│          Controllers                │  ← High-level API
+├─────────────────────────────────────┤
+│        Plugin System                │  ← EventBus, StateStore
+├─────────────────────────────────────┤
+│          Engine                     │  ← Chart, ChartStore
+├─────────────────────────────────────┤
+│        Renderers                    │  ← Canvas/WebGL renderers
+├─────────────────────────────────────┤
+│        Reactivity                   │  ← Signal-based state
+└─────────────────────────────────────┘
 ```
 
 ## ChartController API
@@ -124,14 +124,14 @@ const controller = createChartController({
 
 ### Methods
 
-- `setData(data: KLineData[]): void` �?Update chart data
-- `setTheme(theme: 'light' | 'dark'): void` �?Change theme
-- `zoomToLevel(level: number, anchorX?: number): void` �?Zoom to specific level
-- `zoomIn(anchorX?: number): void` �?Zoom in
-- `zoomOut(anchorX?: number): void` �?Zoom out
-- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` �?Add indicator
-- `removeIndicator(instanceId: string): boolean` �?Remove indicator
-- `dispose(): void` �?Cleanup and destroy
+- `setData(data: KLineData[]): void` — Update chart data
+- `setTheme(theme: 'light' | 'dark'): void` — Change theme
+- `zoomToLevel(level: number, anchorX?: number): void` — Zoom to specific level
+- `zoomIn(anchorX?: number): void` — Zoom in
+- `zoomOut(anchorX?: number): void` — Zoom out
+- `addIndicator(definitionId: string, role: 'main' | 'sub', params?): string` — Add indicator
+- `removeIndicator(instanceId: string): boolean` — Remove indicator
+- `dispose(): void` — Cleanup and destroy
 
 ### Reactive State
 
@@ -196,6 +196,6 @@ MIT © 363045841
 
 ## Related Packages
 
-- `@363045841yyt/klinechart` �?Vue 3 bindings
-- `@363045841yyt/klinechart-react` �?React bindings (coming soon)
-- `@363045841yyt/klinechart-angular` �?Angular bindings (coming soon)
+- `@363045841yyt/klinechart` — Vue 3 bindings
+- `@363045841yyt/klinechart-react` — React bindings (coming soon)
+- `@363045841yyt/klinechart-angular` — Angular bindings (coming soon)

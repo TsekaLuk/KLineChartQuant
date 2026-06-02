@@ -129,15 +129,35 @@
 
               <!-- 弹窗主体 -->
               <div class="modal-body">
+                <!-- 搜索框 -->
+                <div class="search-box">
+                  <svg
+                    class="search-icon"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                    />
+                  </svg>
+                  <input
+                    v-model="searchQuery"
+                    type="text"
+                    class="search-input"
+                    placeholder="搜索指标名称..."
+                  />
+                </div>
                 <!-- 主图指标区域 -->
-                <div class="indicator-section">
+                <div v-if="filteredMainIndicators.length > 0" class="indicator-section">
                   <div class="section-header">
                     <span class="section-title">主图指标</span>
-                    <span class="section-count">{{ mainIndicators.length }}</span>
+                    <span class="section-count">{{ filteredMainIndicators.length }}</span>
                   </div>
                   <div class="indicator-grid" :class="{ compact: isCompactView }">
                     <button
-                      v-for="indicator in mainIndicators"
+                      v-for="indicator in filteredMainIndicators"
                       :key="indicator.id"
                       class="indicator-card"
                       :class="{ active: isActive(indicator.id), compact: isCompactView }"
@@ -176,17 +196,31 @@
                 </div>
 
                 <!-- 分隔线 -->
-                <div class="section-divider"></div>
+                <div
+                  v-if="filteredMainIndicators.length > 0 && filteredSubIndicators.length > 0"
+                  class="section-divider"
+                ></div>
+
+                <!-- 无匹配结果提示 -->
+                <div v-if="!hasSearchResults && searchQuery.trim()" class="no-results">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
+                    <path
+                      d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                    />
+                  </svg>
+                  <p>未找到匹配的指标</p>
+                  <span class="no-results-hint">请尝试其他关键词</span>
+                </div>
 
                 <!-- 副图指标区域 -->
-                <div class="indicator-section">
+                <div v-if="filteredSubIndicators.length > 0" class="indicator-section">
                   <div class="section-header">
                     <span class="section-title">副图指标</span>
-                    <span class="section-count">{{ subIndicators.length }}</span>
+                    <span class="section-count">{{ filteredSubIndicators.length }}</span>
                   </div>
                   <div class="indicator-grid" :class="{ compact: isCompactView }">
                     <button
-                      v-for="indicator in subIndicators"
+                      v-for="indicator in filteredSubIndicators"
                       :key="indicator.id"
                       class="indicator-card"
                       :class="{ active: isActive(indicator.id), compact: isCompactView }"
@@ -284,7 +318,9 @@ const showAddMenu = ref(false)
 const dragOverIndicatorId = ref<string | null>(null)
 const draggingIndicatorId = ref<string | null>(null)
 const isCompactView = ref(false)
+const searchQuery = ref('')
 
+// Teleport target for fullscreen modal visibility
 const teleportTarget = useFullscreenTeleportTarget()
 
 const activeIndicatorsList = computed(() => {
@@ -313,6 +349,35 @@ const currentIndicator = computed(() => {
 const totalIndicatorsCount = computed(() => mainIndicators.length + subIndicators.length)
 
 const activeCount = computed(() => props.activeIndicators?.length ?? 0)
+
+// 过滤后的主图指标
+const filteredMainIndicators = computed(() => {
+  if (!searchQuery.value.trim()) return mainIndicators
+  const query = searchQuery.value.toLowerCase().trim()
+  return mainIndicators.filter(
+    (i) =>
+      i.label.toLowerCase().includes(query) ||
+      i.name.toLowerCase().includes(query) ||
+      i.id.toLowerCase().includes(query),
+  )
+})
+
+// 过滤后的副图指标
+const filteredSubIndicators = computed(() => {
+  if (!searchQuery.value.trim()) return subIndicators
+  const query = searchQuery.value.toLowerCase().trim()
+  return subIndicators.filter(
+    (i) =>
+      i.label.toLowerCase().includes(query) ||
+      i.name.toLowerCase().includes(query) ||
+      i.id.toLowerCase().includes(query),
+  )
+})
+
+// 是否有搜索结果
+const hasSearchResults = computed(
+  () => filteredMainIndicators.value.length > 0 || filteredSubIndicators.value.length > 0,
+)
 
 function isActive(indicatorId: string): boolean {
   return props.activeIndicators?.includes(indicatorId) ?? false
@@ -771,6 +836,68 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* 搜索框 */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.search-box:focus-within {
+  background: #ffffff;
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.08);
+}
+
+.search-icon {
+  flex-shrink: 0;
+  color: #999;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #333;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #aaa;
+}
+
+/* 无结果提示 */
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  color: #ccc;
+  gap: 12px;
+}
+
+.no-results svg {
+  opacity: 0.5;
+}
+
+.no-results p {
+  margin: 0;
+  font-size: 14px;
+  color: #999;
+  font-weight: 500;
+}
+
+.no-results-hint {
+  font-size: 12px;
+  color: #bbb;
 }
 
 /* 指标区域 */

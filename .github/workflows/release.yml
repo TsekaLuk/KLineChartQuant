@@ -29,7 +29,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          registry-url: 'https://registry.npmjs.org'
           cache: pnpm
 
       - name: Install dependencies
@@ -42,10 +41,14 @@ jobs:
         shell: bash
         run: |
           for pkg in packages/core packages/vue; do
-            (cd "$pkg" && pnpm publish --access public --no-git-checks)
+            name=$(basename "$pkg")
+            tmpdir="/tmp/publish/$name"
+            mkdir -p "$tmpdir"
+            (cd "$pkg" && pnpm pack --pack-destination "$tmpdir" > /dev/null)
+            cd "$tmpdir" && tar -xzf *.tgz && cd package
+            npm publish . --provenance --access public
+            cd /
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Generate release notes
         id: notes

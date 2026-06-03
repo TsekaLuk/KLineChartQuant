@@ -44,22 +44,11 @@ jobs:
             (cd "$pkg" && pnpm pack --pack-destination /tmp/packs)
           done
 
-      - name: Debug auth env
-        shell: bash
-        run: |
-          echo "GITHUB_ACTIONS=$GITHUB_ACTIONS"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+(set)}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL:+(set)}"
-          echo "NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN:+(set)}"
-          npm config list
-          cat ~/.npmrc 2>/dev/null || echo "no ~/.npmrc"
-
       - name: Publish to npm
         shell: bash
         run: |
-          rm -f ~/.npmrc
           for pack in /tmp/packs/*.tgz; do
-            npm publish "$pack" --access public
+            npm publish "$pack" --auth-type=oidc --provenance --access public
           done
 
       - name: Generate release notes

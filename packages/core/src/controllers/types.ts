@@ -73,6 +73,22 @@ export interface KLineData {
     turnoverRate?: number
 }
 
+export type PaneRole = 'main' | 'sub'
+
+export interface PaneCapabilities {
+    crosshair: boolean
+    indicators: boolean
+}
+
+export interface PaneSpec {
+    id: string
+    ratio: number
+    visible?: boolean
+    minHeightPx?: number
+    role?: PaneRole
+    capabilities?: Partial<PaneCapabilities>
+}
+
 // ---------------------------------------------------------------------------
 // Indicator metadata
 // ---------------------------------------------------------------------------
@@ -119,6 +135,51 @@ export interface InteractionSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Pane info (read-only pane metadata for DrawingChartAdapter)
+// ---------------------------------------------------------------------------
+
+export interface PaneInfo {
+    paneId: string
+    top: number
+    height: number
+}
+
+// ---------------------------------------------------------------------------
+// Drawing adapter — narrow interface for DrawingInteractionController
+// ---------------------------------------------------------------------------
+
+export interface DrawingChartViewport {
+    scrollLeft: number
+    plotWidth: number
+    plotHeight: number
+}
+
+export interface DrawingChartAdapter {
+    /** persist full drawing list to the chart engine */
+    setDrawings(drawings: any[]): void
+    /** highlight a drawing by ID */
+    setSelectedDrawingId(id: string | null): void
+    /** current viewport (nullable if chart not ready) */
+    getViewport(): DrawingChartViewport | null
+    /** resolved chart options (kWidth, kGap) */
+    getKWidthKGap(): { kWidth: number; kGap: number }
+    /** device pixel ratio */
+    getCurrentDpr(): number
+    /** raw K-line data */
+    getData(): ReadonlyArray<KLineData>
+    /** screen-x → logical bar index */
+    getLogicalIndexAtX(mouseX: number): number | null
+    /** logical index → unix timestamp (ms) */
+    getTimestampAtLogicalIndex(index: number): number | null
+    /** price → Y within the given pane */
+    priceToY(paneId: string, price: number): number
+    /** Y within the given pane → price */
+    yToPrice(paneId: string, y: number): number
+    /** read-only pane metadata by pane ID */
+    getPaneInfo(paneId: string): PaneInfo | undefined
+}
+
+// ---------------------------------------------------------------------------
 // Drawing controller callback type (passed to handlePointerEvent)
 // ---------------------------------------------------------------------------
 
@@ -138,9 +199,22 @@ export interface ChartMountOptions {
     initialZoomLevel?: number
     zoomLevels?: number
     theme?: 'light' | 'dark'
+
+    // Pre-existing DOM elements (skip buildDom when provided)
+    canvasLayer?: HTMLElement
+    rightAxisLayer?: HTMLElement
+    xAxisCanvas?: HTMLCanvasElement
+
+    // Chart options overrides
+    yPaddingPx?: number
+    rightAxisWidth?: number
+    bottomAxisHeight?: number
+    priceLabelWidth?: number
+    minKWidth?: number
+    maxKWidth?: number
 }
 
-export interface ChartController {
+export interface ChartController extends DrawingChartAdapter {
     // ---- Signals ----
     readonly viewport: Signal<ChartViewport>
     readonly data: Signal<ReadonlyArray<KLineData>>
@@ -150,6 +224,7 @@ export interface ChartController {
     readonly drawingTool: Signal<DrawingToolType | null>
     readonly drawings: Signal<ReadonlyArray<DrawingObject>>
     readonly paneRatios: Signal<Readonly<Record<string, number>>>
+    readonly paneLayout: Signal<ReadonlyArray<PaneSpec>>
     readonly interactionState: Signal<InteractionSnapshot>
 
     // indicator catalog (static — adapters use for picker UI)
@@ -159,6 +234,8 @@ export interface ChartController {
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void
     updateData(next: ReadonlyArray<KLineData>): void
+    getData(): ReadonlyArray<KLineData>
+    getZoomLevelCount(): number
 
     // ---- Theme ----
     setTheme(theme: 'light' | 'dark'): void
@@ -193,10 +270,21 @@ export interface ChartController {
     resizeSubPane(paneId: string, deltaY: number): boolean
     createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean
     clearSubPanes(): void
+    replaceSubPaneIndicator(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean
+    updatePaneLayout(panes: PaneSpec[]): void
 
     // ---- Drawing / Markers ----
     updateCustomMarkers(markers: ReadonlyArray<CustomMarkerEntity>): void
     clearCustomMarkers(): void
+
+    // ---- Interaction sub-methods ----
+    setTooltipSize(size: { width: number; height: number }): void
+    setTooltipAnchorPositioning(enabled: boolean): void
+
+    // ---- Narrow queries ----
+    getIndicatorTitle(instanceId: string): string | undefined
+    /** total scrollable content width (replaces direct computeContentWidth imports) */
+    getContentWidth(): number
 
     // ---- Settings ----
     updateSettingsFacade(settings: Record<string, unknown>): void
@@ -218,7 +306,6 @@ export type ChartControllerFactory = (opts: ChartMountOptions) => ChartControlle
 // Legacy type aliases (deprecated — kept for internal sub-controller tests)
 // ---------------------------------------------------------------------------
 
-/** @deprecated Use `IndicatorInstance` instead. Kept for createIndicatorSelectorController tests. */
 export interface ActiveIndicator {
     id: string
     definitionId: string
@@ -228,7 +315,6 @@ export interface ActiveIndicator {
     params: Readonly<Record<string, number | string | boolean>>
 }
 
-/** @deprecated Flattened into ChartController. Kept for createIndicatorSelectorController tests. */
 export interface IndicatorSelectorController {
     readonly catalog: Signal<ReadonlyArray<IndicatorDefinition>>
     readonly active: Signal<ReadonlyArray<ActiveIndicator>>
@@ -258,7 +344,6 @@ export interface ToolDefinition {
     disabled?: boolean
 }
 
-/** @deprecated Flattened into ChartController. Kept for createToolbarController tests. */
 export interface ToolbarController {
     readonly tools: Signal<ReadonlyArray<ToolDefinition>>
     readonly activeTool: Signal<ToolId | null>
@@ -274,7 +359,6 @@ export interface DrawingState {
     readonly drawingCount: number
 }
 
-/** @deprecated Flattened into ChartController. Kept for createDrawingController tests. */
 export interface DrawingController {
     readonly state: Signal<DrawingState>
     setActiveTool(tool: DrawingToolType | null): void

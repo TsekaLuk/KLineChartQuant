@@ -118,31 +118,24 @@ import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
-import { Chart, type PaneSpec, type IndicatorInstance, type SubPaneInfo } from '@363045841yyt/klinechart-core/engine/chart'
-import type { KLineData } from '@363045841yyt/klinechart-core/types/price'
 import {
-  createChartStore,
-  TRAILING_DRAWING_SLOTS,
-  type ChartStore,
-} from '@363045841yyt/klinechart-core/engine/chart-store'
-import { zoomLevelToKWidth, kGapFromKWidth } from '@363045841yyt/klinechart-core/engine/utils/zoom'
-import { getPhysicalKLineConfig } from '@363045841yyt/klinechart-core/engine/utils/klineConfig'
-import { type SubIndicatorType } from '@363045841yyt/klinechart-core/engine/renderers/Indicator'
-import {
+  createChartController,
+  type ChartController,
+  type PaneSpec,
+  type IndicatorInstance,
+  type SubIndicatorType,
+  type InteractionSnapshot,
+  type DrawingToolId,
+  type KLineData,
+  zoomLevelToKWidth,
+  kGapFromKWidth,
+  getPhysicalKLineConfig,
   SUB_PANE_INDICATOR_CONFIGS,
   SUB_PANE_INDICATORS,
-} from '@363045841yyt/klinechart-core/engine/renderers/Indicator/subPaneConfig'
-import {
-  createPaneTitleRendererPlugin,
-  type TitleInfo,
-} from '@363045841yyt/klinechart-core/engine/renderers/paneTitle'
-import type { InteractionSnapshot } from '@363045841yyt/klinechart-core/engine/controller/interaction'
-import type { DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
-import LeftToolbar from './LeftToolbar.vue'
-import {
   DrawingInteractionController,
-  type DrawingToolId,
-} from '@363045841yyt/klinechart-core/engine/drawing'
+} from '@363045841yyt/klinechart-core/controllers'
+import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import LeftToolbar from './LeftToolbar.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -187,82 +180,58 @@ const emit = defineEmits<{
   (e: 'toggleFullscreen'): void
 }>()
 
-const xAxisCanvasRef = ref<HTMLCanvasElement | null>(null)
-const canvasLayerRef = ref<HTMLDivElement | null>(null)
-const rightAxisLayerRef = ref<HTMLDivElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const chartMainRef = ref<HTMLDivElement | null>(null)
 const tooltipLayerRef = ref<HTMLDivElement | null>(null)
 const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 
-/* ========== 十字线（鼠标悬停位置） ========== */
-const chartRef = shallowRef<Chart | null>(null)
+/* ========== 图表控制器 ========== */
+const controller = shallowRef<ChartController | null>(null)
 
 /* ========== 语义化控制器 ========== */
 const semanticController = shallowRef<SemanticChartController | null>(null)
 
-/* ========== ChartStore（响应式状态中心） ========== */
-const store = createChartStore({
-  initialZoomLevel: props.initialZoomLevel ?? 1,
+/* ========== 本地响应式状态（信号驱动，取代 ChartStore） ========== */
+const dataLength = ref(0)
+const dataVersion = ref(0)
+const viewportDpr = ref(1)
+const zoomLevel = ref(props.initialZoomLevel ?? 1)
+const kWidth = ref(0)
+const kGap = ref(1)
+const viewWidth = ref(0)
+const paneRatios = ref<Record<string, number>>({})
+const selectedDrawingId = ref<string | null>(null)
+const drawings = ref<DrawingObject[]>([])
+
+// 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
+const initZoom = zoomLevel.value
+kWidth.value = zoomLevelToKWidth(initZoom, {
   minKWidth: props.minKWidth,
   maxKWidth: props.maxKWidth,
-  zoomLevels: props.zoomLevels,
-  rightAxisWidth: props.rightAxisWidth,
-  priceLabelWidth: props.priceLabelWidth,
+  zoomLevelCount: props.zoomLevels,
+  dpr: viewportDpr.value,
 })
+kGap.value = kGapFromKWidth(kWidth.value, viewportDpr.value)
 
 /* ========== 主题状态 ========== */
 const chartTheme = ref<'light' | 'dark'>('light')
 
-// 初始化 kWidth / kGap
-store.actions.setZoomState(
-  store.state.zoomLevel,
-  zoomLevelToKWidth(store.state.zoomLevel, {
-    minKWidth: props.minKWidth,
-    maxKWidth: props.maxKWidth,
-    zoomLevelCount: props.zoomLevels,
-    dpr: store.state.viewportDpr,
-  }),
-  kGapFromKWidth(
-    zoomLevelToKWidth(store.state.zoomLevel, {
-      minKWidth: props.minKWidth,
-      maxKWidth: props.maxKWidth,
-      zoomLevelCount: props.zoomLevels,
-      dpr: store.state.viewportDpr,
-    }),
-    store.state.viewportDpr,
-  ),
-)
-
-// 为逐步迁移保留的局部别名
-const dataLength = computed(() => store.state.dataLength)
-const viewportDpr = computed(() => store.state.viewportDpr)
-const zoomLevel = computed(() => store.state.zoomLevel)
-const kWidth = computed(() => store.state.kWidth)
-const kGap = computed(() => store.state.kGap)
-const paneRatios = computed(() => store.state.paneRatios)
-const selectedDrawingId = computed(() => store.state.selectedDrawingId)
-const dataVersion = computed(() => store.state.dataVersion)
-
 function scheduleRender() {
-  chartRef.value?.scheduleDraw()
+  /* Controller auto-renders on state changes */
 }
 
 function handleSettingsChange(settings: Record<string, boolean | string>) {
-  chartRef.value?.updateSettings(settings)
+  controller.value?.updateSettingsFacade(settings)
 
-  // 万条K线性能测试
   if (settings.performanceTest10kKlines) {
     const testData = generate10kKLineData()
     console.time('updateData-10k')
-    chartRef.value?.updateData(testData)
+    controller.value?.updateData(testData)
     console.timeEnd('updateData-10k')
-    store.actions.setDataLength(testData.length)
-    store.actions.bumpDataVersion()
+    dataLength.value = testData.length
+    dataVersion.value++
   } else {
-    // 如果关闭性能测试，恢复原始数据
-    // 通过重新应用语义化配置来恢复
-    if (semanticController.value && chartRef.value?.getData()?.length === 10000) {
+    if (semanticController.value && controller.value?.getData()?.length === 10000) {
       semanticController.value.applyConfig(props.semanticConfig)
     }
   }
@@ -318,7 +287,7 @@ function setTooltipEl(el: HTMLDivElement | null) {
   nextTick(() => {
     if (!el.isConnected) return
     const size = measureTooltipSize(el, 180, 80)
-    chartRef.value?.interaction.setTooltipSize(size)
+    controller.value?.setTooltipSize(size)
   })
 }
 
@@ -368,7 +337,7 @@ const drawingController = shallowRef<DrawingInteractionController | null>(null)
 const selectedDrawing = computed(() => {
   const id = selectedDrawingId.value
   if (!id) return null
-  return store.state.drawings.find((d) => d.id === id) ?? null
+  return drawings.value.find((d) => d.id === id) ?? null
 })
 const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
 const markerTooltipSize = ref({ width: 220, height: 120 })
@@ -403,8 +372,8 @@ const containerCursor = computed(() => {
 const hovered = computed(() => {
   const idx = interactionState.value.hoveredIndex
   if (typeof idx !== 'number') return null
-  void dataVersion.value // 建立响应式依赖
-  const data = chartRef.value?.getData()
+  void dataVersion.value
+  const data = controller.value?.getData()
   if (data && idx >= 0 && idx < data.length) {
     return data[idx]
   }
@@ -430,8 +399,8 @@ const markerTooltipAnchorStyle = computed(() => ({
 }))
 const tooltipAnchorPlacement = computed(() => interactionState.value.tooltipAnchorPlacement)
 const markerTooltipAnchorPlacement = computed<'right-bottom' | 'left-bottom'>(() => {
-  const chart = chartRef.value
-  const viewport = chart?.getViewport()
+  const c = controller.value
+  const viewport = c?.viewport.peek()
   const container = containerRef.value
   const plotWidth = viewport?.plotWidth ?? (container ? container.clientWidth : 0)
   const padding = 12
@@ -441,10 +410,9 @@ const markerTooltipAnchorPlacement = computed<'right-bottom' | 'left-bottom'>(()
   return wouldOverflowRight ? 'left-bottom' : 'right-bottom'
 })
 
-// 获取当前图表数据
 const chartData = computed(() => {
-  void dataVersion.value // 建立响应式依赖，确保数据变化时重新求值
-  return chartRef.value?.getData() ?? []
+  void dataVersion.value
+  return controller.value?.getData() ?? []
 })
 
 // 通知数据变化（在数据更新后调用）
@@ -456,24 +424,21 @@ function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
   const d = selectedDrawing.value
   if (!d || !drawingController.value) return
   drawingController.value.updateDrawingStyle(d.id, style)
-  store.actions.bumpDrawingVersion()
 }
 
 function onDeleteDrawing() {
   const d = selectedDrawing.value
   if (!d || !drawingController.value) return
   drawingController.value.removeDrawing(d.id)
-  store.actions.setSelectedDrawingId(null)
-  store.actions.bumpDrawingVersion()
-  store.actions.setDrawings(drawingController.value.getDrawings())
+  selectedDrawingId.value = null
+  drawings.value = drawingController.value.getDrawings()
 }
 
 function onPointerDown(e: PointerEvent) {
-  chartRef.value?.handlePointerEvent(e, {
+  controller.value?.handlePointerEvent(e, {
     onPointerDown: (event, container) => {
       if (drawingController.value?.onPointerDown(event, container)) {
-        store.actions.setDrawings(drawingController.value.getDrawings())
-        store.actions.bumpDrawingVersion()
+        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -490,10 +455,10 @@ function onPointerMove(e: PointerEvent) {
       y: e.clientY - rect.top,
     }
   }
-  chartRef.value?.handlePointerEvent(e, {
+  controller.value?.handlePointerEvent(e, {
     onPointerMove: (event, container) => {
       if (drawingController.value?.onPointerMove(event, container)) {
-        store.actions.setDrawings(drawingController.value.getDrawings())
+        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -502,10 +467,10 @@ function onPointerMove(e: PointerEvent) {
 }
 
 function onPointerUp(e: PointerEvent) {
-  chartRef.value?.handlePointerEvent(e, {
+  controller.value?.handlePointerEvent(e, {
     onPointerUp: (event, container) => {
       if (drawingController.value?.onPointerUp(event, container)) {
-        store.actions.setDrawings(drawingController.value.getDrawings())
+        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -514,28 +479,27 @@ function onPointerUp(e: PointerEvent) {
 }
 
 function onPointerLeave(e: PointerEvent) {
-  // pointerleave 不需要绘图控制器路由，直接调用
-  chartRef.value?.handlePointerEvent(e)
+  controller.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerDown(e: PointerEvent) {
-  chartRef.value?.handlePointerEvent(e)
+  controller.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerMove(e: PointerEvent) {
-  chartRef.value?.handlePointerEvent(e)
+  controller.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerUp(e: PointerEvent) {
-  chartRef.value?.handlePointerEvent(e)
+  controller.value?.handlePointerEvent(e)
 }
 
 function onRightAxisPointerLeave(e: PointerEvent) {
-  chartRef.value?.handlePointerEvent(e)
+  controller.value?.handlePointerEvent(e)
 }
 
 function onScroll() {
-  chartRef.value?.handleScrollEvent()
+  controller.value?.handleScrollEvent()
 }
 
 // 主图指标显式状态（副图指标从 subPanes 派生）
@@ -607,27 +571,6 @@ function generatePaneId(indicatorId: SubIndicatorType): string {
   return `${indicatorId}_${count}`
 }
 
-// paneTitle 渲染器名称映射（paneId -> rendererName）
-const paneTitleRendererNames = new Map<string, string>()
-
-function mountSubPaneTitle(paneId: string, indicatorId: SubIndicatorType): void {
-  const paneTitleRenderer = createPaneTitleRendererPlugin({
-    paneId,
-    title: indicatorId,
-    getTitleInfo: () => getSubPaneTitleInfo(paneId),
-  })
-  chartRef.value?.useRenderer(paneTitleRenderer)
-  paneTitleRendererNames.set(paneId, paneTitleRenderer.name)
-}
-
-function unmountSubPaneTitle(paneId: string): void {
-  const rendererName = paneTitleRendererNames.get(paneId)
-  if (rendererName) {
-    chartRef.value?.removeRenderer(rendererName)
-    paneTitleRendererNames.delete(paneId)
-  }
-}
-
 // 添加副图（使用 Chart API）
 function addSubPane(
   indicatorId: SubIndicatorType = 'VOLUME',
@@ -639,68 +582,41 @@ function addSubPane(
 
   const mergedParams = params ?? getDefaultParams(indicatorId)
 
-  // 使用高层 Facade API 创建副图指标（Signal 订阅自动同步本地状态和 scheduleDraw）
-  const paneId = chartRef.value?.addIndicator(indicatorId, 'sub', mergedParams)
+  const paneId = controller.value?.addIndicator(indicatorId, 'sub', mergedParams)
   if (!paneId) return false
-
-  // 创建 paneTitle 渲染器（UI 层职责）
-  mountSubPaneTitle(paneId, indicatorId)
-
   return true
 }
 
-// 移除副图（使用高层 Facade API）
 function removeSubPane(paneId: string): void {
-  // 移除 paneTitle 渲染器
-  unmountSubPaneTitle(paneId)
-
-  // 使用高层 Facade API 移除指标（Signal 订阅自动同步本地状态）
-  chartRef.value?.removeIndicator(paneId)
+  controller.value?.removeIndicator(paneId)
 }
 
-// 清除所有副图（使用高层 Facade API）
 function clearAllSubPanes(): void {
-  // 使用高层 Facade API 逐个移除
   for (const pane of subPanes.value) {
-    chartRef.value?.removeIndicator(pane.id)
-    unmountSubPaneTitle(pane.id)
+    controller.value?.removeIndicator(pane.id)
   }
-
-  // 清空本地状态（Signal 订阅自动同步 subPanes，只需要清理 UI 层状态）
   subPaneCounters.clear()
-  paneTitleRendererNames.clear()
 }
 
-// 从语义化配置初始化指标状态（单向数据流：config → chart）
-// Signal 订阅会自动同步本地状态，此处只需调用 Chart API
 function initIndicatorsFromConfig(): void {
   const config = props.semanticConfig
-  const chart = chartRef.value
-  if (!chart) return
+  const c = controller.value
+  if (!c) return
 
   const mainIndicators = config.indicators?.main
   if (mainIndicators) {
     for (const indicator of mainIndicators) {
       if (indicator.enabled) {
-        chart.enableMainIndicator(
-          indicator.type,
-          indicator.params as Record<string, number | boolean | string>,
-        )
+        c.addIndicator(indicator.type, 'main', indicator.params as Record<string, number | boolean | string>)
       }
     }
   }
 }
 
-// 从 Chart 同步副图状态到本地（语义化配置后调用）
 function syncSubPanesFromChart(): void {
-  const chartSubPaneEntries = chartRef.value?.getSubPaneEntries() ?? []
-
-  paneTitleRendererNames.clear()
-
-  for (const entry of chartSubPaneEntries) {
+  const entries = controller.value?.subPanes.peek() ?? []
+  for (const entry of entries) {
     const { paneId, indicatorId, params } = entry
-
-    // 恢复计数器状态
     const match = paneId.match(/^(.+)_(\d+)$/)
     if (match) {
       const [, indicator, countStr] = match
@@ -710,150 +626,67 @@ function syncSubPanesFromChart(): void {
         subPaneCounters.set(indicator as SubIndicatorType, count + 1)
       }
     }
-
-    // 创建 paneTitle 渲染器
-    mountSubPaneTitle(paneId, indicatorId)
   }
 }
 
-// 切换副图指标（使用 Chart API）
 function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
   const nextParams = getDefaultParams(newIndicatorId)
-
-  // 移除旧的 paneTitle 渲染器
-  unmountSubPaneTitle(paneId)
-
-  // 使用 Chart API 替换副图指标（paneId 不变，只换指标类型，Signal 订阅自动同步本地状态）
-  chartRef.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
-
-  // 创建新的 paneTitle 渲染器
-  mountSubPaneTitle(paneId, newIndicatorId)
+  controller.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
 }
 
-// 获取副图标题信息（带缓存，只在 crosshairIdx 或 data 变化时重算）
-const _titleInfoCache = new Map<
-  string,
-  { idx: number | null; dataLen: number; result: TitleInfo | null }
->()
-
-function getSubPaneTitleInfo(paneId: string): TitleInfo | null {
-  const pane = subPanes.value.find((p) => p.id === paneId)
-  if (!pane) return null
-
-  const data = chartRef.value?.getData()
-  if (!data || data.length === 0) return null
-
-  const idx = crosshairIdx.value
-  const dataLen = data.length
-
-  // 缓存命中：crosshairIdx 和 dataLen 都没变
-  const cached = _titleInfoCache.get(paneId)
-  if (cached && cached.idx === idx && cached.dataLen === dataLen) {
-    return cached.result
-  }
-
-  const config = SUB_PANE_INDICATOR_CONFIGS[pane.indicatorId]
-  const params = pane.params as Record<string, number>
-  const pluginHost = chartRef.value?.plugin
-  const result = pluginHost ? config.getTitleInfo(data, idx, params, pluginHost, paneId) : null
-
-  _titleInfoCache.set(paneId, { idx, dataLen, result })
-  return result
-}
-
-// 指标切换处理（使用高层 Facade API）
 function handleIndicatorToggle(indicatorId: string, active: boolean) {
-  const chart = chartRef.value
-  if (!chart) return
+  const c = controller.value
+  if (!c) return
 
-  // 主图指标处理
   const mainIndicatorIds = [
-    'MA',
-    'BOLL',
-    'EXPMA',
-    'ENE',
-    'WMA',
-    'DEMA',
-    'TEMA',
-    'HMA',
-    'KAMA',
-    'SAR',
-    'SUPERTREND',
-    'KELTNER',
-    'DONCHIAN',
-    'ICHIMOKU',
-    'PIVOT',
-    'FIB',
-    'STRUCTURE',
-    'ZONES',
+    'MA', 'BOLL', 'EXPMA', 'ENE', 'WMA', 'DEMA', 'TEMA', 'HMA',
+    'KAMA', 'SAR', 'SUPERTREND', 'KELTNER', 'DONCHIAN', 'ICHIMOKU',
+    'PIVOT', 'FIB', 'STRUCTURE', 'ZONES',
   ]
   if (mainIndicatorIds.includes(indicatorId)) {
     const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
-
     if (active && !existingIndicator) {
-      // 添加主图指标（Signal 订阅自动同步本地状态）
-      chart.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
+      c.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
     } else if (!active && existingIndicator) {
-      // 移除主图指标（Signal 订阅自动同步本地状态）
-      const instanceId = indicatorId.toUpperCase()
-      chart.removeIndicator(instanceId)
+      c.removeIndicator(indicatorId.toUpperCase())
     }
     return
   }
 
-  // 副图指标处理
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
     if (active) {
-      // 如果已存在同类型指标 pane，跳过
       const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
       if (existingPane) return
-
-      // 副图数量上限检查
       if (subPanes.value.length >= maxSubPanes) return
 
-      // 使用高层 API 添加副图指标（Signal 订阅自动同步本地状态）
-      const paneId = chart.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
-      if (paneId) {
-        mountSubPaneTitle(paneId, indicatorId as SubIndicatorType)
-      } else if (subPanes.value.length > 0) {
-        // 添加失败（可能达到上限），替换最后一个
+      const paneId = c.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
+      if (!paneId && subPanes.value.length > 0) {
         const lastPane = subPanes.value[subPanes.value.length - 1]
         switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
       }
     } else {
-      // 找到并移除该指标的所有 pane
       const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
       panesToRemove.forEach((pane) => {
-        chart.removeIndicator(pane.id)
-        unmountSubPaneTitle(pane.id)
+        c.removeIndicator(pane.id)
       })
     }
   }
 }
 
-// 指标参数更新处理
 function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
-  // 主图指标参数更新 - 使用Chart API（Signal 订阅自动同步本地状态和 scheduleDraw）
   if (
-    indicatorId === 'MA' ||
-    indicatorId === 'BOLL' ||
-    indicatorId === 'EXPMA' ||
-    indicatorId === 'ENE'
+    indicatorId === 'MA' || indicatorId === 'BOLL' ||
+    indicatorId === 'EXPMA' || indicatorId === 'ENE'
   ) {
-    chartRef.value?.updateMainIndicatorParams(
-      indicatorId,
-      params as Record<string, number | boolean | string>,
-    )
+    controller.value?.updateIndicatorParams(indicatorId, params)
     return
   }
-
   if (SUB_PANE_INDICATORS.includes(indicatorId as SubIndicatorType)) {
     subPanes.value
       .filter((p) => p.indicatorId === indicatorId)
       .forEach((pane) => {
-        chartRef.value?.updateSubPaneParams(pane.id, params)
+        controller.value?.updateIndicatorParams(pane.id, params)
       })
-    return
   }
 }
 
@@ -891,54 +724,40 @@ function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
 
   subPanes.value = nextSubPanes
 
-  // activeIndicators 由 computed 自动派生，无需手动同步
-
-  const chart = chartRef.value
-  if (!chart) return
-  chart.updatePaneLayout(buildPaneLayoutIntent())
+  const c = controller.value
+  if (!c) return
+  c.updatePaneLayout(buildPaneLayoutIntent())
 }
 
 /* 计算总宽度：从 Vue 响应式状态读取，zoom 变化时自动重算 */
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
-const TRAILING_DRAWING_SLOTS_VAL = TRAILING_DRAWING_SLOTS
-
-const totalWidth = store.computed.totalWidth
-
-// 缩放由 Chart 回调驱动 scrollLeft 与渲染时序。
+const totalWidth = computed(() => controller.value?.getContentWidth() ?? 0)
 
 function scrollToRight() {
   const container = containerRef.value
-  const chart = chartRef.value
-  if (!container || !chart) return
+  const c = controller.value
+  if (!container || !c) return
 
-  const dataLength = chart.getData()?.length ?? 0
+  const dataLength = c.getData()?.length ?? 0
   if (dataLength === 0) return
 
-  const dpr = chart.getCurrentDpr()
+  const vp = c.viewport.peek()
+  const dpr = vp.dpr
   const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth.value, kGap.value, dpr)
 
-  // 计算最后一根K线的结束位置（不含 TRAILING_DRAWING_SLOTS）
   const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
-
-  // 计算最大可滚动距离
   const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
-
-  // 计算需要的滚动位置，使最后一根K线紧贴最右侧
   const targetScrollLeft = Math.min(
     maxScrollLeft,
     Math.max(0, lastKLineEndPx - container.clientWidth),
   )
 
   container.scrollLeft = Math.round(targetScrollLeft * dpr) / dpr
-  scheduleRender()
 }
 
-/* 缩放到指定级别（通过 Chart facade API） */
 function applyZoomToLevel(targetLevel: number, anchorX?: number) {
-  const chart = chartRef.value
-  if (!chart) return
-  chart.zoomToLevel(targetLevel, anchorX)
+  controller.value?.zoomToLevel(targetLevel, anchorX)
 }
 
 defineExpose({
@@ -948,30 +767,20 @@ defineExpose({
   removeSubPane,
   switchSubIndicator,
   clearAllSubPanes,
-  get plugin() {
-    return chartRef.value?.plugin
-  },
-
-  // Zoom Level API（Vue SSOT）
   zoomToLevel: applyZoomToLevel,
   zoomIn: (anchorX?: number) => applyZoomToLevel(zoomLevel.value + 1, anchorX),
   zoomOut: (anchorX?: number) => applyZoomToLevel(zoomLevel.value - 1, anchorX),
   getZoomLevel: () => zoomLevel.value,
-  getZoomLevelCount: () => chartRef.value?.getZoomLevelCount() ?? 10,
+  getZoomLevelCount: () => controller.value?.getZoomLevelCount() ?? 10,
 })
 
 // ==================== onMounted 拆分函数 ====================
 
-function setupWheelHandler(container: HTMLDivElement): (e: WheelEvent) => void {
+function setupWheelHandler(): (e: WheelEvent) => void {
   const onWheelHandler = (e: WheelEvent) => {
     e.preventDefault()
-    const chart = chartRef.value
-    if (!chart) return
-
-    // 使用 Chart facade API 处理滚轮事件
-    chart.handleWheelEvent(e)
+    controller.value?.handleWheelEvent(e)
   }
-  container.addEventListener('wheel', onWheelHandler, { passive: false })
   return onWheelHandler
 }
 
@@ -980,74 +789,65 @@ function initChart(
   canvasLayer: HTMLDivElement,
   rightAxisLayer: HTMLDivElement,
   xAxisCanvas: HTMLCanvasElement,
-): Chart {
-  const chart = new Chart(
-    { container, canvasLayer, rightAxisLayer, xAxisCanvas },
-    {
-      yPaddingPx: props.yPaddingPx,
-      rightAxisWidth: props.rightAxisWidth,
-      bottomAxisHeight: props.bottomAxisHeight,
-      priceLabelWidth: props.priceLabelWidth,
-      minKWidth: props.minKWidth,
-      maxKWidth: props.maxKWidth,
-      panes: [{ id: 'main', ratio: 1 }],
-      paneGap: 0,
-      zoomLevels: props.zoomLevels,
-      initialZoomLevel: props.initialZoomLevel,
-    },
-  )
-  return chart
+): ChartController {
+  const ctrl = createChartController({
+    container,
+    data: [],
+    canvasLayer,
+    rightAxisLayer,
+    xAxisCanvas,
+    initialZoomLevel: props.initialZoomLevel,
+    zoomLevels: props.zoomLevels,
+    yPaddingPx: props.yPaddingPx,
+    rightAxisWidth: props.rightAxisWidth,
+    bottomAxisHeight: props.bottomAxisHeight,
+    priceLabelWidth: props.priceLabelWidth,
+    minKWidth: props.minKWidth,
+    maxKWidth: props.maxKWidth,
+  })
+  return ctrl
 }
 
-function setupChartCallbacks(chart: Chart): void {
-  // 注意：setOnViewportChange 已合并到 viewport signal 订阅者中
-
-  chart.setOnPaneLayoutChange(() => {
-    // 分隔线位置计算（需要实际像素位置，保留在回调中）
+function setupChartCallbacks(ctrl: ChartController): void {
+  const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
     invalidateContainerRectCache()
-    const renderers = chart.getPaneRenderers()
     const borderTop = containerRef.value
       ? parseInt(getComputedStyle(containerRef.value).borderTopWidth) || 0
       : 0
-    paneSeparatorLines.value = renderers.slice(0, -1).map((renderer) => {
-      const pane = renderer.getPane()
-      return {
-        id: pane.id,
-        top: pane.top + pane.height + borderTop,
-      }
+    const panes = ctrl.paneLayout.peek()
+    // 使用 pane 的实际渲染位置计算分隔线位置，确保与鼠标检测一致
+    paneSeparatorLines.value = panes.slice(0, -1).map((pane) => {
+      const paneInfo = ctrl.getPaneInfo(pane.id)
+      // 分隔线位置 = pane 顶部位置 + pane 实际高度
+      const separatorTop = (paneInfo?.top ?? 0) + (paneInfo?.height ?? 0)
+      return { id: pane.id, top: separatorTop + borderTop }
     })
   })
 
-  // 订阅 paneRatios signal，同步到 Vue store
-  const unsubscribePaneRatios = chart.paneRatios.subscribe(() => {
-    const ratios = chart.paneRatios.peek()
-    store.actions.setPaneRatios({ ...ratios })
+  const unsubscribePaneRatios = ctrl.paneRatios.subscribe(() => {
+    const ratios = ctrl.paneRatios.peek()
+    paneRatios.value = { ...ratios }
   })
 
-  // 订阅 viewport signal，处理缩放、DPR、width 变化和 scrollLeft 更新
-  const unsubscribeViewport = chart.viewport.subscribe(() => {
-    const vp = chart.viewport.peek()
+  const unsubscribeViewport = ctrl.viewport.subscribe(() => {
+    const vp = ctrl.viewport.peek()
 
-    // DPR 变化时同步到 store
-    if (store.state.viewportDpr !== vp.dpr) {
-      store.actions.setViewportDpr(vp.dpr)
+    if (viewportDpr.value !== vp.dpr) {
+      viewportDpr.value = vp.dpr
     }
-
-    // ViewWidth 变化时同步到 store
-    if (store.state.viewWidth !== vp.plotWidth) {
-      store.actions.setViewWidth(vp.plotWidth)
+    if (viewWidth.value !== vp.plotWidth) {
+      viewWidth.value = vp.plotWidth
     }
-
-    // 完整同步 zoom state 到 Vue store（Chart 是 SSOT）
     if (
-      store.state.zoomLevel !== vp.zoomLevel ||
-      store.state.kWidth !== vp.kWidth ||
-      store.state.kGap !== vp.kGap
+      zoomLevel.value !== vp.zoomLevel ||
+      kWidth.value !== vp.kWidth ||
+      kGap.value !== vp.kGap
     ) {
-      store.actions.setZoomState(vp.zoomLevel, vp.kWidth, vp.kGap)
+      zoomLevel.value = vp.zoomLevel
+      kWidth.value = vp.kWidth
+      kGap.value = vp.kGap
     }
 
-    // 在 nextTick 中应用 desiredScrollLeft
     const desiredLeft = vp.desiredScrollLeft
     if (desiredLeft !== undefined && desiredLeft !== containerRef.value?.scrollLeft) {
       invalidateContainerRectCache()
@@ -1056,36 +856,30 @@ function setupChartCallbacks(chart: Chart): void {
         if (!c) return
         const maxScrollLeft = Math.max(0, c.scrollWidth - c.clientWidth)
         const clampedScrollLeft = Math.min(Math.max(0, desiredLeft), maxScrollLeft)
-        const dpr = chart.getCurrentDpr()
+        const dpr = vp.dpr
         c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
       })
     }
   })
 
-  // 订阅 data signal，替换 onDataChange 回调
-  const unsubscribeData = chart.data.subscribe(() => {
-    const data = chart.data.peek()
-    store.actions.setDataLength(data.length)
-    store.actions.bumpDataVersion()
+  const unsubscribeData = ctrl.data.subscribe(() => {
+    const data = ctrl.data.peek()
+    dataLength.value = data.length
+    dataVersion.value++
   })
 
-  // 订阅 theme signal，同步到 CSS data-theme
-  const unsubscribeTheme = chart.theme.subscribe(() => {
-    const theme = chart.theme.peek()
-    chartTheme.value = theme
+  const unsubscribeTheme = ctrl.theme.subscribe(() => {
+    chartTheme.value = ctrl.theme.peek()
   })
 
-  // 订阅 indicators signal，派生 Vue 本地状态（SSOT: Chart 引擎）
-  const unsubscribeIndicators = chart.indicators.subscribe(() => {
-    const instances = chart.indicators.peek()
+  const unsubscribeIndicators = ctrl.indicators.subscribe(() => {
+    const instances = ctrl.indicators.peek()
 
-    // 同步主图指标列表
     const mains = instances
       .filter((i): i is IndicatorInstance & { role: 'main' } => i.role === 'main')
       .map((i) => i.definitionId)
     mainActiveIndicators.value = mains
 
-    // 合并主图指标参数（不覆盖副图参数）
     const nextParams = { ...indicatorParams.value }
     for (const inst of instances) {
       if (inst.role === 'main' && inst.params && Object.keys(inst.params).length > 0) {
@@ -1093,8 +887,7 @@ function setupChartCallbacks(chart: Chart): void {
       }
     }
 
-    // 更新主图指标图例配置
-    chart.updateRendererConfig('mainIndicatorLegend', {
+    ctrl.updateRendererConfig('mainIndicatorLegend', {
       indicators: {
         MA: { enabled: mains.includes('MA'), params: nextParams['MA'] || {} },
         BOLL: { enabled: mains.includes('BOLL'), params: nextParams['BOLL'] || {} },
@@ -1106,13 +899,10 @@ function setupChartCallbacks(chart: Chart): void {
     indicatorParams.value = nextParams
   })
 
-  // 订阅 subPanes signal，派生 Vue 本地状态
-  // 注意：保持当前显示顺序（reorder 是 UI 层私有状态），仅同步新增/删除
-  const unsubscribeSubPanes = chart.subPanes.subscribe(() => {
-    const subPaneInfos = chart.subPanes.peek()
+  const unsubscribeSubPanes = ctrl.subPanes.subscribe(() => {
+    const subPaneInfos = ctrl.subPanes.peek()
     const signalIds = new Set(subPaneInfos.map((sp) => sp.paneId))
 
-    // 保留 display order，移除已删除的 pane，追加新增的
     const merged = subPanes.value.filter((p) => signalIds.has(p.id))
     const existingIds = new Set(merged.map((p) => p.id))
     for (const sp of subPaneInfos) {
@@ -1126,7 +916,6 @@ function setupChartCallbacks(chart: Chart): void {
     }
     subPanes.value = merged
 
-    // 合并副图指标参数（不覆盖主图参数）
     const nextParams = { ...indicatorParams.value }
     for (const sp of subPaneInfos) {
       if (sp.params && Object.keys(sp.params).length > 0) {
@@ -1136,68 +925,56 @@ function setupChartCallbacks(chart: Chart): void {
     indicatorParams.value = nextParams
   })
 
-  // 保存 unsubscribe 函数以便清理
   onUnmounted(() => {
     unsubscribeViewport()
     unsubscribeData()
     unsubscribePaneRatios()
+    unsubscribePaneLayout()
     unsubscribeTheme()
     unsubscribeIndicators()
     unsubscribeSubPanes()
   })
 }
 
-function applyInitialSettings(chart: Chart): void {
+function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
-  chart.updateSettings(initialSettings)
+  ctrl.updateSettingsFacade(initialSettings)
 
   if (initialSettings.performanceTest10kKlines) {
     const testData = generate10kKLineData()
     console.time('updateData-10k')
-    chart.updateData(testData)
+    ctrl.updateData(testData)
     console.timeEnd('updateData-10k')
   }
 }
 
-function setupDrawingController(chart: Chart): void {
-  drawingController.value = new DrawingInteractionController(chart)
+function setupDrawingController(ctrl: ChartController): void {
+  drawingController.value = new DrawingInteractionController(ctrl)
   drawingController.value.setCallbacks({
     onDrawingCreated: (drawing) => {
-      store.actions.setDrawings([...store.state.drawings, drawing])
-      store.actions.setSelectedDrawingId(drawing.id)
+      drawings.value = [...drawings.value, drawing]
+      selectedDrawingId.value = drawing.id
     },
     onToolChange: () => {},
     onDrawingSelected: (drawing) => {
-      store.actions.setSelectedDrawingId(drawing?.id ?? null)
+      selectedDrawingId.value = drawing?.id ?? null
     },
   })
 }
 
-function setupInteractionCallbacks(chart: Chart): void {
-  chart.interaction.setTooltipAnchorPositioning(useAnchorPositioning.value)
-  chart.interaction.setOnInteractionChange((snapshot) => {
-    interactionState.value = snapshot
+function setupInteractionCallbacks(ctrl: ChartController): void {
+  ctrl.setTooltipAnchorPositioning(useAnchorPositioning.value)
+  ctrl.interactionState.subscribe(() => {
+    interactionState.value = ctrl.interactionState.peek()
   })
 
-  chart.interaction.setOnPinchZoom((delta, centerClientX) => {
-    if (!chart) return
-    const container = containerRef.value
-    if (!container) return
-    // centerClientX 是 clientX，需要转换为视口局部坐标
-    const rect = container.getBoundingClientRect()
-    const centerX = centerClientX - rect.left
-    chart.handlePinchZoom(delta, centerX)
-  })
-
-  interactionState.value = chart.interaction.getInteractionSnapshot()
-  store.actions.setViewportDpr(chart.getCurrentDpr())
-  chart.resize()
+  interactionState.value = ctrl.interactionState.peek()
+  viewportDpr.value = ctrl.viewport.peek().dpr
 }
 
-/** 语义化控制器：外部配置 → Chart API 的桥梁 */
-function setupSemanticController(chart: Chart): void {
+function setupSemanticController(ctrl: ChartController): void {
   __setDataFetcher(props.dataFetcher)
-  semanticController.value = new SemanticChartController(chart)
+  semanticController.value = new SemanticChartController(ctrl)
 
   semanticController.value.on('config:error', (error) => {
     console.error('Semantic config error:', error)
@@ -1221,62 +998,52 @@ onMounted(() => {
   useAnchorPositioning.value = false
 
   const container = containerRef.value
-  const canvasLayer = canvasLayerRef.value
-  const rightAxisLayer = rightAxisLayerRef.value
-  const xAxisCanvas = xAxisCanvasRef.value
-  if (!container || !canvasLayer || !rightAxisLayer || !xAxisCanvas) return
+  const chartMain = chartMainRef.value
+  if (!container || !chartMain) return
 
-  // 1) 滚轮缩放：passive:false 以阻止页面滚动
-  const onWheelHandler = setupWheelHandler(container)
+  // 1) 滚轮缩放处理
+  const onWheelHandler = setupWheelHandler()
+  container.addEventListener('wheel', onWheelHandler, { passive: false })
 
-  // 2) 创建 Chart 实例并注册全部渲染器
-  const chart = initChart(container, canvasLayer, rightAxisLayer, xAxisCanvas)
-  chartRef.value = chart
+  // 2) 创建 Chart 控制器（使用模板 DOM 元素）
+  const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
+  const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
+  const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
+  const ctrl = initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
+  controller.value = ctrl
 
-  // 3) 视口 / 面板布局 / 数据变更回调
-  setupChartCallbacks(chart)
+  // 3) 信号回调
+  setupChartCallbacks(ctrl)
 
-  // 4) 同步 zoom 状态（Vue SSOT → Chart）
-  chart.applyRenderState(store.state.kWidth, store.state.kGap, store.state.zoomLevel)
+  // 4) 工具栏初始设置
+  applyInitialSettings(ctrl)
 
-  // 5) 工具栏初始设置（含性能测试数据）
-  applyInitialSettings(chart)
+  // 5) 绘图交互控制器
+  setupDrawingController(ctrl)
 
-  // 6) 绘图交互控制器（线段/箭头等）
-  setupDrawingController(chart)
+  // 6) 交互信号桥接
+  setupInteractionCallbacks(ctrl)
 
-  // 7) 十字线、捏合缩放、初始交互快照
-  setupInteractionCallbacks(chart)
-
-  // 8) 语义化配置控制器（最终驱动数据加载）
-  setupSemanticController(chart)
-
-  // 供 onUnmounted 移除 wheel 监听
-  ;(chart as any).__onWheel = onWheelHandler
+  // 7) 语义化配置
+  setupSemanticController(ctrl)
 })
 
 onUnmounted(() => {
-  const chart = chartRef.value
-  if (chart) {
-    const onWheel = (chart as any).__onWheel as
-      | ((this: HTMLElement, ev: WheelEvent) => any)
-      | undefined
-    const container = containerRef.value
-    if (onWheel && container) container.removeEventListener('wheel', onWheel)
-    chart.destroy()
+  const ctrl = controller.value
+  if (ctrl) {
+    controller.value = null
+    ctrl.dispose()
   }
-  chartRef.value = null
   drawingController.value = null
 })
 
 // kWidth/kGap 由 zoomLevel 派生，不再通过 props 直接修改
 // 如需程序化控制缩放，请使用 expose 的 zoomToLevel/zoomIn/zoomOut 方法
 
-// 监听 yPaddingPx 变化
 watch(
   () => props.yPaddingPx,
   (newVal) => {
-    chartRef.value?.updateOptions({ yPaddingPx: newVal })
+    controller.value?.updateOptionsFacade({ yPaddingPx: newVal })
   },
 )
 

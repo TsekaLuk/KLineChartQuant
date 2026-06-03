@@ -25,18 +25,20 @@ import type {
     DrawingControllerCallbacks,
     IndicatorDefinition,
     KLineData,
+    PaneInfo,
+    PaneSpec,
 } from './types'
 import type { CustomMarkerEntity } from '../engine/marker/registry'
 import {
     Chart,
     type ChartOptions,
-    type Viewport as LegacyViewport,
     type ViewportState as LegacyViewportState,
     type IndicatorInstance as LegacyIndicatorInstance,
     type SubPaneInfo as LegacySubPaneInfo,
     type DrawingObject as LegacyDrawingObject,
     type DrawingToolType as LegacyDrawingToolType,
     type InteractionSnapshot as LegacyInteractionSnapshot,
+    type PaneSpec as LegacyPaneSpec,
 } from '../engine/chart'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 
@@ -287,17 +289,27 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         throw new Error('[createChartController] opts.container must be a non-null HTMLElement')
     }
 
-    const mounted = buildDom(opts.container)
+    const hasExistingDom = !!(opts.canvasLayer && opts.rightAxisLayer && opts.xAxisCanvas)
+    const mounted = hasExistingDom
+        ? {
+            container: opts.container as HTMLDivElement,
+            canvasLayer: opts.canvasLayer!,
+            rightAxisLayer: opts.rightAxisLayer!,
+            xAxisCanvas: opts.xAxisCanvas!,
+            cleanup: () => { /* DOM owned by caller */ },
+        }
+        : buildDom(opts.container)
+
     const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
     const zoomLevelCount = opts.zoomLevels ?? DEFAULT_OPTS.zoomLevels
 
     const chartOptions: ChartOptions = {
-        yPaddingPx: DEFAULT_OPTS.yPaddingPx,
-        rightAxisWidth: DEFAULT_OPTS.rightAxisWidth,
-        bottomAxisHeight: DEFAULT_OPTS.bottomAxisHeight,
-        minKWidth: DEFAULT_OPTS.minKWidth,
-        maxKWidth: DEFAULT_OPTS.maxKWidth,
-        priceLabelWidth: DEFAULT_OPTS.priceLabelWidth,
+        yPaddingPx: opts.yPaddingPx ?? DEFAULT_OPTS.yPaddingPx,
+        rightAxisWidth: opts.rightAxisWidth ?? DEFAULT_OPTS.rightAxisWidth,
+        bottomAxisHeight: opts.bottomAxisHeight ?? DEFAULT_OPTS.bottomAxisHeight,
+        minKWidth: opts.minKWidth ?? DEFAULT_OPTS.minKWidth,
+        maxKWidth: opts.maxKWidth ?? DEFAULT_OPTS.maxKWidth,
+        priceLabelWidth: opts.priceLabelWidth ?? DEFAULT_OPTS.priceLabelWidth,
         panes: [{ id: 'main', ratio: 1 }],
         paneGap: 0,
         zoomLevels: zoomLevelCount,
@@ -433,27 +445,18 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.paneRatios.subscribe(() => paneRatios.set(mapPaneRatios(chart.paneRatios.peek()))),
     )
 
+    // paneLayout
+    const paneLayout: Signal<ReadonlyArray<PaneSpec>> = createSignal<ReadonlyArray<PaneSpec>>([])
+    unsubs.push(
+        chart.paneLayout.subscribe(() => paneLayout.set([...chart.paneLayout.peek()])),
+    )
+
     // interactionState
     unsubs.push(
         chart.interactionState.subscribe(() =>
             interactionState.set(mapInteractionSnapshot(chart.interactionState.peek())),
         ),
     )
-
-    // -------------------------------------------------------------------
-    // Legacy callback for resize (chart's viewport signal doesn't fire
-    // on resize — only on zoom/scroll through facade methods)
-    // -------------------------------------------------------------------
-
-    chart.setOnViewportChange((vp: LegacyViewport) => {
-        const current = viewport.peek()
-        viewport.set({
-            ...current,
-            plotWidth: vp.plotWidth,
-            plotHeight: vp.plotHeight,
-            dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
-        })
-    })
 
     // -------------------------------------------------------------------
     // Lifecycle guard
@@ -479,6 +482,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         const current = data.peek()
         const merged = [...current, ...next]
         setData(merged)
+    }
+
+    function getData(): ReadonlyArray<KLineData> {
+        if (disposed) return []
+        return chart.getData()
+    }
+
+    function getZoomLevelCount(): number {
+        if (disposed) return 0
+        return chart.getZoomLevelCount()
     }
 
     function setTheme(nextTheme: 'light' | 'dark'): void {
@@ -551,6 +564,28 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.updateRendererConfig(name, config)
     }
 
+    function setTooltipSize(size: { width: number; height: number }): void {
+        if (disposed) return
+        chart.interaction.setTooltipSize(size)
+    }
+
+    function setTooltipAnchorPositioning(enabled: boolean): void {
+        if (disposed) return
+        chart.interaction.setTooltipAnchorPositioning(enabled)
+    }
+
+    function getContentWidth(): number {
+        if (disposed) return 0
+        return chart.getContentWidth()
+    }
+
+    function getIndicatorTitle(instanceId: string): string | undefined {
+        if (disposed) return undefined
+        const instances = chart.indicators.peek()
+        const match = instances.find(inst => inst.id === instanceId)
+        return match?.label
+    }
+
     function setDrawingTool(tool: DrawingToolType | null): void {
         if (disposed) return
         chart.setDrawingTool(tool)
@@ -566,6 +601,65 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         chart.removeDrawing(drawingId)
     }
 
+    // ---- DrawingChartAdapter methods ----
+
+    function setDrawings(drawings: any[]): void {
+        if (disposed) return
+        chart.setDrawings(drawings)
+    }
+
+    function setSelectedDrawingId(id: string | null): void {
+        if (disposed) return
+        chart.setSelectedDrawingId(id)
+    }
+
+    function getViewport(): { scrollLeft: number; plotWidth: number; plotHeight: number } | null {
+        if (disposed) return null
+        const vp = chart.getViewport()
+        return vp
+    }
+
+    function getKWidthKGap(): { kWidth: number; kGap: number } {
+        if (disposed) return { kWidth: 0, kGap: 0 }
+        const opt = chart.getOption()
+        return { kWidth: opt.kWidth, kGap: opt.kGap }
+    }
+
+    function getCurrentDpr(): number {
+        if (disposed) return 1
+        return chart.getCurrentDpr()
+    }
+
+    function getLogicalIndexAtX(mouseX: number): number | null {
+        if (disposed) return null
+        return chart.getLogicalIndexAtX(mouseX)
+    }
+
+    function getTimestampAtLogicalIndex(index: number): number | null {
+        if (disposed) return null
+        return chart.getTimestampAtLogicalIndex(index)
+    }
+
+    function priceToY(paneId: string, price: number): number {
+        if (disposed) return 0
+        const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
+        return renderer?.getPane().yAxis.priceToY(price) ?? 0
+    }
+
+    function yToPrice(paneId: string, y: number): number {
+        if (disposed) return 0
+        const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
+        return renderer?.getPane().yAxis.yToPrice(y) ?? 0
+    }
+
+    function getPaneInfo(paneId: string): PaneInfo | undefined {
+        if (disposed) return undefined
+        const renderer = chart.getPaneRenderers().find(item => item.getPane().id === paneId)
+        const pane = renderer?.getPane()
+        if (!pane) return undefined
+        return { paneId: pane.id, top: pane.top, height: pane.height }
+    }
+
     function createSubPane(paneId: string, indicatorId: string, params?: Record<string, unknown>): boolean {
         if (disposed) return false
         return chart.createSubPane(paneId, indicatorId as never, params as Record<string, string | number | boolean> | undefined)
@@ -574,6 +668,25 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     function clearSubPanes(): void {
         if (disposed) return
         chart.clearSubPanes()
+    }
+
+    function replaceSubPaneIndicator(
+        paneId: string,
+        indicatorId: string,
+        params?: Record<string, unknown>,
+    ): boolean {
+        if (disposed) return false
+        try {
+            chart.replaceSubPaneIndicator(paneId, indicatorId as never, params as Record<string, string | number | boolean>)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    function updatePaneLayout(panes: PaneSpec[]): void {
+        if (disposed) return
+        chart.updatePaneLayout(panes as LegacyPaneSpec[])
     }
 
     function resizeSubPane(paneId: string, deltaY: number): boolean {
@@ -604,7 +717,6 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     function dispose(): void {
         if (disposed) return
         disposed = true
-        // Unsubscribe all signal bridges first
         for (const unsub of unsubs) {
             try {
                 unsub()
@@ -633,11 +745,14 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         drawingTool,
         drawings,
         paneRatios,
+        paneLayout,
         interactionState,
         catalog: DEFAULT_INDICATOR_CATALOG,
         setData,
         appendData,
         updateData: setData,
+        getData,
+        getZoomLevelCount,
         setTheme,
         zoomToLevel,
         zoomIn,
@@ -650,11 +765,27 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         removeIndicator,
         updateIndicatorParams,
         updateRendererConfig,
+        setTooltipSize,
+        setTooltipAnchorPositioning,
+        getIndicatorTitle,
+        getContentWidth,
         setDrawingTool,
         clearDrawings,
         removeDrawing,
+        setDrawings,
+        setSelectedDrawingId,
+        getViewport,
+        getKWidthKGap,
+        getCurrentDpr,
+        getLogicalIndexAtX,
+        getTimestampAtLogicalIndex,
+        priceToY,
+        yToPrice,
+        getPaneInfo,
         createSubPane,
         clearSubPanes,
+        replaceSubPaneIndicator,
+        updatePaneLayout,
         resizeSubPane,
         updateCustomMarkers,
         clearCustomMarkers,

@@ -20,13 +20,14 @@ import type {
     IndicatorDefinition,
     IndicatorSelectorController,
     KLineData,
+    PaneSpec,
     ToolbarController,
     ToolDefinition,
     ToolId,
 } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
-// Inline mini-signal â€?Object.is-equality, sync notify. Drop-in compatible
+// Inline mini-signal ï¿½?Object.is-equality, sync notify. Drop-in compatible
 // with `@363045841yyt/klinechart-core/reactivity` for shape-only test purposes.
 // ---------------------------------------------------------------------------
 
@@ -132,6 +133,7 @@ export function createMockChartController(
     })
     const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
     const theme = createSignal<'light' | 'dark'>(opts.theme ?? 'light')
+    const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
     const indicatorSelector = createMockIndicatorSelector()
     const toolbar = createMockToolbar()
     const drawing = createMockDrawing()
@@ -140,12 +142,15 @@ export function createMockChartController(
         viewport,
         data,
         theme,
+        paneLayout,
         indicatorSelector,
         toolbar,
         drawing,
         setData: (next) => data.set(next),
         appendData: (next) => data.set([...data.peek(), ...next]),
         updateData: (next) => data.set(next),
+        getData: () => data.peek(),
+        getZoomLevelCount: () => 10,
         setTheme: (next) => theme.set(next),
         zoomToLevel: (level) =>
             viewport.set({ ...viewport.peek(), zoomLevel: level }),
@@ -167,12 +172,17 @@ export function createMockChartController(
         removeIndicator: () => false,
         updateIndicatorParams: () => false,
         updateRendererConfig: () => {},
+        setTooltipSize: () => {},
+        setTooltipAnchorPositioning: () => {},
+        getIndicatorTitle: () => undefined,
         setDrawingTool: (tool) => drawing.setActiveTool(tool),
         clearDrawings: () => drawing.clearAll(),
         removeDrawing: () => {},
         resizeSubPane: () => false,
         createSubPane: () => false,
         clearSubPanes: () => {},
+        replaceSubPaneIndicator: () => false,
+        updatePaneLayout: (_panes: PaneSpec[]) => {},
         updateCustomMarkers: () => {},
         clearCustomMarkers: () => {},
         updateSettingsFacade: () => {},

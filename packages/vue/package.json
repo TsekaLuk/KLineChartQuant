@@ -1,8 +1,14 @@
 {
   "name": "@363045841yyt/klinechart",
-  "version": "0.7.5-alpha.1",
+  "version": "0.7.5-alpha.2",
   "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "bugs": "https://github.com/363045841/KLineChartQuant/issues",
+  "homepage": "https://363045841.github.io/KLineChartQuant/",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

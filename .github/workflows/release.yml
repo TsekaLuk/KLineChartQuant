@@ -37,11 +37,21 @@ jobs:
       - name: Build packages
         run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
 
-      - name: Configure npm registry
-        run: npm config set registry https://registry.npmjs.org
+      - name: Pack packages
+        shell: bash
+        run: |
+          for pkg in packages/core packages/vue; do
+            (cd "$pkg" && pnpm pack --pack-destination /tmp/packs)
+          done
 
       - name: Publish to npm
-        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart publish --access public --no-git-checks --provenance
+        shell: bash
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+        run: |
+          for pack in /tmp/packs/*.tgz; do
+            npm publish "$pack" --provenance --access public
+          done
 
       - name: Generate release notes
         id: notes

@@ -40,15 +40,8 @@ jobs:
       - name: Publish to npm
         shell: bash
         run: |
-          for pkg in packages/core packages/vue; do
-            name=$(basename "$pkg")
-            tmpdir="/tmp/publish/$name"
-            mkdir -p "$tmpdir"
-            (cd "$pkg" && pnpm pack --pack-destination "$tmpdir" > /dev/null)
-            cd "$tmpdir" && tar -xzf *.tgz && cd package
-            npm publish . --provenance --access public
-            cd /
-          done
+          cd packages/core && pnpm publish --no-git-checks --provenance --access public && cd ../..
+          cd packages/vue && pnpm publish --no-git-checks --provenance --access public && cd ../..
 
       - name: Generate release notes
         id: notes

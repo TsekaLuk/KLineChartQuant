@@ -40,8 +40,14 @@ jobs:
       - name: Publish to npm
         shell: bash
         run: |
-          cd packages/core && pnpm publish --no-git-checks --provenance --access public && cd ../..
-          cd packages/vue && pnpm publish --no-git-checks --provenance --access public && cd ../..
+          echo "//registry.npmjs.org/:_authToken=" > ~/.npmrc
+          cd packages/core && npm publish --provenance --access public && cd ../..
+          cd packages/vue
+          cp package.json package.json.bak
+          sed -i 's/workspace:^/^/g' package.json
+          npm publish --provenance --access public
+          mv package.json.bak package.json
+          cd ../..
 
       - name: Generate release notes
         id: notes

@@ -29,17 +29,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          registry-url: 'https://registry.npmjs.org'
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm --filter @363045841yyt/klinechart build
+        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
 
       - name: Publish to npm
-        run: pnpm --filter @363045841yyt/klinechart publish --access public --no-git-checks --provenance
+        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart publish --access public --no-git-checks --provenance
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org
 
       - name: Generate release notes
         id: notes

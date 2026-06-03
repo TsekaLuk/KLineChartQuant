@@ -40,14 +40,36 @@ jobs:
       - name: Publish to npm
         shell: bash
         run: |
-          echo "//registry.npmjs.org/:_authToken=" > ~/.npmrc
-          cd packages/core && npm publish --provenance --access public && cd ../..
-          cd packages/vue
-          cp package.json package.json.bak
-          sed -i 's/workspace:^/^/g' package.json
-          npm publish --provenance --access public
-          mv package.json.bak package.json
-          cd ../..
+          set -e
+
+          # === 1. 发布 core 包 ===
+          if [ -d "packages/core" ]; then
+            echo "====== 开始发布 Core 包 ======"
+            cd packages/core
+            echo "registry=https://registry.npmjs.org/" > .npmrc
+            echo "//registry.npmjs.org/:_authToken=" >> .npmrc
+            npm publish --provenance --access public
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "❌ 错误：未找到 packages/core 目录！"
+            exit 1
+          fi
+
+          # === 2. 发布 vue 包 ===
+          if [ -d "packages/vue" ]; then
+            echo "====== 开始发布 Vue 包 ======"
+            cd packages/vue
+            echo "registry=https://registry.npmjs.org/" > .npmrc
+            echo "//registry.npmjs.org/:_authToken=" >> .npmrc
+            cp package.json package.json.bak
+            sed -i 's/workspace:^/^/g' package.json
+            npm publish --provenance --access public
+            mv package.json.bak package.json
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "❌ 错误：未找到 packages/vue 目录！"
+            exit 1
+          fi
 
       - name: Generate release notes
         id: notes

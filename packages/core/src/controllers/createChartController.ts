@@ -38,7 +38,6 @@ import {
     type DrawingObject as LegacyDrawingObject,
     type DrawingToolType as LegacyDrawingToolType,
     type InteractionSnapshot as LegacyInteractionSnapshot,
-    type PaneSpec as LegacyPaneSpec,
 } from '../engine/chart'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 
@@ -187,14 +186,13 @@ function mapPaneRatios(ratios: Readonly<Record<string, number>>): Readonly<Recor
     return { ...ratios }
 }
 
-function mapInteractionRecord(
-    value: Record<string, any> | null | undefined,
-): Record<string, unknown> | null {
+function mapInteractionRecord<T>(
+    value: T | null | undefined,
+): T | null {
     if (!value) {
         return null
     }
-
-    return { ...value }
+    return { ...value } as T
 }
 
 function mapInteractionSnapshot(snapshot: LegacyInteractionSnapshot): InteractionSnapshot {
@@ -293,8 +291,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     const mounted = hasExistingDom
         ? {
             container: opts.container as HTMLDivElement,
-            canvasLayer: opts.canvasLayer!,
-            rightAxisLayer: opts.rightAxisLayer!,
+            canvasLayer: opts.canvasLayer as HTMLDivElement,
+            rightAxisLayer: opts.rightAxisLayer as HTMLDivElement,
             xAxisCanvas: opts.xAxisCanvas!,
             cleanup: () => { /* DOM owned by caller */ },
         }
@@ -686,7 +684,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
 
     function updatePaneLayout(panes: PaneSpec[]): void {
         if (disposed) return
-        chart.updatePaneLayout(panes as LegacyPaneSpec[])
+        chart.updatePaneLayout(panes)
     }
 
     function resizeSubPane(paneId: string, deltaY: number): boolean {

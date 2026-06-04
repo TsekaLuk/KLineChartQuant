@@ -9,7 +9,8 @@
  */
 
 import type { Signal } from '../reactivity'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
+import type { CustomMarkerEntity, MarkerEntity } from '../engine/marker/registry'
+import type { PaneSpec } from '../engine/chart'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -73,21 +74,7 @@ export interface KLineData {
     turnoverRate?: number
 }
 
-export type PaneRole = 'main' | 'sub'
-
-export interface PaneCapabilities {
-    crosshair: boolean
-    indicators: boolean
-}
-
-export interface PaneSpec {
-    id: string
-    ratio: number
-    visible?: boolean
-    minHeightPx?: number
-    role?: PaneRole
-    capabilities?: Partial<PaneCapabilities>
-}
+export type { PaneSpec }
 
 // ---------------------------------------------------------------------------
 // Indicator metadata
@@ -125,8 +112,8 @@ export interface InteractionSnapshot {
     activePaneId: string | null
     tooltipPos: { x: number; y: number }
     tooltipAnchorPlacement: 'right-bottom' | 'left-bottom'
-    hoveredMarkerData: Record<string, unknown> | null
-    hoveredCustomMarker: Record<string, unknown> | null
+    hoveredMarkerData: MarkerEntity | null
+    hoveredCustomMarker: CustomMarkerEntity | null
     isDragging: boolean
     isResizingPaneBoundary: boolean
     isHoveringPaneBoundary: boolean

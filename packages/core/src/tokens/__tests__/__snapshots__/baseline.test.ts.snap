@@ -1,0 +1,393 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`theme baseline — dark > CSS declaration block (snapshot) 1`] = `
+":root {
+  --klc-color-background: #111827;
+  --klc-color-foreground: #E8EAED;
+  --klc-color-candle-up-body: #22D69B;
+  --klc-color-candle-up-border: #22D69B;
+  --klc-color-candle-up-wick: #22D69B;
+  --klc-color-candle-down-body: #FF6464;
+  --klc-color-candle-down-border: #FF6464;
+  --klc-color-candle-down-wick: #FF6464;
+  --klc-color-candle-doji-border: #8A8F98;
+  --klc-color-volume-up: #22D69B66;
+  --klc-color-volume-down: #FF646466;
+  --klc-color-axis-text: #9AA0A6;
+  --klc-color-axis-line: #2A2F36;
+  --klc-color-axis-tick: #2A2F36;
+  --klc-color-grid-major: #1B1F26;
+  --klc-color-grid-minor: #161A20;
+  --klc-color-crosshair-line: #5F6368;
+  --klc-color-crosshair-label-bg: #E8EAED;
+  --klc-color-crosshair-label-text: #0E1116;
+  --klc-color-selection-fill: #4A9EFF33;
+  --klc-color-selection-stroke: #4A9EFF;
+  --klc-color-tooltip-bg: #1B1F26EE;
+  --klc-color-tooltip-text: #E8EAED;
+  --klc-color-tooltip-border: #2A2F36;
+  --klc-color-heatmap-coldest: #0E1116;
+  --klc-color-heatmap-hottest: #80B7FF;
+  --klc-color-volume-profile-fill: #6B727A66;
+  --klc-color-volume-profile-poc: #FFA94D;
+  --klc-color-volume-profile-value-area: #4A9EFF33;
+  --klc-color-footprint-ask: #22D69B80;
+  --klc-color-footprint-bid: #FF646480;
+  --klc-color-footprint-imbalance: #FFA94D;
+  --klc-color-alert-active: #4A9EFF;
+  --klc-color-alert-triggered: #FFA94D;
+  --klc-color-alert-muted: #6B727A;
+  --klc-color-avwap-line: #A78BFA;
+  --klc-color-avwap-band: #A78BFA33;
+  --klc-color-mtf-overlay: #38BDF8;
+  --klc-color-palette-i1: #4A9EFF;
+  --klc-color-palette-i2: #FFB95A;
+  --klc-color-palette-i3: #22D69B;
+  --klc-color-palette-i4: #E879BA;
+  --klc-color-palette-i5: #FF8848;
+  --klc-color-palette-i6: #7DD3FC;
+  --klc-color-palette-i7: #FCE96A;
+  --klc-color-palette-i8: #A78BFA;
+  --klc-color-palette-i9: #60A5FA;
+  --klc-color-palette-i10: #9AA0A6;
+  --klc-color-palette-indicator-atr: #F59E0B;
+  --klc-color-text-primary: hsl(210, 10%, 85%);
+  --klc-color-text-secondary: hsl(210, 8%, 75%);
+  --klc-color-text-tertiary: hsl(210, 6%, 60%);
+  --klc-color-text-weak: hsl(210, 5%, 45%);
+  --klc-color-text-white: rgba(255, 255, 255, 0.95);
+  --klc-color-price-up-light: rgba(255, 80, 100, 0.85);
+  --klc-color-price-up-tick: hsl(0, 70%, 60%);
+  --klc-color-price-down-light: rgba(60, 200, 160, 0.85);
+  --klc-color-price-down-tick: hsl(150, 50%, 65%);
+  --klc-color-price-last-price: rgba(230, 100, 115, 0.95);
+  --klc-color-tag-bg-white: rgb(40, 40, 55);
+  --klc-color-tag-bg-light-gray: rgba(50, 50, 65, 0.92);
+  --klc-color-tag-bg-pure-white: #282837;
+  --klc-color-tag-bg-transparent: transparent;
+  --klc-color-tag-bg-active: #1890ff;
+  --klc-color-tag-bg-active-hover: #40a9ff;
+  --klc-color-tag-bg-hover: #3a3a4a;
+  --klc-color-border-dark: rgba(255, 255, 255, 0.15);
+  --klc-color-border-medium: rgba(255, 255, 255, 0.12);
+  --klc-color-border-light: rgba(255, 255, 255, 0.08);
+  --klc-color-border-separator: rgba(255, 255, 255, 0.10);
+  --klc-color-border-button: #505060;
+  --klc-color-border-chart: #3A4048;
+  --klc-color-ma-ma5: rgba(255, 200, 50, 1);
+  --klc-color-ma-ma10: rgba(200, 150, 30, 1);
+  --klc-color-ma-ma20: rgba(90, 140, 255, 1);
+  --klc-color-ma-ma30: rgba(90, 190, 95, 1);
+  --klc-color-ma-ma60: rgba(170, 60, 195, 1);
+  --klc-color-boll-upper: rgba(200, 60, 60, 1);
+  --klc-color-boll-middle: rgba(90, 140, 255, 1);
+  --klc-color-boll-lower: rgba(50, 170, 60, 1);
+  --klc-color-boll-band-fill: rgba(120, 170, 255, 0.15);
+  --klc-color-macd-dif: rgba(90, 140, 255, 1);
+  --klc-color-macd-dea: rgba(255, 170, 50, 1);
+  --klc-color-macd-bar-up: #ff6b6b;
+  --klc-color-macd-bar-up-light: #ffb3b3;
+  --klc-color-macd-bar-down: #4ecdc4;
+  --klc-color-macd-bar-down-light: #a8e6e1;
+  --klc-color-rsi-rsi1: rgba(90, 140, 255, 1);
+  --klc-color-rsi-rsi2: rgba(255, 170, 50, 1);
+  --klc-color-rsi-rsi3: rgba(180, 70, 205, 1);
+  --klc-color-cci-cci: rgba(90, 140, 255, 1);
+  --klc-color-cci-overbought: rgba(255, 80, 100, 0.6);
+  --klc-color-cci-oversold: rgba(60, 200, 160, 0.6);
+  --klc-color-kdj-k: rgba(90, 140, 255, 1);
+  --klc-color-kdj-d: rgba(255, 170, 50, 1);
+  --klc-color-kdj-j: rgba(180, 70, 205, 1);
+  --klc-color-mom-mom: rgba(90, 140, 255, 1);
+  --klc-color-mom-zero: rgba(255, 255, 255, 0.2);
+  --klc-color-wmsr-wmsr: rgba(90, 140, 255, 1);
+  --klc-color-wmsr-overbought: rgba(255, 80, 100, 0.6);
+  --klc-color-wmsr-oversold: rgba(60, 200, 160, 0.6);
+  --klc-color-kst-kst: rgba(90, 140, 255, 1);
+  --klc-color-kst-signal: rgba(255, 170, 50, 1);
+  --klc-color-expma-fast: rgba(255, 170, 50, 1);
+  --klc-color-expma-slow: rgba(90, 140, 255, 1);
+  --klc-color-ene-upper: rgba(255, 80, 100, 1);
+  --klc-color-ene-middle: rgba(90, 140, 255, 1);
+  --klc-color-ene-lower: rgba(60, 200, 160, 1);
+  --klc-color-ene-band-fill: rgba(90, 140, 255, 0.12);
+  --klc-color-label-bg: rgba(30, 30, 40, 0.9);
+  --klc-color-label-text: #ffffff;
+  --klc-color-last-price-label-bg: rgba(60, 50, 55, 0.98);
+  --klc-color-volume-price-rise-with: #FF6666;
+  --klc-color-volume-price-rise-without: #66FF99;
+  --klc-color-volume-price-fall-with: #FF6666;
+  --klc-color-volume-price-fall-without: #66FF99;
+  --klc-color-structure-hh: #4ade80;
+  --klc-color-structure-hl: #22c55e;
+  --klc-color-structure-lh: #f87171;
+  --klc-color-structure-ll: #ef4444;
+  --klc-color-structure-choch: #a78bfa;
+  --klc-color-structure-bos: #fbbf24;
+  --klc-color-zones-fvg-bull-fill: rgba(74, 222, 128, 0.20);
+  --klc-color-zones-fvg-bear-fill: rgba(248, 113, 113, 0.20);
+  --klc-color-zones-fvg-bull-border: rgba(74, 222, 128, 0.8);
+  --klc-color-zones-fvg-bear-border: rgba(248, 113, 113, 0.8);
+  --klc-color-zones-ob-bull-fill: rgba(74, 222, 128, 0.35);
+  --klc-color-zones-ob-bear-fill: rgba(248, 113, 113, 0.35);
+  --klc-color-wmsr-grid: rgba(255, 255, 255, 0.1);
+  --klc-spacing-none: 0;
+  --klc-spacing-xxs: 2px;
+  --klc-spacing-xs: 4px;
+  --klc-spacing-sm: 8px;
+  --klc-spacing-md: 12px;
+  --klc-spacing-lg: 16px;
+  --klc-spacing-xl: 24px;
+  --klc-spacing-xxl: 32px;
+  --klc-spacing-xxxl: 64px;
+  --klc-typography-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --klc-typography-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --klc-typography-font-size-sm: 10px;
+  --klc-typography-font-size-md: 12px;
+  --klc-typography-font-size-lg: 14px;
+  --klc-typography-font-weight-regular: 400;
+  --klc-typography-font-weight-medium: 500;
+  --klc-typography-font-weight-bold: 700;
+  --klc-typography-line-height-tight: 1.2;
+  --klc-typography-line-height-standard: 1.4;
+  --klc-motion-duration-instant: 0ms;
+  --klc-motion-duration-fast: 120ms;
+  --klc-motion-duration-moderate: 200ms;
+  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+}"
+`;
+
+exports[`theme baseline — dark > contrast report (snapshot) 1`] = `
+"# Theme contrast — dark
+
+Each role is measured against its own surface (default: \`colors.background\`).
+
+| Role | Value | Surface | Ratio | Floor | Pass |
+|---|---|---|---|---|---|
+| foreground | #E8EAED | background | 14.72 | 4.5:1 | ✅ |
+| axisText | #9AA0A6 | background | 6.72 | 4.5:1 | ✅ |
+| crosshairLabelText | #0E1116 | crosshairLabelBg | 15.69 | 4.5:1 | ✅ |
+| tooltipText | #E8EAED | tooltipBg | 13.71 | 4.5:1 | ✅ |
+| candleUpBody | #22D69B | background | 9.43 | 3.0:1 | ✅ |
+| candleDownBody | #FF6464 | background | 6.13 | 3.0:1 | ✅ |
+| candleDojiBorder | #8A8F98 | background | 5.46 | 3.0:1 | ✅ |
+| crosshairLine | #5F6368 | background | 2.93 | 3.0:1 | ❌ |
+| selectionStroke | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
+| alertActive | #4A9EFF | background | 6.44 | 3.0:1 | ✅ |
+| alertTriggered | #FFA94D | background | 9.32 | 3.0:1 | ✅ |
+| avwapLine | #A78BFA | background | 6.52 | 3.0:1 | ✅ |
+| mtfOverlay | #38BDF8 | background | 8.28 | 3.0:1 | ✅ |
+
+## Indicator palette
+
+| Slot | Value | Ratio vs BG |
+|---|---|---|
+| i1 | #4A9EFF | 6.44 |
+| i2 | #FFB95A | 10.42 |
+| i3 | #22D69B | 9.43 |
+| i4 | #E879BA | 6.65 |
+| i5 | #FF8848 | 7.49 |
+| i6 | #7DD3FC | 10.64 |
+| i7 | #FCE96A | 14.36 |
+| i8 | #A78BFA | 6.52 |
+| i9 | #60A5FA | 6.98 |
+| i10 | #9AA0A6 | 6.72 |
+| indicatorAtr | #F59E0B | 8.26 |"
+`;
+
+exports[`theme baseline — light > CSS declaration block (snapshot) 1`] = `
+":root {
+  --klc-color-background: #FAFAFA;
+  --klc-color-foreground: #1F1F1F;
+  --klc-color-candle-up-body: #0F8B5C;
+  --klc-color-candle-up-border: #0F8B5C;
+  --klc-color-candle-up-wick: #0F8B5C;
+  --klc-color-candle-down-body: #C2363B;
+  --klc-color-candle-down-border: #C2363B;
+  --klc-color-candle-down-wick: #C2363B;
+  --klc-color-candle-doji-border: #6E6E6E;
+  --klc-color-volume-up: #0F8B5C66;
+  --klc-color-volume-down: #C2363B66;
+  --klc-color-axis-text: #5A5A5A;
+  --klc-color-axis-line: #D0D0D0;
+  --klc-color-axis-tick: #D0D0D0;
+  --klc-color-grid-major: #E5E5E5;
+  --klc-color-grid-minor: #F0F0F0;
+  --klc-color-crosshair-line: #8C8C8C;
+  --klc-color-crosshair-label-bg: #1F1F1F;
+  --klc-color-crosshair-label-text: #FAFAFA;
+  --klc-color-selection-fill: #2D7FF933;
+  --klc-color-selection-stroke: #2D7FF9;
+  --klc-color-tooltip-bg: #FFFFFFEE;
+  --klc-color-tooltip-text: #1F1F1F;
+  --klc-color-tooltip-border: #D0D0D0;
+  --klc-color-heatmap-coldest: #F0F4F8;
+  --klc-color-heatmap-hottest: #1F3A5F;
+  --klc-color-volume-profile-fill: #9CA3AF66;
+  --klc-color-volume-profile-poc: #F97316;
+  --klc-color-volume-profile-value-area: #2D7FF933;
+  --klc-color-footprint-ask: #0F8B5C80;
+  --klc-color-footprint-bid: #C2363B80;
+  --klc-color-footprint-imbalance: #F97316;
+  --klc-color-alert-active: #2D7FF9;
+  --klc-color-alert-triggered: #C2410C;
+  --klc-color-alert-muted: #9CA3AF;
+  --klc-color-avwap-line: #7C3AED;
+  --klc-color-avwap-band: #7C3AED33;
+  --klc-color-mtf-overlay: #0369A1;
+  --klc-color-palette-i1: #0072B2;
+  --klc-color-palette-i2: #E69F00;
+  --klc-color-palette-i3: #009E73;
+  --klc-color-palette-i4: #CC79A7;
+  --klc-color-palette-i5: #D55E00;
+  --klc-color-palette-i6: #56B4E9;
+  --klc-color-palette-i7: #F0E442;
+  --klc-color-palette-i8: #7C3AED;
+  --klc-color-palette-i9: #2D7FF9;
+  --klc-color-palette-i10: #6E6E6E;
+  --klc-color-palette-indicator-atr: #d97706;
+  --klc-color-text-primary: hsl(210, 9%, 31%);
+  --klc-color-text-secondary: hsl(210, 9%, 35%);
+  --klc-color-text-tertiary: hsl(210, 8%, 50%);
+  --klc-color-text-weak: hsl(210, 7%, 65%);
+  --klc-color-text-white: rgba(255, 255, 255, 0.92);
+  --klc-color-price-up-light: rgba(214, 10, 34, 0.92);
+  --klc-color-price-up-tick: hsl(0, 60%, 50%);
+  --klc-color-price-down-light: rgba(3, 123, 102, 0.92);
+  --klc-color-price-down-tick: hsl(150, 30%, 60%);
+  --klc-color-price-last-price: rgba(196, 74, 86, 0.95);
+  --klc-color-tag-bg-white: rgb(255, 255, 255);
+  --klc-color-tag-bg-light-gray: rgba(255, 255, 255, 0.92);
+  --klc-color-tag-bg-pure-white: #ffffff;
+  --klc-color-tag-bg-transparent: transparent;
+  --klc-color-tag-bg-active: #1890ff;
+  --klc-color-tag-bg-active-hover: #40a9ff;
+  --klc-color-tag-bg-hover: #f0f0f0;
+  --klc-color-border-dark: rgba(0, 0, 0, 0.12);
+  --klc-color-border-medium: rgba(0, 0, 0, 0.10);
+  --klc-color-border-light: rgba(0, 0, 0, 0.08);
+  --klc-color-border-separator: rgba(0, 0, 0, 0.10);
+  --klc-color-border-button: #d0d0d0;
+  --klc-color-border-chart: #e5e5e5;
+  --klc-color-ma-ma5: rgba(255, 193, 37, 1);
+  --klc-color-ma-ma10: rgba(190, 131, 12, 1);
+  --klc-color-ma-ma20: rgba(69, 112, 249, 1);
+  --klc-color-ma-ma30: rgba(76, 175, 80, 1);
+  --klc-color-ma-ma60: rgba(156, 39, 176, 1);
+  --klc-color-boll-upper: rgba(178, 34, 34, 1);
+  --klc-color-boll-middle: rgba(69, 112, 249, 1);
+  --klc-color-boll-lower: rgba(34, 139, 34, 1);
+  --klc-color-boll-band-fill: rgba(100, 149, 237, 0.1);
+  --klc-color-macd-dif: rgba(69, 112, 249, 1);
+  --klc-color-macd-dea: rgba(255, 152, 0, 1);
+  --klc-color-macd-bar-up: #ff5252;
+  --klc-color-macd-bar-up-light: #fccbcd;
+  --klc-color-macd-bar-down: #22ab94;
+  --klc-color-macd-bar-down-light: #ace5dc;
+  --klc-color-rsi-rsi1: rgba(69, 112, 249, 1);
+  --klc-color-rsi-rsi2: rgba(255, 152, 0, 1);
+  --klc-color-rsi-rsi3: rgba(156, 39, 176, 1);
+  --klc-color-cci-cci: rgba(69, 112, 249, 1);
+  --klc-color-cci-overbought: rgba(214, 10, 34, 0.5);
+  --klc-color-cci-oversold: rgba(3, 123, 102, 0.5);
+  --klc-color-kdj-k: rgba(69, 112, 249, 1);
+  --klc-color-kdj-d: rgba(255, 152, 0, 1);
+  --klc-color-kdj-j: rgba(156, 39, 176, 1);
+  --klc-color-mom-mom: rgba(69, 112, 249, 1);
+  --klc-color-mom-zero: rgba(0, 0, 0, 0.2);
+  --klc-color-wmsr-wmsr: rgba(69, 112, 249, 1);
+  --klc-color-wmsr-overbought: rgba(214, 10, 34, 0.5);
+  --klc-color-wmsr-oversold: rgba(3, 123, 102, 0.5);
+  --klc-color-kst-kst: rgba(69, 112, 249, 1);
+  --klc-color-kst-signal: rgba(255, 152, 0, 1);
+  --klc-color-expma-fast: rgba(255, 152, 0, 1);
+  --klc-color-expma-slow: rgba(69, 112, 249, 1);
+  --klc-color-ene-upper: rgba(214, 10, 34, 1);
+  --klc-color-ene-middle: rgba(69, 112, 249, 1);
+  --klc-color-ene-lower: rgba(3, 123, 102, 1);
+  --klc-color-ene-band-fill: rgba(69, 112, 249, 0.08);
+  --klc-color-label-bg: rgba(0, 0, 0, 0.8);
+  --klc-color-label-text: #ffffff;
+  --klc-color-last-price-label-bg: rgba(255, 247, 248, 0.98);
+  --klc-color-volume-price-rise-with: #FF4444;
+  --klc-color-volume-price-rise-without: #00C853;
+  --klc-color-volume-price-fall-with: #FF4444;
+  --klc-color-volume-price-fall-without: #00C853;
+  --klc-color-structure-hh: #16a34a;
+  --klc-color-structure-hl: #22c55e;
+  --klc-color-structure-lh: #dc2626;
+  --klc-color-structure-ll: #ef4444;
+  --klc-color-structure-choch: #8b5cf6;
+  --klc-color-structure-bos: #f59e0b;
+  --klc-color-zones-fvg-bull-fill: rgba(34, 197, 94, 0.15);
+  --klc-color-zones-fvg-bear-fill: rgba(239, 68, 68, 0.15);
+  --klc-color-zones-fvg-bull-border: rgba(34, 197, 94, 0.6);
+  --klc-color-zones-fvg-bear-border: rgba(239, 68, 68, 0.6);
+  --klc-color-zones-ob-bull-fill: rgba(34, 197, 94, 0.25);
+  --klc-color-zones-ob-bear-fill: rgba(239, 68, 68, 0.25);
+  --klc-color-wmsr-grid: rgba(0, 0, 0, 0.1);
+  --klc-spacing-none: 0;
+  --klc-spacing-xxs: 2px;
+  --klc-spacing-xs: 4px;
+  --klc-spacing-sm: 8px;
+  --klc-spacing-md: 12px;
+  --klc-spacing-lg: 16px;
+  --klc-spacing-xl: 24px;
+  --klc-spacing-xxl: 32px;
+  --klc-spacing-xxxl: 64px;
+  --klc-typography-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --klc-typography-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --klc-typography-font-size-sm: 10px;
+  --klc-typography-font-size-md: 12px;
+  --klc-typography-font-size-lg: 14px;
+  --klc-typography-font-weight-regular: 400;
+  --klc-typography-font-weight-medium: 500;
+  --klc-typography-font-weight-bold: 700;
+  --klc-typography-line-height-tight: 1.2;
+  --klc-typography-line-height-standard: 1.4;
+  --klc-motion-duration-instant: 0ms;
+  --klc-motion-duration-fast: 120ms;
+  --klc-motion-duration-moderate: 200ms;
+  --klc-motion-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --klc-motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+}"
+`;
+
+exports[`theme baseline — light > contrast report (snapshot) 1`] = `
+"# Theme contrast — light
+
+Each role is measured against its own surface (default: \`colors.background\`).
+
+| Role | Value | Surface | Ratio | Floor | Pass |
+|---|---|---|---|---|---|
+| foreground | #1F1F1F | background | 15.79 | 4.5:1 | ✅ |
+| axisText | #5A5A5A | background | 6.61 | 4.5:1 | ✅ |
+| crosshairLabelText | #FAFAFA | crosshairLabelBg | 15.79 | 4.5:1 | ✅ |
+| tooltipText | #1F1F1F | tooltipBg | 16.48 | 4.5:1 | ✅ |
+| candleUpBody | #0F8B5C | background | 4.13 | 3.0:1 | ✅ |
+| candleDownBody | #C2363B | background | 5.18 | 3.0:1 | ✅ |
+| candleDojiBorder | #6E6E6E | background | 4.89 | 3.0:1 | ✅ |
+| crosshairLine | #8C8C8C | background | 3.22 | 3.0:1 | ✅ |
+| selectionStroke | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |
+| alertActive | #2D7FF9 | background | 3.65 | 3.0:1 | ✅ |
+| alertTriggered | #C2410C | background | 4.96 | 3.0:1 | ✅ |
+| avwapLine | #7C3AED | background | 5.46 | 3.0:1 | ✅ |
+| mtfOverlay | #0369A1 | background | 5.68 | 3.0:1 | ✅ |
+
+## Indicator palette
+
+| Slot | Value | Ratio vs BG |
+|---|---|---|
+| i1 | #0072B2 | 4.97 |
+| i2 | #E69F00 | 2.16 |
+| i3 | #009E73 | 3.28 |
+| i4 | #CC79A7 | 2.93 |
+| i5 | #D55E00 | 3.71 |
+| i6 | #56B4E9 | 2.21 |
+| i7 | #F0E442 | 1.27 |
+| i8 | #7C3AED | 5.46 |
+| i9 | #2D7FF9 | 3.65 |
+| i10 | #6E6E6E | 4.89 |
+| indicatorAtr | #d97706 | 3.05 |"
+`;

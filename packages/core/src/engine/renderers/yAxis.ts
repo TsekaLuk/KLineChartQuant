@@ -2,7 +2,8 @@ import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
 import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
-import { getColors } from '../theme/colors'
+import { resolveThemeColors } from '../../tokens'
+
 import type { KLineData } from '../../types/price'
 import type { ScaleType } from '../utils/tickPosition'
 
@@ -25,7 +26,7 @@ export function createYAxisRendererPlugin(options: {
 
     draw(context: RenderContext) {
       const { ctx, pane, dpr, yAxisCtx, data } = context
-      const colors = getColors(context.theme)
+      const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const scaleType = pane.yAxis.getScaleType()
 
       const targetCtx = yAxisCtx || ctx
@@ -34,7 +35,7 @@ export function createYAxisRendererPlugin(options: {
 
       if (pane.capabilities.showPriceAxisTicks) {
         drawScaleTicks({
-          colors,
+          tickColor: tokenColors.text.secondary,
           ctx: targetCtx,
           dpr,
           axisWidth,
@@ -80,7 +81,7 @@ export function createYAxisRendererPlugin(options: {
             borderColor: label.style?.borderColor,
             textColor: label.style?.textColor ?? '#ffffff',
             fontSize: isLastPrice ? 12 : 11,
-          })
+          }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
         }
       }
 
@@ -98,7 +99,7 @@ export function createYAxisRendererPlugin(options: {
           fontSize: 12,
           priceOffset: 0,
           price: crosshair.price,
-        })
+        }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
       }
     },
   }

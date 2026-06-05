@@ -309,7 +309,11 @@ export interface RenderContext {
   /** 需要在X轴上绘制的范围带列表（由绘图渲染器填充，先于标签绘制） */
   xAxisRanges?: XAxisRange[]
   /** 当前主题 */
-  theme: import('../engine/theme/colors').ChartTheme
+  theme: 'light' | 'dark'
+  /** 亚洲市场惯例（红涨绿跌）；为 true 时自动交换所有 bull/bear 颜色 */
+  isAsiaMarket?: boolean
+  /** 用户颜色预设覆盖项 */
+  colorPresetSettings?: import('../tokens').ColorPresetSettings
 }
 
 export type DrawingAnchor = {

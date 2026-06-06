@@ -2,8 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createENERendererPlugin } from '../Indicator/ene'
 import { ENE_STATE_KEY, type ENERenderState } from '@/core/indicators/eneState'
-import { ENE_COLORS } from '@/core/theme/colors'
 import type { PluginHost, RenderContext, RendererPluginWithHost } from '@/plugin'
+
+const ENE_COLORS = { BAND_FILL: 'rgba(69, 112, 249, 0.08)' } as const
 import type { KLineData } from '@/types/price'
 import type { Pane } from '@/core/layout/pane'
 

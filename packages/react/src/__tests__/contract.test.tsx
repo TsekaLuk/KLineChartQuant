@@ -29,16 +29,17 @@ import { __setChartFactory, useChart } from '../index'
 import { createMockChartController, type MockControllerHandle } from './_mockController'
 import type { ChartController, ChartMountOptions, ChartViewport, KLineData } from '@363045841yyt/klinechart-core'
 
-describe('@363045841yyt/klinechart-react â€?public API surface', () => {
-    it('exports createChart, useChart, useIndicatorSelector, KLineChart', () => {
+describe('@363045841yyt/klinechart-react â€”public API surface', () => {
+    it('exports createChart, useChart, useIndicators, KLineChart', () => {
         expect(typeof ReactAdapter.createChart).toBe('function')
         expect(typeof ReactAdapter.useChart).toBe('function')
-        expect(typeof ReactAdapter.useIndicatorSelector).toBe('function')
-        expect(typeof ReactAdapter.KLineChart).toBe('function')
+        expect(typeof ReactAdapter.useIndicators).toBe('function')
+        expect(ReactAdapter.KLineChart).not.toBeNull()
+        expect(typeof ReactAdapter.KLineChart.render).toBe('function')
     })
 })
 
-describe('@363045841yyt/klinechart-react â€?SSR safety', () => {
+describe('@363045841yyt/klinechart-react â€”SSR safety', () => {
     it('importing the module does not touch window or document', async () => {
         // The mere act of `import * as ReactAdapter` above happened in a node env
         // (no jsdom for this file). If the module touched `window` at top level,
@@ -99,7 +100,7 @@ function makeHost(
     }
 }
 
-describe('@363045841yyt/klinechart-react â€?useChart lifecycle', () => {
+describe('@363045841yyt/klinechart-react â€”useChart lifecycle', () => {
     let lastHandle: MockControllerHandle | null = null
 
     beforeEach(() => {
@@ -144,7 +145,7 @@ describe('@363045841yyt/klinechart-react â€?useChart lifecycle', () => {
             const ref = createRef<HTMLElement>() as RefObject<HTMLElement | null>
             const controller = useChart(ref, { data: [] })
             renderCalls.push(controller)
-            // Render no element bound to the ref â†?ref.current stays null.
+            // Render no element bound to the ref â†’ref.current stays null.
             return createElement('div')
         }
 

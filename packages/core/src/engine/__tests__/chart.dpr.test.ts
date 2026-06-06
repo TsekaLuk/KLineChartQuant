@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
 
@@ -241,7 +242,7 @@ describe('Chart DPR pipeline', () => {
     const chart = new Chart(createDom(1000, 600), defaultOptions)
     const onViewportChange = vi.fn()
 
-    chart.setOnViewportChange(onViewportChange)
+    chart.viewport.subscribe(onViewportChange)
     chart.draw()
     chart.draw()
 

@@ -55,6 +55,7 @@ import { createGridLinesRendererPlugin } from './renderers/gridLines'
 import { createCandleRenderer } from './renderers/candle'
 import { createLastPriceLineRendererPlugin, createLastPriceLabelRegistrarPlugin } from './renderers/lastPrice'
 import { createCustomMarkersRenderer } from './renderers/customMarkers'
+import { createExtremaMarkersRendererPlugin } from './renderers/extremaMarkers'
 import { createYAxisRendererPlugin } from './renderers/yAxis'
 import { createCrosshairRendererPlugin } from './renderers/crosshair'
 import { createTimeAxisRendererPlugin } from './renderers/timeAxis'
@@ -750,6 +751,7 @@ export class Chart {
         this.useRenderer(createLastPriceLineRendererPlugin())
         this.useRenderer(createLastPriceLabelRegistrarPlugin())
         this.useRenderer(createCustomMarkersRenderer())
+        this.useRenderer(createExtremaMarkersRendererPlugin())
         this.useRenderer(createMainIndicatorLegendRendererPlugin({
             yPaddingPx: this.opt.yPaddingPx,
         }))

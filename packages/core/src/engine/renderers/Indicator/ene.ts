@@ -6,7 +6,8 @@ import { resolveThemeColors } from '../../../tokens'
 import { ENE_STATE_KEY, type ENERenderState } from '../../indicators/eneState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
+import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 
 type LinePoint = { x: number; y: number }
 
@@ -104,6 +105,37 @@ function getENEStateKey(host: PluginHost | null): string | null {
         return null
     }
     return resolveStateKey(meta.stateKey)
+}
+
+const computeENEPriceRange: IndicatorPriceRangeComputer = (bundle, range) => {
+    const series = bundle.ene.series
+    if (series.length === 0 || range.start >= series.length) {
+        return null
+    }
+
+    let min = Infinity
+    let max = -Infinity
+    const end = Math.min(range.end, series.length)
+    for (let i = range.start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            min = Math.min(min, p.upper, p.middle, p.lower)
+            max = Math.max(max, p.upper, p.middle, p.lower)
+        }
+    }
+
+    return Number.isFinite(min) && Number.isFinite(max) ? { min, max } : null
+}
+
+const composeENERenderState: IndicatorRenderStateComposer = (bundle, range, timestamp): ENERenderState => {
+    const priceRange = computeENEPriceRange(bundle, range) ?? { min: Infinity, max: -Infinity }
+    return {
+        timestamp,
+        series: bundle.ene.series,
+        params: bundle.ene.params,
+        visibleMin: priceRange.min,
+        visibleMax: priceRange.max,
+    }
 }
 
 export function createENERendererPlugin(): RendererPluginWithHost {
@@ -262,6 +294,24 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     category: 'main',
     stateKey: ENE_STATE_KEY,
     defaultPaneId: 'main',
+    mainPane: {
+        rendererName: 'ene',
+        toActiveConfig: (params, active) => active ? params : null,
+        computePriceRange: computeENEPriceRange,
+        composeRenderState: composeENERenderState,
+    },
+    updateConfig: (scheduler, params) => {
+        (scheduler as IndicatorScheduler).updateENEConfig(params as Partial<ENESchedulerConfig>)
+    },
+    semantic: {
+        apply: (chart, indicator) => {
+            const params = (indicator as { params?: { period?: number; deviation?: number } }).params
+            chart.updateRendererConfig('ene', {
+                period: params?.period || 10,
+                deviation: params?.deviation || 11,
+            })
+        },
+    },
     applyResult: (host, state, _paneId) => {
         host.setSharedState(ENE_STATE_KEY, state as any, 'indicator_scheduler')
     },

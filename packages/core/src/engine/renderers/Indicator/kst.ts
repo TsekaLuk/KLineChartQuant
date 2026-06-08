@@ -3,9 +3,12 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { KSTRenderState } from '../../indicators/kstState'
 import { createKSTStateKey } from '../../indicators/kstState'
+import { EMPTY_KST_STATE } from '../../indicators/kstState'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, KSTSchedulerConfig } from '../../indicators/scheduler'
+import { createKstScaleRendererPlugin } from './scale/kst_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -294,6 +297,11 @@ export function getKSTTitleInfo(
     stateKey: createKSTStateKey,
     defaultPaneId: 'sub_KST',
     paneIdField: 'kstPaneId',
+    scaleRendererFactory: createKstScaleRendererPlugin,
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateKSTConfig(params as Partial<KSTSchedulerConfig>, paneId)
+  },
+    visibleState: { compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, ['kst', 'signal'] as const) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKSTStateKey(paneId), state as any, 'indicator_scheduler')
     },

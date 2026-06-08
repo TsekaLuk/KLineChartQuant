@@ -2,9 +2,11 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ParkinsonRenderState } from '../../indicators/parkinsonState'
 import { createParkinsonStateKey } from '../../indicators/parkinsonState'
+import { EMPTY_PARKINSON_STATE } from '../../indicators/parkinsonState'
+import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -115,6 +117,11 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     stateKey: createParkinsonStateKey,
     defaultPaneId: 'sub_Parkinson',
     paneIdField: 'parkinsonPaneId',
+    scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateParkinsonConfig(params as Partial<ParkinsonSchedulerConfig>, paneId)
+    },
+    visibleState: { compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createParkinsonStateKey(paneId), state as any, 'indicator_scheduler')
     },

@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { SARRenderState } from '../../indicators/sarState'
-import { createSARStateKey } from '../../indicators/sarState'
+import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
+import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const SAR_UP_COLOR = '#22c55e'
 const SAR_DOWN_COLOR = '#ef4444'
@@ -104,6 +105,12 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     defaultPaneId: 'main',
     paneIdField: 'sarPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'sar_main', toActiveConfig: (params, active) => ({ ...params, showSAR: active }) },
+    scale: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
+    visibleState: { compose: createValuePointVisibleStateComposer('sar', EMPTY_SAR_STATE, ['value']) },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateSARConfig(params as Partial<SARSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSARStateKey(paneId), state as any, 'indicator_scheduler')
     },

@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { TEMARenderState } from '../../indicators/temaState'
-import { createTEMAStateKey } from '../../indicators/temaState'
+import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/temaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import type { IndicatorScheduler, TEMASchedulerConfig } from '../../indicators/scheduler'
 
 const TEMA_COLOR = '#d946ef'
 
@@ -127,6 +128,12 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'temaPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'tema_main', toActiveConfig: (params, active) => ({ ...params, showTEMA: active }) },
+    visibleState: { compose: createSparseVisibleStateComposer('tema', EMPTY_TEMA_STATE) },
+    scale: { indicatorKey: 'tema', label: 'TEMA', decimals: 2 },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateTEMAConfig(params as Partial<TEMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createTEMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

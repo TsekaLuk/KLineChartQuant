@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KAMARenderState } from '../../indicators/kamaState'
-import { createKAMAStateKey } from '../../indicators/kamaState'
+import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/kamaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
 
 const KAMA_COLOR = '#0ea5e9'
 
@@ -127,6 +128,12 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     defaultPaneId: 'main',
     paneIdField: 'kamaPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'kama_main', toActiveConfig: (params, active) => ({ ...params, showKAMA: active }) },
+    visibleState: { compose: createSparseVisibleStateComposer('kama', EMPTY_KAMA_STATE) },
+    scale: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateKAMAConfig(params as Partial<KAMASchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKAMAStateKey(paneId), state as any, 'indicator_scheduler')
     },

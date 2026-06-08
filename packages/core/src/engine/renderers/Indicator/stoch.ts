@@ -3,10 +3,12 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { STOCHRenderState } from '../../indicators/stochState'
-import { createSTOCHStateKey } from '../../indicators/stochState'
+import { createSTOCHStateKey, EMPTY_STOCH_STATE } from '../../indicators/stochState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, STOCHSchedulerConfig } from '../../indicators/scheduler'
+import { createStochScaleRendererPlugin } from './scale/stoch_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -351,6 +353,11 @@ export function getSTOCHTitleInfo(
     stateKey: createSTOCHStateKey,
     defaultPaneId: 'sub_STOCH',
     paneIdField: 'stochPaneId',
+    visibleState: { compose: createFixedRangePointVisibleStateComposer('stoch', EMPTY_STOCH_STATE, ['k', 'd'] as const) },
+    scaleRendererFactory: createStochScaleRendererPlugin,
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateSTOCHConfig(params as Partial<STOCHSchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createSTOCHStateKey(paneId), state as any, 'indicator_scheduler')
     },

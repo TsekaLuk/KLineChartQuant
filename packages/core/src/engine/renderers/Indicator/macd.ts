@@ -4,12 +4,14 @@ import type { KLineData } from '../../../types/price'
 import { resolveThemeColors } from '../../../tokens'
 import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
 import type { MACDRenderState } from '../../indicators/macdState'
-import { createMACDStateKey } from '../../indicators/macdState'
+import { createMACDStateKey, EMPTY_MACD_STATE } from '../../indicators/macdState'
 import type { MACDPoint } from '../../indicators/calculators'
 import { calcMACDData } from '../../indicators/calculators'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createMACDVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, MACDSchedulerConfig } from '../../indicators/scheduler'
+import { createMacdScaleRendererPlugin } from './scale/macd_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -470,6 +472,11 @@ export function getMACDTitleInfo(
   stateKey: createMACDStateKey,
   defaultPaneId: 'sub_MACD',
   paneIdField: 'macdPaneId',
+  scaleRendererFactory: createMacdScaleRendererPlugin,
+  visibleState: { compose: createMACDVisibleStateComposer('macd', EMPTY_MACD_STATE) },
+  updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateMACDConfig(params as Partial<MACDSchedulerConfig>, paneId)
+  },
   applyResult: (host, state, paneId) => {
     host.setSharedState(createMACDStateKey(paneId), state as any, 'indicator_scheduler')
   },

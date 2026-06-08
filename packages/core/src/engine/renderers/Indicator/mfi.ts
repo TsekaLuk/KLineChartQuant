@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { MFIRenderState } from '../../indicators/mfiState'
-import { createMFIStateKey } from '../../indicators/mfiState'
+import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/mfiState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, MFISchedulerConfig } from '../../indicators/scheduler'
 
 const MFI_COLOR = '#fb923c'
 
@@ -133,6 +134,11 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createMFIStateKey,
     defaultPaneId: 'sub_MFI',
     paneIdField: 'mfiPaneId',
+    visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
+    scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateMFIConfig(params as Partial<MFISchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createMFIStateKey(paneId), state as any, 'indicator_scheduler')
     },

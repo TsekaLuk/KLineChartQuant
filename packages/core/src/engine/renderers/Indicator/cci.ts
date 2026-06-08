@@ -2,10 +2,12 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { CCIRenderState } from '../../indicators/cciState'
-import { createCCIStateKey } from '../../indicators/cciState'
+import { createCCIStateKey, EMPTY_CCI_STATE } from '../../indicators/cciState'
+import { createCCIVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
+import { createCciScaleRendererPlugin } from './scale/cci_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -267,6 +269,11 @@ export function getCCITitleInfo(
     stateKey: createCCIStateKey,
     defaultPaneId: 'sub_CCI',
     paneIdField: 'cciPaneId',
+    scaleRendererFactory: createCciScaleRendererPlugin,
+    visibleState: { compose: createCCIVisibleStateComposer('cci', EMPTY_CCI_STATE) },
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateCCIConfig(params as Partial<CCISchedulerConfig>, paneId)
+  },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createCCIStateKey(paneId), state as any, 'indicator_scheduler')
     },

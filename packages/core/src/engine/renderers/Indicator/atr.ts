@@ -3,9 +3,12 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
 import type { ATRRenderState } from '../../indicators/atrState'
 import { createATRStateKey } from '../../indicators/atrState'
+import { EMPTY_ATR_STATE } from '../../indicators/atrState'
+import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
+import { createAtrScaleRendererPlugin } from './scale/atr_scale'
 
 type LinePoint = { x: number; y: number }
 
@@ -232,6 +235,11 @@ export function getATRTitleInfo(
     stateKey: createATRStateKey,
     defaultPaneId: 'sub_ATR',
     paneIdField: 'atrPaneId',
+    scaleRendererFactory: createAtrScaleRendererPlugin,
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateATRConfig(params as Partial<ATRSchedulerConfig>, paneId)
+  },
+    visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
     },

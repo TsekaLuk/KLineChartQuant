@@ -2,9 +2,11 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { TRIXRenderState } from '../../indicators/trixState'
 import { createTRIXStateKey } from '../../indicators/trixState'
+import { EMPTY_TRIX_STATE } from '../../indicators/trixState'
+import { createDualSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, TRIXSchedulerConfig } from '../../indicators/scheduler'
 
 const TRIX_COLOR = '#e11d48'
 const SIGNAL_COLOR = '#f59e0b'
@@ -149,6 +151,11 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     stateKey: createTRIXStateKey,
     defaultPaneId: 'sub_TRIX',
     paneIdField: 'trixPaneId',
+    scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
+    updateConfig: (scheduler, params, paneId) => {
+    (scheduler as IndicatorScheduler).updateTRIXConfig(params as Partial<TRIXSchedulerConfig>, paneId)
+  },
+    visibleState: { compose: createDualSparseVisibleStateComposer('trix', EMPTY_TRIX_STATE) },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createTRIXStateKey(paneId), state as any, 'indicator_scheduler')
     },

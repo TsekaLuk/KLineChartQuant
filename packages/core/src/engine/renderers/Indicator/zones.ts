@@ -2,10 +2,11 @@ import { resolveThemeColors } from '../../../tokens'
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ZonesRenderState } from '../../indicators/zonesState'
-import { createZonesStateKey } from '../../indicators/zonesState'
+import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/zonesState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
 
 function getZonesStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -96,6 +97,12 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     defaultPaneId: 'main',
     paneIdField: 'zonesPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'zones_main', toActiveConfig: (params, active) => ({ ...params, showFVG: active, showOB: active, showFilledZones: active }) },
+    scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
+    visibleState: { compose: createFixedUnitVisibleStateComposer('zones', EMPTY_ZONES_STATE) },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateZonesConfig(params as Partial<ZonesSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createZonesStateKey(paneId), state as any, 'indicator_scheduler')
     },

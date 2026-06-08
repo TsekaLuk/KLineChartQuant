@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { PVTRenderState } from '../../indicators/pvtState'
-import { createPVTStateKey } from '../../indicators/pvtState'
+import { createPVTStateKey, EMPTY_PVT_STATE } from '../../indicators/pvtState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
 
 const PVT_COLOR = '#a855f7'
 
@@ -114,6 +115,11 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     stateKey: createPVTStateKey,
     defaultPaneId: 'sub_PVT',
     paneIdField: 'pvtPaneId',
+    visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
+    scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updatePVTConfig(params as Partial<PVTSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createPVTStateKey(paneId), state as any, 'indicator_scheduler')
     },

@@ -2,10 +2,11 @@ import { resolveThemeColors } from '../../../tokens'
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { StructureRenderState } from '../../indicators/structureState'
-import { createStructureStateKey } from '../../indicators/structureState'
+import { createStructureStateKey, EMPTY_STRUCTURE_STATE } from '../../indicators/structureState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
 
 const LABEL_FONT = '11px sans-serif'
 
@@ -117,6 +118,12 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     defaultPaneId: 'sub_Structure',
     paneIdField: 'structurePaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'structure_main', toActiveConfig: (params, active) => ({ ...params, showSwingLabels: active, showBOS: active, showCHOCH: active }) },
+    scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
+    visibleState: { compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE) },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateStructureConfig(params as Partial<StructureSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createStructureStateKey(paneId), state as any, 'indicator_scheduler')
     },

@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KeltnerRenderState } from '../../indicators/keltnerState'
-import { createKeltnerStateKey } from '../../indicators/keltnerState'
+import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/keltnerState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
+import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
 const KELTNER_UPPER_COLOR = '#7c3aed'
 const KELTNER_MIDDLE_COLOR = '#f59e0b'
@@ -129,6 +130,12 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     defaultPaneId: 'main',
     paneIdField: 'keltnerPaneId',
     allowMainPane: true,
+    mainPane: { rendererName: 'keltner_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
+    scale: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
+    visibleState: { compose: createBandVisibleStateComposer('keltner', EMPTY_KELTNER_STATE, 'lower', 'upper') },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateKeltnerConfig(params as Partial<KeltnerSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createKeltnerStateKey(paneId), state as any, 'indicator_scheduler')
     },

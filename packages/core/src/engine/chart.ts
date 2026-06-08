@@ -11,7 +11,7 @@ import { MarkerManager, type CustomMarkerEntity } from './marker/registry'
 import { getPhysicalKLineConfig, calcKWidthPx } from './utils/klineConfig'
 import { computeZoom, computeZoomToLevel, type ZoomConfig } from './utils/zoom'
 import { IndicatorScheduler } from './indicators/scheduler'
-import { getRegisteredIndicatorDefinitions } from './indicators/indicatorDefinitionRegistry'
+import { getBuiltinIndicatorDefinitions } from './indicators/registerBuiltins'
 import { SubPaneManager, type SubPaneEntry } from './subPaneManager'
 
 import {
@@ -30,24 +30,6 @@ import {
     type XAxisRange,
 } from '../plugin'
 import { createSubIndicatorRenderer, type SubIndicatorType } from './renderers/Indicator'
-import { createMARendererPlugin } from './renderers/Indicator/ma'
-import { createBOLLRendererPlugin } from './renderers/Indicator/boll'
-import { createEXPMARendererPlugin } from './renderers/Indicator/expma'
-import { createENERendererPlugin } from './renderers/Indicator/ene'
-import { createWMARendererPlugin } from './renderers/Indicator/wma'
-import { createDEMARendererPlugin } from './renderers/Indicator/dema'
-import { createTEMARendererPlugin } from './renderers/Indicator/tema'
-import { createHMARendererPlugin } from './renderers/Indicator/hma'
-import { createKAMARendererPlugin } from './renderers/Indicator/kama'
-import { createSARRendererPlugin } from './renderers/Indicator/sar'
-import { createSuperTrendRendererPlugin } from './renderers/Indicator/supertrend'
-import { createKeltnerRendererPlugin } from './renderers/Indicator/keltner'
-import { createDonchianRendererPlugin } from './renderers/Indicator/donchian'
-import { createIchimokuRendererPlugin } from './renderers/Indicator/ichimoku'
-import { createPivotRendererPlugin } from './renderers/Indicator/pivot'
-import { createFibRendererPlugin } from './renderers/Indicator/fib'
-import { createStructureRendererPlugin } from './renderers/Indicator/structure'
-import { createZonesRendererPlugin } from './renderers/Indicator/zones'
 import { createMainIndicatorLegendRendererPlugin } from './renderers/Indicator/mainIndicatorLegend'
 import { DrawingStore } from './drawing'
 import { createDrawingRendererPlugin, createDrawingLabelOverlayPlugin } from './drawing/plugin'
@@ -59,7 +41,7 @@ import { createExtremaMarkersRendererPlugin } from './renderers/extremaMarkers'
 import { createYAxisRendererPlugin } from './renderers/yAxis'
 import { createCrosshairRendererPlugin } from './renderers/crosshair'
 import { createTimeAxisRendererPlugin } from './renderers/timeAxis'
-import type { BOLLSchedulerConfig, EXPMASchedulerConfig, ENESchedulerConfig, WMASchedulerConfig, DEMASchedulerConfig, TEMASchedulerConfig, HMASchedulerConfig, KAMASchedulerConfig, SARSchedulerConfig, SuperTrendSchedulerConfig, KeltnerSchedulerConfig, DonchianSchedulerConfig, IchimokuSchedulerConfig, PivotSchedulerConfig, FibSchedulerConfig, StructureSchedulerConfig, ZonesSchedulerConfig } from './indicators/scheduler'
+
 
 // 重新导出以保持向后兼容
 export { getPhysicalKLineConfig, calcKWidthPx }
@@ -421,121 +403,16 @@ export class Chart {
      * 启用主图指标渲染器（内部方法）
      */
     private enableMainIndicatorRenderer(indicatorId: string): void {
-        const rendererMap: Record<string, () => void> = {
-            'MA': () => {
-                if (!this.getRenderer('ma')) {
-                    this.useRenderer(createMARendererPlugin())
-                }
-                this.setRendererEnabled('ma', true)
-            },
-            'BOLL': () => {
-                if (!this.getRenderer('boll')) {
-                    this.useRenderer(createBOLLRendererPlugin())
-                }
-                this.setRendererEnabled('boll', true)
-            },
-            'EXPMA': () => {
-                if (!this.getRenderer('expma')) {
-                    this.useRenderer(createEXPMARendererPlugin())
-                }
-                this.setRendererEnabled('expma', true)
-            },
-            'ENE': () => {
-                if (!this.getRenderer('ene')) {
-                    this.useRenderer(createENERendererPlugin())
-                }
-                this.setRendererEnabled('ene', true)
-            },
-            'WMA': () => {
-                if (!this.getRenderer('wma_main')) {
-                    this.useRenderer(createWMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('wma_main', true)
-            },
-            'DEMA': () => {
-                if (!this.getRenderer('dema_main')) {
-                    this.useRenderer(createDEMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('dema_main', true)
-            },
-            'TEMA': () => {
-                if (!this.getRenderer('tema_main')) {
-                    this.useRenderer(createTEMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('tema_main', true)
-            },
-            'HMA': () => {
-                if (!this.getRenderer('hma_main')) {
-                    this.useRenderer(createHMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('hma_main', true)
-            },
-            'KAMA': () => {
-                if (!this.getRenderer('kama_main')) {
-                    this.useRenderer(createKAMARendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('kama_main', true)
-            },
-            'SAR': () => {
-                if (!this.getRenderer('sar_main')) {
-                    this.useRenderer(createSARRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('sar_main', true)
-            },
-            'SUPERTREND': () => {
-                if (!this.getRenderer('supertrend_main')) {
-                    this.useRenderer(createSuperTrendRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('supertrend_main', true)
-            },
-            'KELTNER': () => {
-                if (!this.getRenderer('keltner_main')) {
-                    this.useRenderer(createKeltnerRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('keltner_main', true)
-            },
-            'DONCHIAN': () => {
-                if (!this.getRenderer('donchian_main')) {
-                    this.useRenderer(createDonchianRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('donchian_main', true)
-            },
-            'ICHIMOKU': () => {
-                if (!this.getRenderer('ichimoku_main')) {
-                    this.useRenderer(createIchimokuRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('ichimoku_main', true)
-            },
-            'PIVOT': () => {
-                if (!this.getRenderer('pivot_main')) {
-                    this.useRenderer(createPivotRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('pivot_main', true)
-            },
-            'FIB': () => {
-                if (!this.getRenderer('fib_main')) {
-                    this.useRenderer(createFibRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('fib_main', true)
-            },
-            'STRUCTURE': () => {
-                if (!this.getRenderer('structure_main')) {
-                    this.useRenderer(createStructureRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('structure_main', true)
-            },
-            'ZONES': () => {
-                if (!this.getRenderer('zones_main')) {
-                    this.useRenderer(createZonesRendererPlugin({ paneId: 'main' }))
-                }
-                this.setRendererEnabled('zones_main', true)
-            },
+        const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+        const mainPane = definition?.mainPane
+        if (!definition || !mainPane) return
+
+        if (!this.getRenderer(mainPane.rendererName)) {
+            this.useRenderer(definition.rendererFactory({ paneId: 'main', indicatorId }))
         }
 
-        const fn = rendererMap[indicatorId]
-        if (fn) fn()
+        this.setRendererEnabled(mainPane.rendererName, true)
 
-        // 确保图例渲染器已注册
         if (!this.getRenderer('mainIndicatorLegend')) {
             this.useRenderer(createMainIndicatorLegendRendererPlugin({ yPaddingPx: this.opt.yPaddingPx }))
         }
@@ -545,28 +422,7 @@ export class Chart {
      * 禁用主图指标渲染器（内部方法）
      */
     private disableMainIndicatorRenderer(indicatorId: string): void {
-        const rendererMap: Record<string, string> = {
-            'MA': 'ma',
-            'BOLL': 'boll',
-            'EXPMA': 'expma',
-            'ENE': 'ene',
-            'WMA': 'wma_main',
-            'DEMA': 'dema_main',
-            'TEMA': 'tema_main',
-            'HMA': 'hma_main',
-            'KAMA': 'kama_main',
-            'SAR': 'sar_main',
-            'SUPERTREND': 'supertrend_main',
-            'KELTNER': 'keltner_main',
-            'DONCHIAN': 'donchian_main',
-            'ICHIMOKU': 'ichimoku_main',
-            'PIVOT': 'pivot_main',
-            'FIB': 'fib_main',
-            'STRUCTURE': 'structure_main',
-            'ZONES': 'zones_main',
-        }
-
-        const rendererName = rendererMap[indicatorId]
+        const rendererName = this.indicatorScheduler.getIndicatorMetadata(indicatorId)?.mainPane?.rendererName
         if (rendererName) {
             this.setRendererEnabled(rendererName, false)
         }
@@ -580,75 +436,13 @@ export class Chart {
         const isActive = entry !== undefined
         const params = entry?.params ?? {}
 
-        switch (indicatorId) {
-            case 'MA':
-                this.indicatorScheduler.updateMAConfig({
-                    ma5: isActive,
-                    ma10: isActive,
-                    ma20: isActive,
-                    ma30: isActive,
-                    ma60: isActive,
-                })
-                break
-            case 'BOLL':
-                if (isActive) {
-                    this.indicatorScheduler.updateBOLLConfig(params as unknown as BOLLSchedulerConfig)
-                } else {
-                    this.indicatorScheduler.updateBOLLConfig({ ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false } as unknown as BOLLSchedulerConfig)
-                }
-                break
-            case 'EXPMA':
-                if (isActive) {
-                    this.indicatorScheduler.updateEXPMAConfig(params as unknown as EXPMASchedulerConfig)
-                }
-                break
-            case 'ENE':
-                if (isActive) {
-                    this.indicatorScheduler.updateENEConfig(params as unknown as ENESchedulerConfig)
-                }
-                break
-            case 'WMA':
-                this.indicatorScheduler.updateWMAConfig({ ...params, showWMA: isActive } as unknown as WMASchedulerConfig, 'main')
-                break
-            case 'DEMA':
-                this.indicatorScheduler.updateDEMAConfig({ ...params, showDEMA: isActive } as unknown as DEMASchedulerConfig, 'main')
-                break
-            case 'TEMA':
-                this.indicatorScheduler.updateTEMAConfig({ ...params, showTEMA: isActive } as unknown as TEMASchedulerConfig, 'main')
-                break
-            case 'HMA':
-                this.indicatorScheduler.updateHMAConfig({ ...params, showHMA: isActive } as unknown as HMASchedulerConfig, 'main')
-                break
-            case 'KAMA':
-                this.indicatorScheduler.updateKAMAConfig({ ...params, showKAMA: isActive } as unknown as KAMASchedulerConfig, 'main')
-                break
-            case 'SAR':
-                this.indicatorScheduler.updateSARConfig({ ...params, showSAR: isActive } as unknown as SARSchedulerConfig, 'main')
-                break
-            case 'SUPERTREND':
-                this.indicatorScheduler.updateSuperTrendConfig({ ...params, showSuperTrend: isActive } as unknown as SuperTrendSchedulerConfig, 'main')
-                break
-            case 'KELTNER':
-                this.indicatorScheduler.updateKeltnerConfig({ ...params, showUpper: isActive, showMiddle: isActive, showLower: isActive } as unknown as KeltnerSchedulerConfig, 'main')
-                break
-            case 'DONCHIAN':
-                this.indicatorScheduler.updateDonchianConfig({ ...params, showUpper: isActive, showMiddle: isActive, showLower: isActive } as unknown as DonchianSchedulerConfig, 'main')
-                break
-            case 'ICHIMOKU':
-                this.indicatorScheduler.updateIchimokuConfig({ ...params, showTenkan: isActive, showKijun: isActive, showSpanA: isActive, showSpanB: isActive, showChikou: isActive, showCloud: isActive } as unknown as IchimokuSchedulerConfig, 'main')
-                break
-            case 'PIVOT':
-                this.indicatorScheduler.updatePivotConfig({ ...params, showPP: isActive, showR1: isActive, showR2: isActive, showR3: isActive, showS1: isActive, showS2: isActive, showS3: isActive } as unknown as PivotSchedulerConfig, 'main')
-                break
-            case 'FIB':
-                this.indicatorScheduler.updateFibConfig({ ...params, showLevels: isActive } as unknown as FibSchedulerConfig, 'main')
-                break
-            case 'STRUCTURE':
-                this.indicatorScheduler.updateStructureConfig({ ...params, showSwingLabels: isActive, showBOS: isActive, showCHOCH: isActive } as unknown as StructureSchedulerConfig, 'main')
-                break
-            case 'ZONES':
-                this.indicatorScheduler.updateZonesConfig({ ...params, showFVG: isActive, showOB: isActive, showFilledZones: isActive } as unknown as ZonesSchedulerConfig, 'main')
-                break
+        const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+        const toActiveConfig = definition?.mainPane?.toActiveConfig
+        if (!definition?.updateConfig || !toActiveConfig) return
+
+        const config = toActiveConfig(params, isActive)
+        if (config !== null) {
+            definition.updateConfig(this.indicatorScheduler, config, 'main')
         }
     }
 
@@ -709,7 +503,7 @@ export class Chart {
         // 初始化指标调度器
         this.indicatorScheduler = new IndicatorScheduler()
         this.indicatorScheduler.setPluginHost(this.pluginHost)
-        for (const definition of getRegisteredIndicatorDefinitions()) {
+        for (const definition of getBuiltinIndicatorDefinitions()) {
             this.indicatorScheduler.registerIndicator(definition)
         }
         this.indicatorScheduler.setInvalidateCallback(() => this.scheduleDraw())
@@ -1366,14 +1160,18 @@ export class Chart {
             this.upsertPane({ id: paneId, ratio: 1, visible: true, role: 'indicator' })
         }
 
-        const rendererName = `${indicatorId.toLowerCase()}_${paneId}`
+        const definition = this.indicatorScheduler.getIndicatorMetadata(indicatorId)
+        if (!definition) {
+            throw new Error(`[Chart] Unknown indicator: ${indicatorId}`)
+        }
+        const renderer = createSubIndicatorRenderer({ indicatorId, paneId, definition, params })
+        const rendererName = renderer.name
         const existing = this.getRenderer(rendererName)
         if (existing) {
             if (params) this.updateRendererConfig(rendererName, params)
             return
         }
 
-        const renderer = createSubIndicatorRenderer({ indicatorId, paneId })
         this.useRenderer(renderer, params)
     }
 
@@ -1667,7 +1465,7 @@ export class Chart {
 
     private getDefaultSubPaneParams(indicatorId: SubIndicatorType): Record<string, unknown> {
         // 默认参数定义在 SubPaneManager 中，这里导入使用
-        const defaults: Record<SubIndicatorType, Record<string, unknown>> = {
+        const defaults: Record<string, Record<string, unknown>> = {
             VOLUME: {},
             MACD: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
             RSI: { period1: 6, period2: 12, period3: 24 },
@@ -1705,7 +1503,7 @@ export class Chart {
             ZONES: { showFVG: true, showOB: true, showFilledZones: true, obLookback: 5 },
             VOLUME_PROFILE: { bins: 24, lookback: 0, valueAreaPercent: 0.7, showVolumeProfile: true },
         }
-        return { ...defaults[indicatorId] }
+        return { ...(defaults[indicatorId] ?? {}) }
     }
 
     /** 副图渲染器名称前缀（保留向后兼容） */

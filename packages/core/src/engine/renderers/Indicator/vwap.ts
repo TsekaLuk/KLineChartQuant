@@ -1,10 +1,11 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { VWAPRenderState } from '../../indicators/vwapState'
-import { createVWAPStateKey } from '../../indicators/vwapState'
+import { createVWAPStateKey, EMPTY_VWAP_STATE } from '../../indicators/vwapState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorScheduler } from '../../indicators/scheduler'
+import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
 
 const VWAP_COLOR = '#ec4899'
 
@@ -114,6 +115,11 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     stateKey: createVWAPStateKey,
     defaultPaneId: 'sub_VWAP',
     paneIdField: 'vwapPaneId',
+    visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
+    scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
+    updateConfig: (scheduler, params, paneId) => {
+        (scheduler as IndicatorScheduler).updateVWAPConfig(params as Partial<VWAPSchedulerConfig>, paneId)
+    },
     applyResult: (host, state, paneId) => {
         host.setSharedState(createVWAPStateKey(paneId), state as any, 'indicator_scheduler')
     },

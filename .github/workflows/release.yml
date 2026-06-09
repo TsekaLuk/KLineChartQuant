@@ -50,11 +50,29 @@ jobs:
             exit 1
           fi
 
+          # 根据 tag 名判断 npm dist-tag
+          TAG="${GITHUB_REF_NAME#v}"
+          if echo "$TAG" | grep -qE '-(alpha|beta|rc)\.'; then
+            PRERELEASE=true
+            if echo "$TAG" | grep -qE '-alpha\.'; then
+              NPM_TAG=alpha
+            elif echo "$TAG" | grep -qE '-beta\.'; then
+              NPM_TAG=beta
+            else
+              NPM_TAG=rc
+            fi
+          else
+            PRERELEASE=false
+            NPM_TAG=latest
+          fi
+
+          echo "Publishing version $TAG with npm tag '$NPM_TAG' (prerelease=$PRERELEASE)"
+
           # === 1. 发布 core 包 ===
           if [ -d "packages/core" ]; then
             echo "====== 开始发布 Core 包 ======"
             cd packages/core
-            npm publish --provenance --access public
+            npm publish --provenance --access public --tag "$NPM_TAG"
             cd "$GITHUB_WORKSPACE"
           else
             echo "❌ 错误：未找到 packages/core 目录！"
@@ -68,7 +86,7 @@ jobs:
             cp package.json package.json.bak
             trap 'mv -f package.json.bak package.json' EXIT
             sed -i 's/workspace:^/^/g' package.json
-            npm publish --provenance --access public
+            npm publish --provenance --access public --tag "$NPM_TAG"
             mv package.json.bak package.json
             trap - EXIT
             cd "$GITHUB_WORKSPACE"
@@ -206,8 +224,13 @@ jobs:
         run: |
           set -euo pipefail
 
+          PRERELEASE_FLAG=""
+          if echo "${GITHUB_REF_NAME#v}" | grep -qE '-(alpha|beta|rc)\.'; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
           else
-            gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+            gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME" $PRERELEASE_FLAG
           fi

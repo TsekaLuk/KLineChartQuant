@@ -65,6 +65,7 @@ import type { MAFlags } from './calculators'
 import { IndicatorRegistry } from './indicatorRegistry'
 import { resolveStateKey, type IndicatorMetadata } from './indicatorMetadata'
 import type { BaseIndicatorState } from '../../plugin'
+import IndicatorWorker from './indicator.worker.ts?worker'
 
 // Default constants for default config
 import { DEFAULT_ATR_PERIOD } from './atrState'
@@ -456,10 +457,9 @@ export class IndicatorScheduler {
             return false
         }
         try {
-            // Vite 模块 Worker
-            const workerUrl = new URL('./indicator.worker.ts', import.meta.url)
-            console.log('[IndicatorScheduler] Creating worker from:', workerUrl.href)
-            this.worker = new Worker(workerUrl, { type: 'module' })
+            // Vite 模块 Worker（使用 ?worker 导入确保输出为 .js）
+            console.log('[IndicatorScheduler] Creating worker from IndicatorWorker')
+            this.worker = new IndicatorWorker()
             console.log('[IndicatorScheduler] Worker created, waiting for ready...')
             this.worker.onmessage = (e) => this.handleWorkerMessage(e.data)
             this.worker.onerror = (err) => {

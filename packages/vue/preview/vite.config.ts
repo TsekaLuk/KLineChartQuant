@@ -25,6 +25,9 @@ function r(rest: string): string {
 
 export default defineConfig({
     root: fileURLToPath(new URL('.', import.meta.url)),
+    server: {
+        host: '0.0.0.0',
+    },
     plugins: [
         decoratorTransform,
         vue(),

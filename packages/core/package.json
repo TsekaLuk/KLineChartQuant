@@ -10,7 +10,11 @@
   "bugs": "https://github.com/363045841/KLineChartQuant/issues",
   "homepage": "https://363045841.github.io/KLineChartQuant/",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/engine/indicators/registerBuiltins.ts",
+    "./src/engine/renderers/Indicator/*.ts",
+    "./src/engine/renderers/subVolume.ts"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

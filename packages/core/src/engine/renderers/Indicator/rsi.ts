@@ -288,7 +288,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
         },
 
         setConfig(_newConfig: Record<string, unknown>) {
-            // 无状态渲染器：配置变更请使用 chart.getIndicatorScheduler().updateRSIConfig()
+            // 无状态渲染器：配置变更请使用 chart.getIndicatorScheduler().updateIndicatorConfig()
         },
     }
 }

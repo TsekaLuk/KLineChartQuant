@@ -280,11 +280,11 @@ export function createENERendererPlugin(): RendererPluginWithHost {
          * 设置配置（兼容性接口，无实际操作）
          *
          * 重要：本渲染器为无状态设计，不持有配置。
-         * 配置变更应通过外部控制器调用 IndicatorScheduler.updateENEConfig() 完成。
+         * 配置变更应通过外部控制器调用 IndicatorScheduler.updateIndicatorConfig() 完成。
          */
         setConfig(_newConfig: Record<string, unknown>) {
             // 无状态渲染器不存储配置
-            // 外部控制器应调用 chart.getIndicatorScheduler().updateENEConfig()
+            // 外部控制器应调用 chart.getIndicatorScheduler().updateIndicatorConfig()
         },
     }
 }

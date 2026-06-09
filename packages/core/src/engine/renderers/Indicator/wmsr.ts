@@ -256,7 +256,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
         },
 
         setConfig() {
-            // no-op: 配置通过 scheduler.updateWMSRConfig() 更新
+            // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
         },
     }
 }

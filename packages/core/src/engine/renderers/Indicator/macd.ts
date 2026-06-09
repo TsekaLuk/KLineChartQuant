@@ -345,25 +345,25 @@ function drawMacdBarsWithCanvas2D(
   ctx.fillStyle = barUpColor
   for (let i = 0; i < barUpCount; i++) {
     const off = i * 4
-    ctx.fillRect(barUpBuf[off], barUpBuf[off + 1], barUpBuf[off + 2], barUpBuf[off + 3])
+    ctx.fillRect(barUpBuf[off]!, barUpBuf[off + 1]!, barUpBuf[off + 2]!, barUpBuf[off + 3]!)
   }
 
   ctx.fillStyle = barUpLightColor
   for (let i = 0; i < barUpLightCount; i++) {
     const off = i * 4
-    ctx.fillRect(barUpLightBuf[off], barUpLightBuf[off + 1], barUpLightBuf[off + 2], barUpLightBuf[off + 3])
+    ctx.fillRect(barUpLightBuf[off]!, barUpLightBuf[off + 1]!, barUpLightBuf[off + 2]!, barUpLightBuf[off + 3]!)
   }
 
   ctx.fillStyle = barDownColor
   for (let i = 0; i < barDownCount; i++) {
     const off = i * 4
-    ctx.fillRect(barDownBuf[off], barDownBuf[off + 1], barDownBuf[off + 2], barDownBuf[off + 3])
+    ctx.fillRect(barDownBuf[off]!, barDownBuf[off + 1]!, barDownBuf[off + 2]!, barDownBuf[off + 3]!)
   }
 
   ctx.fillStyle = barDownLightColor
   for (let i = 0; i < barDownLightCount; i++) {
     const off = i * 4
-    ctx.fillRect(barDownLightBuf[off], barDownLightBuf[off + 1], barDownLightBuf[off + 2], barDownLightBuf[off + 3])
+    ctx.fillRect(barDownLightBuf[off]!, barDownLightBuf[off + 1]!, barDownLightBuf[off + 2]!, barDownLightBuf[off + 3]!)
   }
 
   ctx.restore()

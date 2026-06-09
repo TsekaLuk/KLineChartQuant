@@ -177,7 +177,7 @@ export function createATRRendererPlugin(options: ATRRendererOptions = {}): Rende
         },
 
         setConfig() {
-            // no-op: 配置通过 scheduler.updateATRConfig() 更新
+            // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
         },
     }
 }

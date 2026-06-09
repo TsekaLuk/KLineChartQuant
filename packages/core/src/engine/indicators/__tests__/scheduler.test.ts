@@ -241,7 +241,7 @@ describe('IndicatorScheduler', () => {
       scheduler.update(data, visibleRange)
 
       // Disable some periods
-      scheduler.updateMAConfig({
+      scheduler.updateIndicatorConfig('ma', {
         ma5: true,
         ma10: false,
         ma20: true,
@@ -264,7 +264,7 @@ describe('IndicatorScheduler', () => {
       const visibleRange = { start: 0, end: 100 }
 
       scheduler.update(data, visibleRange)
-      scheduler.updateMAConfig({
+      scheduler.updateIndicatorConfig('ma', {
         ma5: false,
         ma10: false,
         ma20: false,
@@ -468,7 +468,7 @@ describe('BOLL State in scheduler', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    scheduler.updateBOLLConfig({ period: 10, multiplier: 3 })
+    scheduler.updateIndicatorConfig('boll', { period: 10, multiplier: 3 })
 
     const state = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
     expect(state!.params.period).toBe(10)
@@ -482,7 +482,7 @@ describe('BOLL State in scheduler', () => {
     const stateBefore = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
     const seriesBefore = stateBefore!.series[19]
 
-    scheduler.updateBOLLConfig({ period: 10 })
+    scheduler.updateIndicatorConfig('boll', { period: 10 })
 
     const stateAfter = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
     // With period=10, index 9 is first valid point, index 19 should differ
@@ -536,7 +536,7 @@ describe('EXPMA State in scheduler', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    scheduler.updateEXPMAConfig({ fastPeriod: 6, slowPeriod: 30 })
+    scheduler.updateIndicatorConfig('expma', { fastPeriod: 6, slowPeriod: 30 })
 
     const state = getStateFromMockCalls<EXPMARenderState>(mockHost, EXPMA_STATE_KEY)
     expect(state!.params.fastPeriod).toBe(6)
@@ -593,7 +593,7 @@ describe('ENE State in scheduler', () => {
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 100 })
 
-    scheduler.updateENEConfig({ period: 20, deviation: 8 })
+    scheduler.updateIndicatorConfig('ene', { period: 20, deviation: 8 })
 
     const state = getStateFromMockCalls<ENERenderState>(mockHost, ENE_STATE_KEY)
     expect(state!.params.period).toBe(20)
@@ -632,7 +632,7 @@ describe('Per-indicator dirty flags', () => {
     // Reset mock to track new calls
     vi.mocked(mockHost.setSharedState).mockClear()
 
-    scheduler.updateBOLLConfig({ period: 10 })
+    scheduler.updateIndicatorConfig('boll', { period: 10 })
 
     // MA state should NOT be written (only BOLL state should be written)
     // because MA's dirty flags are not set
@@ -653,7 +653,7 @@ describe('Per-indicator dirty flags', () => {
 
     vi.mocked(mockHost.setSharedState).mockClear()
 
-    scheduler.updateEXPMAConfig({ fastPeriod: 6 })
+    scheduler.updateIndicatorConfig('expma', { fastPeriod: 6 })
 
     // MA state should NOT be written (only EXPMA state should be written)
     const maStateAfter = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
@@ -673,7 +673,7 @@ describe('Per-indicator dirty flags', () => {
 
     vi.mocked(mockHost.setSharedState).mockClear()
 
-    scheduler.updateENEConfig({ period: 20 })
+    scheduler.updateIndicatorConfig('ene', { period: 20 })
 
     // MA state should NOT be written (only ENE state should be written)
     const maStateAfter = getStateFromMockCalls<MARenderState>(mockHost, MA_STATE_KEY)
@@ -690,7 +690,7 @@ describe('Per-indicator dirty flags', () => {
 
     const bollStateBefore = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
 
-    scheduler.updateBOLLConfig({ period: 10 })
+    scheduler.updateIndicatorConfig('boll', { period: 10 })
 
     const bollStateAfter = getStateFromMockCalls<BOLLRenderState>(mockHost, BOLL_STATE_KEY)
     // Extremes should be recalculated
@@ -805,7 +805,7 @@ describe('RSI State in scheduler', () => {
   })
 
   it('should pass RSI params including show flags', () => {
-    scheduler.updateRSIConfig({ showRSI1: true, showRSI2: false, showRSI3: true }, 'sub_RSI')
+    scheduler.updateIndicatorConfig('rsi', { showRSI1: true, showRSI2: false, showRSI3: true }, 'sub_RSI')
     const data = createTestData(50)
     scheduler.update(data, { start: 0, end: 20 })
 
@@ -824,7 +824,7 @@ describe('RSI State in scheduler', () => {
   })
 
   it('should update RSI config via updateRSIConfig', () => {
-    scheduler.updateRSIConfig({ period1: 10, period2: 20, period3: 30 }, 'sub_RSI')
+    scheduler.updateIndicatorConfig('rsi', { period1: 10, period2: 20, period3: 30 }, 'sub_RSI')
     const data = createTestData(100)
     scheduler.update(data, { start: 0, end: 50 })
 
@@ -848,7 +848,7 @@ describe('RSI State in scheduler', () => {
     )?.[1] as MARenderState
 
     // Update RSI config only
-    scheduler.updateRSIConfig({ period1: 14 }, 'sub_RSI')
+    scheduler.updateIndicatorConfig('rsi', { period1: 14 }, 'sub_RSI')
 
     // Get the MA state after RSI config update
     const maStateAfter = (mockHost.setSharedState as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -860,7 +860,7 @@ describe('RSI State in scheduler', () => {
   })
 
   it('should use dynamic paneId in state key', () => {
-    scheduler.updateRSIConfig({}, 'custom_RSI_pane')
+    scheduler.updateIndicatorConfig('rsi', {}, 'custom_RSI_pane')
     const data = createTestData(50)
     scheduler.update(data, { start: 0, end: 20 })
 

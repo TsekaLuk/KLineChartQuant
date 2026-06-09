@@ -365,7 +365,7 @@ export function createBOLLRendererPlugin(): RendererPluginWithHost {
         },
 
         setConfig(_newConfig: Record<string, unknown>) {
-            // 外部控制器应调用 chart.getIndicatorScheduler().updateBOLLConfig()
+            // 外部控制器应调用 chart.getIndicatorScheduler().updateIndicatorConfig()
         },
     }
 }

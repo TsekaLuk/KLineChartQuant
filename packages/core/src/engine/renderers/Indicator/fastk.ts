@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
 import { calcFASTKData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -281,14 +282,15 @@ function drawFASTKLineWithCanvas2D(
  * 获取 FASTK 标题信息（供 paneTitle 使用）
  */
 export function getFASTKTitleInfo(
-    index: number,
-    period: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_FASTK',
-    theme: 'light' | 'dark' = 'light',
-    isAsiaMarket?: boolean
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    const colors = resolveThemeColors(theme, isAsiaMarket)
+    if (index === null) return null
+    const period = (params.period as number) ?? 9
+    const colors = resolveThemeColors('light')
     const state = pluginHost.getSharedState<FASTKRenderState>(createFASTKStateKey(paneId))
     if (!state) return null
 
@@ -308,18 +310,11 @@ export function getFASTKTitleInfo(
     name: 'fastk',
     displayName: 'FASTK',
     category: 'oscillator',
-    stateKey: createFASTKStateKey,
     defaultPaneId: 'sub_FASTK',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('fastk', EMPTY_FASTK_STATE) },
     scaleRendererFactory: createFastkScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('fastk', params, paneId)
-  },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createFASTKStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getFASTKTitleInfo,
     runtime: {
-        configKey: 'fastk',
         defaultConfig: { period: 9, showFASTK: true },
         computeKey: 'calcFASTKData',
         compute: (data, c) => calcFASTKData(data, c.period),

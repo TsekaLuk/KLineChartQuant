@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import type { KeltnerRenderState } from '../../indicators/keltnerState'
 import { createKeltnerStateKey, EMPTY_KELTNER_STATE } from '../../indicators/keltnerState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, KeltnerSchedulerConfig } from '../../indicators/scheduler'
 import { calcKeltnerData } from '../../indicators/calculators'
 import { createBandVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -123,23 +124,40 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export function getKeltnerTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<KeltnerRenderState>(createKeltnerStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
+    return {
+        name: 'Keltner',
+        params: [(params.emaPeriod as number) ?? 20, (params.atrPeriod as number) ?? 10, (params.multiplier as number) ?? 2],
+        values: [
+            { label: 'Upper', value: p.upper, color: '#7c3aed' },
+            { label: 'Mid', value: p.middle, color: '#f59e0b' },
+            { label: 'Lower', value: p.lower, color: '#7c3aed' },
+        ],
+    }
+}
+
 @Indicator({
     name: 'keltner',
     displayName: 'Keltner',
+    getTitleInfo: getKeltnerTitleInfo,
     category: 'main',
-    stateKey: createKeltnerStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'keltner_main', toActiveConfig: (params, active) => ({ ...params, showUpper: active, showMiddle: active, showLower: active }) },
     scale: { indicatorKey: 'keltner', label: 'Keltner', decimals: 2 },
     visibleState: { compose: createBandVisibleStateComposer('keltner', EMPTY_KELTNER_STATE, 'lower', 'upper') },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('keltner', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createKeltnerStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'keltner', defaultConfig:{emaPeriod:20,atrPeriod:10,multiplier:2,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcKeltnerData', compute:(data,c)=>calcKeltnerData(data,c.emaPeriod,c.atrPeriod,c.multiplier) },
+    runtime: { defaultConfig:{emaPeriod:20,atrPeriod:10,multiplier:2,showUpper:true,showMiddle:true,showLower:true}, computeKey:'calcKeltnerData', compute:(data,c)=>calcKeltnerData(data,c.emaPeriod,c.atrPeriod,c.multiplier) },
 })
 class KeltnerDefinition {
     static rendererFactory = createKeltnerRendererPlugin

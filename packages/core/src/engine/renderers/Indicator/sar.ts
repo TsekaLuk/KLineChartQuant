@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import type { SARRenderState } from '../../indicators/sarState'
 import { createSARStateKey, EMPTY_SAR_STATE } from '../../indicators/sarState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, SARSchedulerConfig } from '../../indicators/scheduler'
 import { calcSARData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -98,23 +99,38 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     }
 }
 
+export function getSARTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<SARRenderState>(createSARStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
+    return {
+        name: 'SAR',
+        params: [(params.step as number) ?? 0.02, (params.maxStep as number) ?? 0.2],
+        values: [
+            { label: 'SAR', value: p.value, color: p.trend === 'up' ? '#22c55e' : '#ef4444' },
+        ],
+    }
+}
+
 @Indicator({
     name: 'sar',
     displayName: 'SAR',
+    getTitleInfo: getSARTitleInfo,
     category: 'main',
-    stateKey: createSARStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'sar_main', toActiveConfig: (params, active) => ({ ...params, showSAR: active }) },
     scale: { indicatorKey: 'sar', label: 'SAR', decimals: 4 },
     visibleState: { compose: createValuePointVisibleStateComposer('sar', EMPTY_SAR_STATE, ['value']) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('sar', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createSARStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'sar', defaultConfig:{step:0.02,maxStep:0.2,showSAR:true}, computeKey:'calcSARData', compute:(data,c)=>calcSARData(data,c.step,c.maxStep) },
+    runtime: { defaultConfig:{step:0.02,maxStep:0.2,showSAR:true}, computeKey:'calcSARData', compute:(data,c)=>calcSARData(data,c.step,c.maxStep) },
 })
 class SARDefinition {
     static rendererFactory = createSARRendererPlugin

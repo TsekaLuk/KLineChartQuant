@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import type { IchimokuRenderState } from '../../indicators/ichimokuState'
 import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/ichimokuState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, IchimokuSchedulerConfig } from '../../indicators/scheduler'
 import { calcIchimokuData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -167,23 +168,43 @@ function fillCloud(
     }
 }
 
+export function getIchimokuTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const state = host.getSharedState<IchimokuRenderState>(createIchimokuStateKey(paneId))
+    const p = state?.series[index]
+    if (!p) return null
+
+    const values: TitleValueItem[] = []
+    if (p.tenkan !== undefined) values.push({ label: 'Tenkan', value: p.tenkan, color: '#dc2626' })
+    if (p.kijun !== undefined) values.push({ label: 'Kijun', value: p.kijun, color: '#2563eb' })
+    if (p.spanA !== undefined) values.push({ label: 'SpanA', value: p.spanA, color: '#16a34a' })
+    if (p.spanB !== undefined) values.push({ label: 'SpanB', value: p.spanB, color: '#dc2626' })
+    if (p.chikou !== undefined) values.push({ label: 'Chikou', value: p.chikou, color: '#7c3aed' })
+
+    return {
+        name: 'Ichimoku',
+        params: [(params.tenkanPeriod as number) ?? 9, (params.kijunPeriod as number) ?? 26, (params.spanBPeriod as number) ?? 52, (params.displacement as number) ?? 26],
+        values,
+    }
+}
+
 @Indicator({
     name: 'ichimoku',
     displayName: 'Ichimoku',
+    getTitleInfo: getIchimokuTitleInfo,
     category: 'main',
-    stateKey: createIchimokuStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'ichimoku_main', toActiveConfig: (params, active) => ({ ...params, showTenkan: active, showKijun: active, showSpanA: active, showSpanB: active, showChikou: active, showCloud: active }) },
     scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
     visibleState: { compose: createValuePointVisibleStateComposer('ichimoku', EMPTY_ICHIMOKU_STATE, ['tenkan', 'kijun', 'spanA', 'spanB', 'chikou']) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('ichimoku', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createIchimokuStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'ichimoku', defaultConfig:{tenkanPeriod:9,kijunPeriod:26,spanBPeriod:52,displacement:26,showTenkan:true,showKijun:true,showSpanA:true,showSpanB:true,showCloud:true,showChikou:true}, computeKey:'calcIchimokuData', compute:(data,c)=>calcIchimokuData(data,c.tenkanPeriod,c.kijunPeriod,c.spanBPeriod,c.displacement) },
+    runtime: { defaultConfig:{tenkanPeriod:9,kijunPeriod:26,spanBPeriod:52,displacement:26,showTenkan:true,showKijun:true,showSpanA:true,showSpanB:true,showCloud:true,showChikou:true}, computeKey:'calcIchimokuData', compute:(data,c)=>calcIchimokuData(data,c.tenkanPeriod,c.kijunPeriod,c.spanBPeriod,c.displacement) },
 })
 class IchimokuDefinition {
     static rendererFactory = createIchimokuRendererPlugin

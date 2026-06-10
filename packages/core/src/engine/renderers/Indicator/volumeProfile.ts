@@ -7,6 +7,9 @@ import { createVolumeProfileVisibleStateComposer } from '../../indicators/visibl
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, VolumeProfileSchedulerConfig } from '../../indicators/scheduler'
 import { calcVolumeProfileData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
+import { resolveThemeColors } from '../../../tokens'
 
 const BAR_FILL = 'rgba(99, 102, 241, 0.35)'
 const POC_COLOR = '#f59e0b'
@@ -111,21 +114,49 @@ export function createVolumeProfileRendererPlugin(options: { paneId?: string } =
     }
 }
 
+const VP_POC_COLOR = '#8b5cf6'
+const VP_VAH_COLOR = '#6366f1'
+const VP_VAL_COLOR = '#818cf8'
+
+export function getVolumeProfileTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const bins = (params.bins as number) ?? 24
+  const state = host.getSharedState<VolumeProfileRenderState>(createVolumeProfileStateKey(paneId))
+  const vp = state?.series
+
+  const values: Array<{ label: string; value: number; color: string }> = []
+  if (vp && vp.bins.length > 0) {
+    if (state.params.showPOC) {
+      values.push({ label: 'POC', value: vp.poc, color: VP_POC_COLOR })
+    }
+    if (state.params.showValueArea) {
+      values.push({ label: 'VAH', value: vp.vah, color: VP_VAH_COLOR })
+      values.push({ label: 'VAL', value: vp.val, color: VP_VAL_COLOR })
+    }
+  }
+
+  return {
+    name: 'VP',
+    params: [bins],
+    values,
+  }
+}
+
 @Indicator({
     name: 'volumeProfile',
     displayName: 'VP',
     category: 'volume',
-    stateKey: createVolumeProfileStateKey,
     defaultPaneId: 'sub_VolumeProfile',
     scale: { indicatorKey: 'volumeProfile', label: 'VP', decimals: 0 },
+    getTitleInfo: getVolumeProfileTitleInfo,
     visibleState: { compose: createVolumeProfileVisibleStateComposer('volumeProfile', EMPTY_VOLUME_PROFILE_STATE) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('volumeProfile', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createVolumeProfileStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'volumeProfile', defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
+    runtime: { defaultConfig:{bins:24,lookback:100,valueAreaPercent:70,showPOC:true,showValueArea:true}, computeKey:'calcVolumeProfileData', compute:(data,c)=>calcVolumeProfileData(data,c.bins,c.lookback,c.valueAreaPercent) },
 })
 class VolumeProfileIndicatorDefinition {
     static rendererFactory = createVolumeProfileRendererPlugin

@@ -6,7 +6,7 @@ import type { RendererPlugin } from '../../../plugin'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata'
 
 // MA 均线
-export { createMARendererPlugin, type MAFlags } from './ma'
+export { createMARendererPlugin, type MAFlags, getMATitleInfo } from './ma'
 
 // BOLL 布林带
 export { createBOLLRendererPlugin } from './boll'
@@ -22,7 +22,6 @@ export { createMainIndicatorLegendRendererPlugin } from './mainIndicatorLegend'
 
 // MACD
 export { createMACDRendererPlugin, calcMACDAtIndex, type MACDConfig, type MACDRendererOptions, getMACDTitleInfo } from './macd'
-export { createMACDLegendRendererPlugin, type MACDLegendOptions } from './macdLegend'
 
 // RSI 相对强弱指标
 export { createRSIRendererPlugin, type RSIRendererOptions, getRSITitleInfo } from './rsi'
@@ -49,57 +48,57 @@ export { createFASTKRendererPlugin, type FASTKRendererOptions, getFASTKTitleInfo
 export { createATRRendererPlugin, type ATRRendererOptions, getATRTitleInfo } from './atr'
 
 // WMA 加权移动平均
-export { createWMARendererPlugin } from './wma'
+export { createWMARendererPlugin, getWMATitleInfo } from './wma'
 // DEMA 双指数移动平均
-export { createDEMARendererPlugin } from './dema'
+export { createDEMARendererPlugin, getDEMATitleInfo } from './dema'
 // TEMA 三指数移动平均
-export { createTEMARendererPlugin } from './tema'
+export { createTEMARendererPlugin, getTEMATitleInfo } from './tema'
 // HMA 赫尔移动平均
-export { createHMARendererPlugin } from './hma'
+export { createHMARendererPlugin, getHMATitleInfo } from './hma'
 // KAMA 考夫曼自适应移动平均
-export { createKAMARendererPlugin } from './kama'
+export { createKAMARendererPlugin, getKAMATitleInfo } from './kama'
 // SAR 抛物线转向
-export { createSARRendererPlugin } from './sar'
+export { createSARRendererPlugin, getSARTitleInfo } from './sar'
 // SuperTrend 超级趋势
-export { createSuperTrendRendererPlugin } from './supertrend'
+export { createSuperTrendRendererPlugin, getSuperTrendTitleInfo } from './supertrend'
 // Keltner 肯特纳通道
-export { createKeltnerRendererPlugin } from './keltner'
+export { createKeltnerRendererPlugin, getKeltnerTitleInfo } from './keltner'
 // Donchian 唐奇安通道
-export { createDonchianRendererPlugin } from './donchian'
+export { createDonchianRendererPlugin, getDonchianTitleInfo } from './donchian'
 // Ichimoku 一目均衡表
-export { createIchimokuRendererPlugin } from './ichimoku'
+export { createIchimokuRendererPlugin, getIchimokuTitleInfo } from './ichimoku'
 // ROC 变化率
-export { createROCRendererPlugin } from './roc'
+export { createROCRendererPlugin, getROCTitleInfo } from './roc'
 // TRIX 三重指数平滑平均
-export { createTRIXRendererPlugin } from './trix'
+export { createTRIXRendererPlugin, getTRIXTitleInfo } from './trix'
 // HV 历史波动率
-export { createHVRendererPlugin } from './hv'
+export { createHVRendererPlugin, getHVTitleInfo } from './hv'
 // Parkinson 帕金森波动率
-export { createParkinsonRendererPlugin } from './parkinson'
+export { createParkinsonRendererPlugin, getParkinsonTitleInfo } from './parkinson'
 // Chaikin Vol 蔡金波动率
-export { createChaikinVolRendererPlugin } from './chaikinVol'
+export { createChaikinVolRendererPlugin, getChaikinVolTitleInfo } from './chaikinVol'
 // VMA 成交量移动平均
-export { createVMARendererPlugin } from './vma'
+export { createVMARendererPlugin, getVMATitleInfo } from './vma'
 // OBV 能量潮
-export { createOBVRendererPlugin } from './obv'
+export { createOBVRendererPlugin, getOBVTitleInfo } from './obv'
 // PVT 价量趋势
-export { createPVTRendererPlugin } from './pvt'
+export { createPVTRendererPlugin, getPVTTitleInfo } from './pvt'
 // VWAP 成交量加权均价
-export { createVWAPRendererPlugin } from './vwap'
+export { createVWAPRendererPlugin, getVWAPTitleInfo } from './vwap'
 // CMF 蔡金资金流
-export { createCMFRendererPlugin } from './cmf'
+export { createCMFRendererPlugin, getCMFTitleInfo } from './cmf'
 // MFI 资金流量指数
-export { createMFIRendererPlugin } from './mfi'
+export { createMFIRendererPlugin, getMFITitleInfo } from './mfi'
 // Pivot Points 枢轴点
-export { createPivotRendererPlugin } from './pivot'
+export { createPivotRendererPlugin, getPivotTitleInfo } from './pivot'
 // Fibonacci 斐波那契
-export { createFibRendererPlugin } from './fib'
+export { createFibRendererPlugin, getFibTitleInfo } from './fib'
 // SMC Structure 结构
-export { createStructureRendererPlugin } from './structure'
+export { createStructureRendererPlugin, getStructureTitleInfo } from './structure'
 // SMC Zones 区域
-export { createZonesRendererPlugin } from './zones'
+export { createZonesRendererPlugin, getZonesTitleInfo } from './zones'
 // Volume Profile 成交量分布
-export { createVolumeProfileRendererPlugin } from './volumeProfile'
+export { createVolumeProfileRendererPlugin, getVolumeProfileTitleInfo } from './volumeProfile'
 
 /**
  * 副图指标类型

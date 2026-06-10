@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { DEMARenderState } from '../../indicators/demaState'
 import { createDEMAStateKey, EMPTY_DEMA_STATE } from '../../indicators/demaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
 import { calcDEMAData } from '../../indicators/calculators'
@@ -121,23 +122,40 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     }
 }
 
+export const getDEMATitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = createDEMAStateKey(paneId)
+    const state = pluginHost?.getSharedState<DEMARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const value = state.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'DEMA',
+        params: [state.params.period],
+        values: [{ label: 'DEMA', value, color: '#6366f1' }],
+    }
+}
+
 @Indicator({
     name: 'dema',
     displayName: 'DEMA',
+    getTitleInfo: getDEMATitleInfo,
     category: 'main',
-    stateKey: createDEMAStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'dema_main', toActiveConfig: (params, active) => ({ ...params, showDEMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('dema', EMPTY_DEMA_STATE) },
     scale: { indicatorKey: 'dema', label: 'DEMA', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('dema', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createDEMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'dema', defaultConfig:{period:14,showDEMA:true}, computeKey:'calcDEMAData', compute:(data,c)=>calcDEMAData(data,c.period) },
+    runtime: { defaultConfig:{period:14,showDEMA:true}, computeKey:'calcDEMAData', compute:(data,c)=>calcDEMAData(data,c.period) },
 })
 class DEMADefinition {
     static rendererFactory = createDEMARendererPlugin

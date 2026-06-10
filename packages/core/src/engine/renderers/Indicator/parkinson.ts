@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { ParkinsonRenderState } from '../../indicators/parkinsonState'
 import { createParkinsonStateKey } from '../../indicators/parkinsonState'
 import { EMPTY_PARKINSON_STATE } from '../../indicators/parkinsonState'
@@ -8,6 +9,8 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
 import { calcParkinsonData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -111,21 +114,36 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     }
 }
 
+export function getParkinsonTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const period = (params.period as number) ?? 20
+  const annualizationFactor = (params.annualizationFactor as number) ?? 252
+  const state = host.getSharedState<ParkinsonRenderState>(createParkinsonStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'Parkinson',
+    params: [period, annualizationFactor],
+    values: [{ label: 'Parkinson', value, color: PARKINSON_COLOR }],
+  }
+}
+
 @Indicator({
     name: 'parkinson',
     displayName: 'Parkinson',
     category: 'oscillator',
-    stateKey: createParkinsonStateKey,
     defaultPaneId: 'sub_Parkinson',
     scale: { indicatorKey: 'parkinson', label: 'Parkinson', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('parkinson', params, paneId)
-    },
+    getTitleInfo: getParkinsonTitleInfo,
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('parkinson', EMPTY_PARKINSON_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createParkinsonStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'parkinson', defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
+    runtime: { defaultConfig:{period:20,annualizationFactor:252,showParkinson:true}, computeKey:'calcParkinsonData', compute:(data,c)=>calcParkinsonData(data,c.period,c.annualizationFactor) },
 })
 class ParkinsonIndicatorDefinition {
     static rendererFactory = createParkinsonRendererPlugin

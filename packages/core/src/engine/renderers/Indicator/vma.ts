@@ -3,6 +3,8 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { VMARenderState } from '../../indicators/vmaState'
 import { createVMAStateKey } from '../../indicators/vmaState'
 import { EMPTY_VMA_STATE } from '../../indicators/vmaState'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -111,22 +113,35 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
+export function getVMATitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const period = (params.period as number) ?? 5
+    const state = host.getSharedState<VMARenderState>(createVMAStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'VMA',
+        params: [period],
+        values: [{ label: 'VMA', value, color: VMA_COLOR }],
+    }
+}
+
 @Indicator({
     name: 'vma',
     displayName: 'VMA',
     category: 'volume',
-    stateKey: createVMAStateKey,
     defaultPaneId: 'sub_VMA',
     scale: { indicatorKey: 'vma', label: 'VMA', decimals: 0 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('vma', params, paneId)
-    },
+    getTitleInfo: getVMATitleInfo,
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('vma', EMPTY_VMA_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createVMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
     runtime: {
-        configKey: 'vma',
         defaultConfig: { period: 5, showVMA: true },
         computeKey: 'calcVMAData',
         compute: (data, c) => calcVMAData(data, c.period),

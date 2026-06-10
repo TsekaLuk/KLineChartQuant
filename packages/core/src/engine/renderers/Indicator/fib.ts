@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { FibRenderState } from '../../indicators/fibState'
 import { createFibStateKey, EMPTY_FIB_STATE } from '../../indicators/fibState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FibSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { calcFibData } from '../../indicators/calculators'
@@ -126,23 +126,42 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+    if (index === null || index < 0) return null
+
+    const stateKey = createFibStateKey(paneId)
+    const state = host?.getSharedState<FibRenderState>(stateKey)
+    if (!state) return null
+
+    const p = state.series[index]
+    if (!p) return null
+
+    const values: TitleValueItem[] = [
+        { label: '236', value: p.level236, color: FIB_COLORS.l236 },
+        { label: '382', value: p.level382, color: FIB_COLORS.l382 },
+        { label: '500', value: p.level500, color: FIB_COLORS.l500 },
+        { label: '618', value: p.level618, color: FIB_COLORS.l618 },
+        { label: '786', value: p.level786, color: FIB_COLORS.l786 },
+    ]
+
+    return {
+        name: 'Fib',
+        params: [state.params.period],
+        values,
+    }
+}
+
 @Indicator({
     name: 'fib',
     displayName: 'Fib',
+    getTitleInfo: getFibTitleInfo,
     category: 'main',
-    stateKey: createFibStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'fib_main', toActiveConfig: (params, active) => ({ ...params, showLevels: active }) },
     scale: { indicatorKey: 'fib', label: 'Fib', decimals: 4 },
     visibleState: { compose: createExactRangePointVisibleStateComposer('fib', EMPTY_FIB_STATE, ['low', 'high']) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('fib', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createFibStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'fib', defaultConfig:{period:50,showLevels:true}, computeKey:'calcFibData', compute:(data,c)=>calcFibData(data,c.period) },
+    runtime: { defaultConfig:{period:50,showLevels:true}, computeKey:'calcFibData', compute:(data,c)=>calcFibData(data,c.period) },
 })
 class FibDefinition {
     static rendererFactory = createFibRendererPlugin

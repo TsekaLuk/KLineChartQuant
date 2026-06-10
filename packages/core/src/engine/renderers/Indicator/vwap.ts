@@ -7,6 +7,8 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
 import { calcVWAPData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const VWAP_COLOR = '#ec4899'
 
@@ -109,22 +111,34 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     }
 }
 
+export function getVWAPTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  _params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const state = host.getSharedState<VWAPRenderState>(createVWAPStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'VWAP',
+    params: [],
+    values: [{ label: 'VWAP', value, color: VWAP_COLOR }],
+  }
+}
+
 @Indicator({
     name: 'vwap',
     displayName: 'VWAP',
     category: 'volume',
-    stateKey: createVWAPStateKey,
     defaultPaneId: 'sub_VWAP',
     visibleState: { compose: createSparseVisibleStateComposer('vwap', EMPTY_VWAP_STATE) },
     scale: { indicatorKey: 'vwap', label: 'VWAP', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('vwap', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createVWAPStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getVWAPTitleInfo,
     runtime: {
-        configKey: 'vwap',
         defaultConfig: { sessionResetGapMs: 0, showVWAP: true },
         computeKey: 'calcVWAPData',
         compute: (data, c) => calcVWAPData(data, c.sessionResetGapMs),

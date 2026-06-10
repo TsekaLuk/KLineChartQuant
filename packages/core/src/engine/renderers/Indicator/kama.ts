@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KAMARenderState } from '../../indicators/kamaState'
 import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/kamaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
 import { calcKAMAData } from '../../indicators/calculators'
@@ -121,23 +122,40 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     }
 }
 
+export const getKAMATitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = createKAMAStateKey(paneId)
+    const state = pluginHost?.getSharedState<KAMARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const value = state.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'KAMA',
+        params: [state.params.period, state.params.fastPeriod, state.params.slowPeriod],
+        values: [{ label: 'KAMA', value, color: '#0ea5e9' }],
+    }
+}
+
 @Indicator({
     name: 'kama',
     displayName: 'KAMA',
+    getTitleInfo: getKAMATitleInfo,
     category: 'main',
-    stateKey: createKAMAStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'kama_main', toActiveConfig: (params, active) => ({ ...params, showKAMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('kama', EMPTY_KAMA_STATE) },
     scale: { indicatorKey: 'kama', label: 'KAMA', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('kama', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createKAMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'kama', defaultConfig:{period:10,fastPeriod:2,slowPeriod:30,showKAMA:true}, computeKey:'calcKAMAData', compute:(data,c)=>calcKAMAData(data,c.period,c.fastPeriod,c.slowPeriod) },
+    runtime: { defaultConfig:{period:10,fastPeriod:2,slowPeriod:30,showKAMA:true}, computeKey:'calcKAMAData', compute:(data,c)=>calcKAMAData(data,c.period,c.fastPeriod,c.slowPeriod) },
 })
 class KAMADefinition {
     static rendererFactory = createKAMARendererPlugin

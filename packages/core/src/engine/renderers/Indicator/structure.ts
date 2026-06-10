@@ -8,6 +8,8 @@ import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleSta
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, StructureSchedulerConfig } from '../../indicators/scheduler'
 import { calcStructureData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const LABEL_FONT = '11px sans-serif'
 
@@ -111,23 +113,43 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     }
 }
 
+export function getStructureTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const leftWindow = (params.leftWindow as number) ?? 5
+  const rightWindow = (params.rightWindow as number) ?? 2
+  const colors = resolveThemeColors('light')
+  const state = host.getSharedState<StructureRenderState>(createStructureStateKey(paneId))
+
+  const values: Array<{ label: string; value: number; color: string }> = []
+  if (state && state.series.swings.length > 0) {
+    values.push({ label: 'Swings', value: state.series.swings.length, color: colors.structure.hh })
+    values.push({ label: 'Events', value: state.series.events.length, color: colors.structure.choch })
+  }
+
+  return {
+    name: 'Structure',
+    params: [leftWindow, rightWindow],
+    values,
+  }
+}
+
 @Indicator({
     name: 'structure',
     displayName: 'Structure',
     category: 'sub',
-    stateKey: createStructureStateKey,
     defaultPaneId: 'sub_Structure',
     allowMainPane: true,
     mainPane: { rendererName: 'structure_main', toActiveConfig: (params, active) => ({ ...params, showSwingLabels: active, showBOS: active, showCHOCH: active }) },
     scale: { indicatorKey: 'structure', label: 'Structure', decimals: 2 },
+    getTitleInfo: getStructureTitleInfo,
     visibleState: { compose: createFixedUnitVisibleStateComposer('structure', EMPTY_STRUCTURE_STATE) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('structure', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createStructureStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'structure', defaultConfig:{leftWindow:5,rightWindow:2,breakoutSource:'close',showSwingLabels:true,showBOS:true,showCHOCH:true,showProvisional:true}, computeKey:'calcStructureData', compute:(data,c)=>calcStructureData(data,c.leftWindow,c.rightWindow,c.breakoutSource) },
+    runtime: { defaultConfig:{leftWindow:5,rightWindow:2,breakoutSource:'close',showSwingLabels:true,showBOS:true,showCHOCH:true,showProvisional:true}, computeKey:'calcStructureData', compute:(data,c)=>calcStructureData(data,c.leftWindow,c.rightWindow,c.breakoutSource) },
 })
 class StructureIndicatorDefinition {
     static rendererFactory = createStructureRendererPlugin

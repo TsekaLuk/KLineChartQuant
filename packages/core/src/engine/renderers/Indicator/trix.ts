@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { TRIXRenderState } from '../../indicators/trixState'
 import { createTRIXStateKey } from '../../indicators/trixState'
 import { EMPTY_TRIX_STATE } from '../../indicators/trixState'
@@ -8,6 +9,8 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, TRIXSchedulerConfig } from '../../indicators/scheduler'
 import { calcTRIXData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const TRIX_COLOR = '#e11d48'
 const SIGNAL_COLOR = '#f59e0b'
@@ -145,21 +148,48 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export function getTRIXTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  pluginHost: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const period = (params.period as number) ?? 15
+  const signalPeriod = (params.signalPeriod as number) ?? 9
+  const state = pluginHost.getSharedState<TRIXRenderState>(createTRIXStateKey(paneId))
+  if (!state) return null
+
+  const values: Array<{ label: string; value: number; color: string }> = []
+
+  if (state.params.showTRIX) {
+    const v = state.series[index]
+    if (v !== undefined) values.push({ label: 'TRIX', value: v, color: TRIX_COLOR })
+  }
+  if (state.params.showSignal) {
+    const v = state.signalSeries[index]
+    if (v !== undefined) values.push({ label: 'Signal', value: v, color: SIGNAL_COLOR })
+  }
+
+  if (values.length === 0) return null
+
+  return {
+    name: 'TRIX',
+    params: [period, signalPeriod],
+    values,
+  }
+}
+
 @Indicator({
     name: 'trix',
     displayName: 'TRIX',
     category: 'oscillator',
-    stateKey: createTRIXStateKey,
     defaultPaneId: 'sub_TRIX',
     scale: { indicatorKey: 'trix', label: 'TRIX', decimals: 6 },
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('trix', params, paneId)
-  },
     visibleState: { compose: createDualSparseVisibleStateComposer('trix', EMPTY_TRIX_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createTRIXStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'trix', defaultConfig:{period:15,signalPeriod:9,showTRIX:true,showSignal:true}, computeKey:'calcTRIXData', compute:(data,c)=>calcTRIXData(data,c.period,c.signalPeriod) },
+    getTitleInfo: getTRIXTitleInfo,
+    runtime: { defaultConfig:{period:15,signalPeriod:9,showTRIX:true,showSignal:true}, computeKey:'calcTRIXData', compute:(data,c)=>calcTRIXData(data,c.period,c.signalPeriod) },
 })
 class TRIXIndicatorDefinition {
     static rendererFactory = createTRIXRendererPlugin

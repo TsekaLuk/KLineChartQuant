@@ -3,7 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { PivotRenderState } from '../../indicators/pivotState'
 import { createPivotStateKey, EMPTY_PIVOT_STATE } from '../../indicators/pivotState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, PivotSchedulerConfig } from '../../indicators/scheduler'
 import { createExactRangePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { calcPivotData } from '../../indicators/calculators'
@@ -116,23 +116,60 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
+export const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+    if (index === null || index < 0) return null
+
+    const stateKey = createPivotStateKey(paneId)
+    const state = host?.getSharedState<PivotRenderState>(stateKey)
+    if (!state) return null
+
+    const p = state.series[index]
+    if (!p) return null
+
+    const values: TitleValueItem[] = []
+
+    if (state.params.showPP) {
+        values.push({ label: 'PP', value: p.pp, color: PP_COLOR })
+    }
+    if (state.params.showR1) {
+        values.push({ label: 'R1', value: p.r1, color: R_COLOR })
+    }
+    if (state.params.showR2) {
+        values.push({ label: 'R2', value: p.r2, color: R_COLOR })
+    }
+    if (state.params.showR3) {
+        values.push({ label: 'R3', value: p.r3, color: R_COLOR })
+    }
+    if (state.params.showS1) {
+        values.push({ label: 'S1', value: p.s1, color: S_COLOR })
+    }
+    if (state.params.showS2) {
+        values.push({ label: 'S2', value: p.s2, color: S_COLOR })
+    }
+    if (state.params.showS3) {
+        values.push({ label: 'S3', value: p.s3, color: S_COLOR })
+    }
+
+    if (values.length === 0) return null
+
+    return {
+        name: 'Pivot',
+        params: [],
+        values,
+    }
+}
+
 @Indicator({
     name: 'pivot',
     displayName: 'Pivot',
+    getTitleInfo: getPivotTitleInfo,
     category: 'main',
-    stateKey: createPivotStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'pivot_main', toActiveConfig: (params, active) => ({ ...params, showPP: active, showR1: active, showR2: active, showR3: active, showS1: active, showS2: active, showS3: active }) },
     scale: { indicatorKey: 'pivot', label: 'Pivot', decimals: 2 },
     visibleState: { compose: createExactRangePointVisibleStateComposer('pivot', EMPTY_PIVOT_STATE, ['pp', 'r1', 'r2', 'r3', 's1', 's2', 's3']) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('pivot', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createPivotStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'pivot', defaultConfig:{showPP:true,showR1:true,showR2:true,showR3:true,showS1:true,showS2:true,showS3:true}, computeKey:'calcPivotData', compute:(data,c)=>calcPivotData(data) },
+    runtime: { defaultConfig:{showPP:true,showR1:true,showR2:true,showR3:true,showS1:true,showS2:true,showS3:true}, computeKey:'calcPivotData', compute:(data,c)=>calcPivotData(data) },
 })
 class PivotDefinition {
     static rendererFactory = createPivotRendererPlugin

@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { ROCRenderState } from '../../indicators/rocState'
 import { createROCStateKey, EMPTY_ROC_STATE } from '../../indicators/rocState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -7,6 +8,8 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
 import { calcROCData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
 
 const ROC_COLOR = '#0ea5e9'
 
@@ -129,22 +132,35 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     }
 }
 
+export function getROCTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  pluginHost: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const period = (params.period as number) ?? 12
+  const state = pluginHost.getSharedState<ROCRenderState>(createROCStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'ROC',
+    params: [period],
+    values: [{ label: 'ROC', value, color: ROC_COLOR }],
+  }
+}
+
 @Indicator({
     name: 'roc',
     displayName: 'ROC',
     category: 'oscillator',
-    stateKey: createROCStateKey,
     defaultPaneId: 'sub_ROC',
     visibleState: { compose: createSparseVisibleStateComposer('roc', EMPTY_ROC_STATE) },
     scale: { indicatorKey: 'roc', label: 'ROC', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('roc', params, paneId)
-  },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createROCStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getROCTitleInfo,
     runtime: {
-        configKey: 'roc',
         defaultConfig: { period: 12, showROC: true },
         computeKey: 'calcROCData',
         compute: (data, c) => calcROCData(data, c.period),

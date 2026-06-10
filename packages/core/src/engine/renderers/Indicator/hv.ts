@@ -1,5 +1,6 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
+import { resolveThemeColors } from '../../../tokens'
 import type { HVRenderState } from '../../indicators/hvState'
 import { createHVStateKey } from '../../indicators/hvState'
 import { EMPTY_HV_STATE } from '../../indicators/hvState'
@@ -8,6 +9,8 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
 import { calcHVData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const HV_COLOR = '#7c3aed'
 
@@ -111,21 +114,36 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     }
 }
 
+export function getHVTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const period = (params.period as number) ?? 20
+  const annualizationFactor = (params.annualizationFactor as number) ?? 252
+  const state = host.getSharedState<HVRenderState>(createHVStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'HV',
+    params: [period, annualizationFactor],
+    values: [{ label: 'HV', value, color: HV_COLOR }],
+  }
+}
+
 @Indicator({
     name: 'hv',
     displayName: 'HV',
     category: 'oscillator',
-    stateKey: createHVStateKey,
     defaultPaneId: 'sub_HV',
     scale: { indicatorKey: 'hv', label: 'HV', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('hv', params, paneId)
-  },
+    getTitleInfo: getHVTitleInfo,
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('hv', EMPTY_HV_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createHVStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'hv', defaultConfig:{period:20,annualizationFactor:252,showHV:true}, computeKey:'calcHVData', compute:(data,c)=>calcHVData(data,c.period,c.annualizationFactor) },
+    runtime: { defaultConfig:{period:20,annualizationFactor:252,showHV:true}, computeKey:'calcHVData', compute:(data,c)=>calcHVData(data,c.period,c.annualizationFactor) },
 })
 class HVIndicatorDefinition {
     static rendererFactory = createHVRendererPlugin

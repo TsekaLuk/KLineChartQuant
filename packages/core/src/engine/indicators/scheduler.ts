@@ -109,7 +109,7 @@ export type {
 export class IndicatorScheduler {
     private pluginHost: PluginHost | null = null
     private visibleRange: VisibleRange = { start: 0, end: 0 }
-    private activeMainIndicators: Set<string> = new Set()
+    private activeMainIndicators = new Map<string, Record<string, number | boolean | string>>()
 
     // 版本控制
     private dataVersion = 0
@@ -172,7 +172,7 @@ export class IndicatorScheduler {
             this.worker.postMessage({
                 type: 'addDescriptor',
                 descriptor: {
-                    configKey: rt.configKey,
+                    configKey: rt.configKey ?? meta.name,
                     paneIdKey: rt.paneIdKey,
                     defaultConfig: typeof rt.defaultConfig === 'function' ? (rt.defaultConfig as () => any)() : rt.defaultConfig,
                     computeKey: rt.computeKey,
@@ -468,7 +468,7 @@ export class IndicatorScheduler {
                     this.worker!.postMessage({
                         type: 'addDescriptor',
                         descriptor: {
-                            configKey: rt.configKey,
+                            configKey: rt.configKey ?? meta.name,
                             paneIdKey: rt.paneIdKey,
                             defaultConfig: typeof rt.defaultConfig === 'function' ? (rt.defaultConfig as () => any)() : rt.defaultConfig,
                             computeKey: rt.computeKey,
@@ -703,13 +703,14 @@ export class IndicatorScheduler {
             return
         }
         const rt = meta.runtime
+        const configKey = rt.configKey ?? indicatorId
         // Update paneId if provided
         if (paneId !== undefined) {
             this.paneIdOverrides.set(indicatorId, paneId)
         }
         // Merge config
-        ;(this.configSnapshot as any)[rt.configKey] = {
-            ...((this.configSnapshot as any)[rt.configKey] ?? {}),
+        ;(this.configSnapshot as any)[configKey] = {
+            ...((this.configSnapshot as any)[configKey] ?? {}),
             ...config,
         }
         this.configVersion++
@@ -719,8 +720,10 @@ export class IndicatorScheduler {
     /**
      * 设置当前激活的主图指标
      */
-    setActiveMainIndicators(indicators: string[]): void {
-        this.activeMainIndicators = new Set(indicators.map(i => i.toLowerCase()))
+    setActiveMainIndicators(indicators: Array<{ id: string; params: Record<string, number | boolean | string> }>): void {
+        this.activeMainIndicators = new Map(
+            indicators.map(i => [i.id.toLowerCase(), i.params])
+        )
     }
 
     /**
@@ -731,10 +734,31 @@ export class IndicatorScheduler {
         const result = computeMainIndicatorPriceRange(
             this.latestResult,
             this.visibleRange,
-            this.activeMainIndicators,
+            new Set(this.activeMainIndicators.keys()),
             (indicatorId) => this.registry.get(indicatorId),
         )
         return result
+    }
+
+    /**
+     * 获取所有已注册的主图指标
+     */
+    getMainIndicators(): readonly IndicatorMetadata[] {
+        return this.registry.getMainIndicators()
+    }
+
+    /**
+     * 检查主图指标是否激活
+     */
+    isMainIndicatorActive(indicatorId: string): boolean {
+        return this.activeMainIndicators.has(indicatorId.toLowerCase())
+    }
+
+    /**
+     * 获取主图指标当前参数
+     */
+    getMainIndicatorParams(indicatorId: string): Record<string, number | boolean | string> {
+        return this.activeMainIndicators.get(indicatorId.toLowerCase()) ?? {}
     }
 
     /**

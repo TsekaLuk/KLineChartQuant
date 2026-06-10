@@ -6,7 +6,7 @@ import { resolveThemeColors } from '../../../tokens'
 import { BOLL_STATE_KEY, type BOLLRenderState } from '../../indicators/bollState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
-import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer } from '../../indicators/indicatorMetadata'
+import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer, GetTitleInfoFn, TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { BOLLSchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { calcBOLLData } from '../../indicators/calculators'
 
@@ -110,7 +110,7 @@ function buildPriceCacheKey(
     return `${range.start}|${range.end}|${dataLength}|${lastTimestamp}|${period}`
 }
 
-function getBOLLStateKey(host: PluginHost | null): string | null {
+export function getBOLLStateKey(host: PluginHost | null): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
     if (!scheduler) {
         console.warn('[BOLLRenderer] Scheduler not available via service locator')
@@ -155,11 +155,37 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
     }
 }
 
+export const getBOLLTitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    _paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = getBOLLStateKey(pluginHost)
+    if (!stateKey) return null
+
+    const state = pluginHost?.getSharedState<BOLLRenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const bollPoint = state.series[index]
+    if (!bollPoint) return null
+
+    const values: TitleValueItem[] = [
+        { label: 'UP', value: bollPoint.upper, color: '#C83C3C' },
+        { label: 'MID', value: bollPoint.middle, color: '#5A8CFF' },
+        { label: 'DN', value: bollPoint.lower, color: '#32AA3C' },
+    ]
+
+    return { name: 'BOLL', params: [state.params.period, state.params.multiplier], values }
+}
+
 @Indicator({
     name: 'boll',
     displayName: 'BOLL',
     category: 'main',
-    stateKey: BOLL_STATE_KEY,
     defaultPaneId: 'main',
     mainPane: {
         rendererName: 'boll',
@@ -168,9 +194,6 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
             : { ...params, showUpper: false, showMiddle: false, showLower: false, showBand: false },
         computePriceRange: computeBOLLPriceRange,
         composeRenderState: composeBOLLRenderState,
-    },
-    updateConfig: (scheduler, params) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('boll', params)
     },
     semantic: {
         apply: (chart, indicator) => {
@@ -181,10 +204,8 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
             })
         },
     },
-    applyResult: (host, state, _paneId) => {
-        host.setSharedState(BOLL_STATE_KEY, state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'boll', defaultConfig:{period:20,multiplier:2,showUpper:true,showMiddle:true,showLower:true,showBand:true}, computeKey:'calcBOLLData', compute:(data,c)=>calcBOLLData(data,c.period,c.multiplier) },
+    runtime: { defaultConfig:{period:20,multiplier:2,showUpper:true,showMiddle:true,showLower:true,showBand:true}, computeKey:'calcBOLLData', compute:(data,c)=>calcBOLLData(data,c.period,c.multiplier) },
+    getTitleInfo: getBOLLTitleInfo,
 })
 class BOLLDefinition {
     static rendererFactory = createBOLLRendererPlugin

@@ -2,6 +2,8 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ChaikinVolRenderState } from '../../indicators/chaikinVolState'
 import { createChaikinVolStateKey, EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/chaikinVolState'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -124,22 +126,36 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     }
 }
 
+export function getChaikinVolTitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const emaPeriod = (params.emaPeriod as number) ?? 10
+    const rocPeriod = (params.rocPeriod as number) ?? 10
+    const state = host.getSharedState<ChaikinVolRenderState>(createChaikinVolStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'ChaikinVol',
+        params: [emaPeriod, rocPeriod],
+        values: [{ label: 'ChaikinVol', value, color: CHAIKIN_VOL_COLOR }],
+    }
+}
+
 @Indicator({
     name: 'chaikinVol',
     displayName: 'ChaikinVol',
     category: 'oscillator',
-    stateKey: createChaikinVolStateKey,
     defaultPaneId: 'sub_ChaikinVol',
     visibleState: { compose: createSparseVisibleStateComposer('chaikinVol', EMPTY_CHAIKIN_VOL_STATE) },
     scale: { indicatorKey: 'chaikinVol', label: 'ChaikinVol', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('chaikinVol', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createChaikinVolStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getChaikinVolTitleInfo,
     runtime: {
-        configKey: 'chaikinVol',
         defaultConfig: { emaPeriod: 10, rocPeriod: 10, showChaikinVol: true },
         computeKey: 'calcChaikinVolData',
         compute: (data, c) => calcChaikinVolData(data, c.emaPeriod, c.rocPeriod),

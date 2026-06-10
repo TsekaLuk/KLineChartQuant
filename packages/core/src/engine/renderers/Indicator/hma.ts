@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { HMARenderState } from '../../indicators/hmaState'
 import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/hmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
 import { calcHMAData } from '../../indicators/calculators'
@@ -121,23 +122,40 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     }
 }
 
+export const getHMATitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = createHMAStateKey(paneId)
+    const state = pluginHost?.getSharedState<HMARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const value = state.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'HMA',
+        params: [state.params.period],
+        values: [{ label: 'HMA', value, color: '#f43f5e' }],
+    }
+}
+
 @Indicator({
     name: 'hma',
     displayName: 'HMA',
+    getTitleInfo: getHMATitleInfo,
     category: 'main',
-    stateKey: createHMAStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'hma_main', toActiveConfig: (params, active) => ({ ...params, showHMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('hma', EMPTY_HMA_STATE) },
     scale: { indicatorKey: 'hma', label: 'HMA', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('hma', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createHMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'hma', defaultConfig:{period:14,showHMA:true}, computeKey:'calcHMAData', compute:(data,c)=>calcHMAData(data,c.period) },
+    runtime: { defaultConfig:{period:14,showHMA:true}, computeKey:'calcHMAData', compute:(data,c)=>calcHMAData(data,c.period) },
 })
 class HMADefinition {
     static rendererFactory = createHMARendererPlugin

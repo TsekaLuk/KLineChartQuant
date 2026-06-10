@@ -2,6 +2,8 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { MFIRenderState } from '../../indicators/mfiState'
 import { createMFIStateKey, EMPTY_MFI_STATE } from '../../indicators/mfiState'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -128,22 +130,35 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
+export function getMFITitleInfo(
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
+    host: PluginHost,
+    paneId: string,
+): TitleInfo | null {
+    if (index === null) return null
+    const period = (params.period as number) ?? 14
+    const state = host.getSharedState<MFIRenderState>(createMFIStateKey(paneId))
+    const value = state?.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'MFI',
+        params: [period],
+        values: [{ label: 'MFI', value, color: MFI_COLOR }],
+    }
+}
+
 @Indicator({
     name: 'mfi',
     displayName: 'MFI',
     category: 'volume',
-    stateKey: createMFIStateKey,
     defaultPaneId: 'sub_MFI',
     visibleState: { compose: createFixedRangeSparseVisibleStateComposer('mfi', EMPTY_MFI_STATE) },
     scale: { indicatorKey: 'mfi', label: 'MFI', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('mfi', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createMFIStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getMFITitleInfo,
     runtime: {
-        configKey: 'mfi',
         defaultConfig: { period: 14, showMFI: true },
         computeKey: 'calcMFIData',
         compute: (data, c) => calcMFIData(data, c.period),

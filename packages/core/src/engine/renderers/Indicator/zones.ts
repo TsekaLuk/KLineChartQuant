@@ -5,7 +5,7 @@ import type { ZonesRenderState } from '../../indicators/zonesState'
 import { createZonesStateKey, EMPTY_ZONES_STATE } from '../../indicators/zonesState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedUnitVisibleStateComposer } from '../../indicators/visibleStateComposers'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ZonesSchedulerConfig } from '../../indicators/scheduler'
 import { calcZonesData } from '../../indicators/calculators'
 
@@ -90,23 +90,42 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     }
 }
 
+export const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+    if (index === null) return null
+
+    const stateKey = createZonesStateKey(paneId)
+    const state = host?.getSharedState<ZonesRenderState>(stateKey)
+    if (!state) return null
+
+    const activeZones = state.series.filter(
+        z => z.startIndex <= index && (z.endIndex === undefined || z.endIndex >= index)
+    )
+    if (activeZones.length === 0) return null
+
+    const values: TitleValueItem[] = activeZones.slice(0, 5).map(z => ({
+        label: z.kind,
+        value: z.high,
+        color: z.kind.includes('Bull') ? '#22c55e' : '#ef4444',
+    }))
+
+    return {
+        name: 'Zones',
+        params: [activeZones.length],
+        values,
+    }
+}
+
 @Indicator({
     name: 'zones',
     displayName: 'Zones',
+    getTitleInfo: getZonesTitleInfo,
     category: 'main',
-    stateKey: createZonesStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'zones_main', toActiveConfig: (params, active) => ({ ...params, showFVG: active, showOB: active, showFilledZones: active }) },
     scale: { indicatorKey: 'zones', label: 'Zones', decimals: 2 },
     visibleState: { compose: createFixedUnitVisibleStateComposer('zones', EMPTY_ZONES_STATE) },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('zones', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createZonesStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'zones', defaultConfig:{showFVG:true,showOB:true,showFilledZones:true,obLookback:20}, computeKey:'calcZonesData', compute:(data,c)=>calcZonesData(data,c.obLookback,5,2,'close') },
+    runtime: { defaultConfig:{showFVG:true,showOB:true,showFilledZones:true,obLookback:20}, computeKey:'calcZonesData', compute:(data,c)=>calcZonesData(data,c.obLookback,5,2,'close') },
 })
 class ZonesDefinition {
     static rendererFactory = createZonesRendererPlugin

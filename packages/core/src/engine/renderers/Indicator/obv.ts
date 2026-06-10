@@ -7,6 +7,8 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 import { calcOBVData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const OBV_COLOR = '#16a34a'
 
@@ -109,22 +111,34 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
+export function getOBVTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  _params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const state = host.getSharedState<OBVRenderState>(createOBVStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'OBV',
+    params: [],
+    values: [{ label: 'OBV', value, color: OBV_COLOR }],
+  }
+}
+
 @Indicator({
     name: 'obv',
     displayName: 'OBV',
     category: 'volume',
-    stateKey: createOBVStateKey,
     defaultPaneId: 'sub_OBV',
     visibleState: { compose: createSparseVisibleStateComposer('obv', EMPTY_OBV_STATE) },
     scale: { indicatorKey: 'obv', label: 'OBV', decimals: 0 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('obv', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createOBVStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getOBVTitleInfo,
     runtime: {
-        configKey: 'obv',
         defaultConfig: { showOBV: true },
         computeKey: 'calcOBVData',
         compute: (data, c) => calcOBVData(data),

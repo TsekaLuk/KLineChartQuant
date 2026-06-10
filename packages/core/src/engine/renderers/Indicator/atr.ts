@@ -10,6 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
 import { createAtrScaleRendererPlugin } from './scale/atr_scale'
 import { calcATRData } from '../../indicators/calculators'
+import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
@@ -209,11 +210,14 @@ function drawWithCanvas2D(
  * 获取 ATR 标题信息（供 paneTitle 使用）
  */
 export function getATRTitleInfo(
-    index: number,
-    period: number,
+    _data: KLineData[],
+    index: number | null,
+    params: Record<string, number | boolean | string>,
     pluginHost: PluginHost,
-    paneId: string = 'sub_ATR',
+    paneId: string,
 ): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
+    if (index === null) return null
+    const period = (params.period as number) ?? 14
     const state = pluginHost.getSharedState<ATRRenderState>(createATRStateKey(paneId))
     if (!state) return null
 
@@ -233,18 +237,11 @@ export function getATRTitleInfo(
     name: 'atr',
     displayName: 'ATR',
     category: 'oscillator',
-    stateKey: createATRStateKey,
     defaultPaneId: 'sub_ATR',
     scaleRendererFactory: createAtrScaleRendererPlugin,
-    updateConfig: (scheduler, params, paneId) => {
-    (scheduler as IndicatorScheduler).updateIndicatorConfig('atr', params, paneId)
-  },
     visibleState: { compose: createNonNegativeSparseVisibleStateComposer('atr', EMPTY_ATR_STATE) },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createATRStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getATRTitleInfo,
     runtime: {
-        configKey: 'atr',
         defaultConfig: { period: 14, showATR: true },
         computeKey: 'calcATRData',
         compute: (data, c) => calcATRData(data, c.period),

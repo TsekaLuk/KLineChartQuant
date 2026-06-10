@@ -7,6 +7,8 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
 import { calcPVTData } from '../../indicators/calculators'
+import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import type { KLineData } from '../../../types/price'
 
 const PVT_COLOR = '#a855f7'
 
@@ -109,22 +111,34 @@ export function createPVTRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
+export function getPVTTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  _params: Record<string, number | boolean | string>,
+  host: PluginHost,
+  paneId: string,
+): TitleInfo | null {
+  if (index === null) return null
+  const state = host.getSharedState<PVTRenderState>(createPVTStateKey(paneId))
+  const value = state?.series[index]
+  if (value === undefined) return null
+
+  return {
+    name: 'PVT',
+    params: [],
+    values: [{ label: 'PVT', value, color: PVT_COLOR }],
+  }
+}
+
 @Indicator({
     name: 'pvt',
     displayName: 'PVT',
     category: 'volume',
-    stateKey: createPVTStateKey,
     defaultPaneId: 'sub_PVT',
     visibleState: { compose: createSparseVisibleStateComposer('pvt', EMPTY_PVT_STATE) },
     scale: { indicatorKey: 'pvt', label: 'PVT', decimals: 0 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('pvt', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createPVTStateKey(paneId), state as any, 'indicator_scheduler')
-    },
+    getTitleInfo: getPVTTitleInfo,
     runtime: {
-        configKey: 'pvt',
         defaultConfig: { showPVT: true },
         computeKey: 'calcPVTData',
         compute: (data, c) => calcPVTData(data),

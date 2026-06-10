@@ -1,9 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
+import type { KLineData } from '../../../types/price'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { WMARenderState } from '../../indicators/wmaState'
 import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/wmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
 import { calcWMAData } from '../../indicators/calculators'
@@ -121,23 +122,40 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     }
 }
 
+export const getWMATitleInfo: GetTitleInfoFn = (
+    _data: KLineData[],
+    index: number | null,
+    _params: Record<string, number | boolean | string>,
+    pluginHost: PluginHost,
+    paneId: string,
+): TitleInfo | null => {
+    if (index === null) return null
+
+    const stateKey = createWMAStateKey(paneId)
+    const state = pluginHost?.getSharedState<WMARenderState>(stateKey)
+    if (!state || state.visibleMin > state.visibleMax) return null
+
+    const value = state.series[index]
+    if (value === undefined) return null
+
+    return {
+        name: 'WMA',
+        params: [state.params.period],
+        values: [{ label: 'WMA', value, color: '#10b981' }],
+    }
+}
+
 @Indicator({
     name: 'wma',
     displayName: 'WMA',
+    getTitleInfo: getWMATitleInfo,
     category: 'main',
-    stateKey: createWMAStateKey,
     defaultPaneId: 'main',
     allowMainPane: true,
     mainPane: { rendererName: 'wma_main', toActiveConfig: (params, active) => ({ ...params, showWMA: active }) },
     visibleState: { compose: createSparseVisibleStateComposer('wma', EMPTY_WMA_STATE) },
     scale: { indicatorKey: 'wma', label: 'WMA', decimals: 2 },
-    updateConfig: (scheduler, params, paneId) => {
-        (scheduler as IndicatorScheduler).updateIndicatorConfig('wma', params, paneId)
-    },
-    applyResult: (host, state, paneId) => {
-        host.setSharedState(createWMAStateKey(paneId), state as any, 'indicator_scheduler')
-    },
-    runtime: { configKey:'wma', defaultConfig:{period:10,showWMA:true}, computeKey:'calcWMAData', compute:(data,c)=>calcWMAData(data,c.period) },
+    runtime: { defaultConfig:{period:10,showWMA:true}, computeKey:'calcWMAData', compute:(data,c)=>calcWMAData(data,c.period) },
 })
 class WMADefinition {
     static rendererFactory = createWMARendererPlugin

@@ -34,6 +34,7 @@ export default defineConfig({
         Icons({ compiler: 'vue3', autoInstall: true }),
     ],
     resolve: {
+        extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.vue'],
         alias: [
             { find: /^@363045841yyt\/klinechart-core\/config$/, replacement: r('config/chartSettings.ts') },
             { find: /^@363045841yyt\/klinechart-core\/types\/price$/, replacement: r('types/price.ts') },

@@ -201,43 +201,11 @@ function onSymbolSelectorChange(item: SymbolItem) {
   white-space: nowrap;
 }
 
-@media (max-width: 768px), (max-height: 640px) {
-  .top-toolbar {
-    height: 16px;
-    padding: 0 6px;
-    border-radius: 3px;
-  }
-
-  .overlay-symbol-button {
-    height: 26px;
-    gap: 4px;
-    padding: 0 8px;
-  }
-
-  .overlay-symbol-button__icon {
-    width: 15px;
-    height: 15px;
-    font-size: 12px;
-  }
-
-  .overlay-symbol-button__text {
-    display: none;
-  }
-
-  .indicator-button {
-    height: 26px;
-    gap: 4px;
-    padding: 0 8px;
-  }
-
-  .indicator-button__icon {
-    width: 15px;
-    height: 15px;
-    font-size: 9px;
-  }
-
+@media (max-width: 768px) {
+  .overlay-symbol-button__text,
   .indicator-button__text {
     display: none;
   }
 }
+
 </style>

@@ -26,6 +26,8 @@ export type {
     DrawingChartAdapter,
     DrawingChartViewport,
     PaneInfo,
+    SymbolSpec,
+    DataFetcher,
 } from './types'
 
 export { createChartController } from './createChartController'
@@ -50,6 +52,9 @@ export {
     isSubIndicatorId,
 } from '../engine/renderers/Indicator/indicatorData'
 export type { Indicator } from '../engine/renderers/Indicator/indicatorData'
+
+// Data fetcher adapters
+export { thousandMockDataFetcher, hundredMockDataFetcher, baostockDataFetcher, routerDataFetcher } from '../data-fetchers'
 
 // Drawing
 export { DrawingInteractionController } from '../engine/drawing'

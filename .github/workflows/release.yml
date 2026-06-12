@@ -9,7 +9,6 @@ on:
 permissions:
   contents: write
   id-token: write
-  packages: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -95,44 +94,6 @@ jobs:
             echo "❌ 错误：未找到 packages/vue 目录！"
             exit 1
           fi
-
-      - name: Publish to GitHub Packages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
-          echo "@363045841yyt:registry=https://npm.pkg.github.com" >> ~/.npmrc
-
-          TAG="${GITHUB_REF_NAME#v}"
-          if echo "$TAG" | grep -qE '-(alpha|beta|rc)\.'; then
-            if echo "$TAG" | grep -qE '-alpha\.'; then
-              NPM_TAG=alpha
-            elif echo "$TAG" | grep -qE '-beta\.'; then
-              NPM_TAG=beta
-            else
-              NPM_TAG=rc
-            fi
-          else
-            NPM_TAG=latest
-          fi
-
-          echo "Publishing to GitHub Packages — tag '$NPM_TAG'"
-
-          cd packages/core
-          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
-          cd "$GITHUB_WORKSPACE"
-
-          cd packages/vue
-          cp package.json package.json.bak
-          trap 'mv -f package.json.bak package.json' EXIT
-          sed -i 's/workspace:^/^/g' package.json
-          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
-          mv package.json.bak package.json
-          trap - EXIT
-          cd "$GITHUB_WORKSPACE"
 
       - name: Generate release notes
         id: notes

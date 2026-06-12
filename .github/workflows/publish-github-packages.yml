@@ -1,0 +1,73 @@
+name: publish-github-packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-gh-packages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@363045841yyt'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME#v}"
+          if echo "$TAG" | grep -qE '-(alpha|beta|rc)\.'; then
+            if echo "$TAG" | grep -qE '-alpha\.'; then
+              NPM_TAG=alpha
+            elif echo "$TAG" | grep -qE '-beta\.'; then
+              NPM_TAG=beta
+            else
+              NPM_TAG=rc
+            fi
+          else
+            NPM_TAG=latest
+          fi
+
+          echo "Publishing to GitHub Packages — tag '$NPM_TAG'"
+
+          cd packages/core
+          npm publish --tag "$NPM_TAG"
+          cd "$GITHUB_WORKSPACE"
+
+          cd packages/vue
+          cp package.json package.json.bak
+          trap 'mv -f package.json.bak package.json' EXIT
+          sed -i 's/workspace:^/^/g' package.json
+          npm publish --tag "$NPM_TAG"
+          mv package.json.bak package.json
+          trap - EXIT
+          cd "$GITHUB_WORKSPACE"

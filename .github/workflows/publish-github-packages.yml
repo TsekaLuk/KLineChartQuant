@@ -28,8 +28,6 @@ jobs:
         with:
           node-version: 20.19.0
           cache: pnpm
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@363045841yyt'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -39,10 +37,13 @@ jobs:
 
       - name: Publish to GitHub Packages
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+
+          # 认证 GitHub Packages
+          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> ~/.npmrc
 
           TAG="${GITHUB_REF_NAME#v}"
           if echo "$TAG" | grep -qE '-(alpha|beta|rc)\.'; then
@@ -59,15 +60,23 @@ jobs:
 
           echo "Publishing to GitHub Packages — tag '$NPM_TAG'"
 
+          # === Core ===
           cd packages/core
-          npm publish --tag "$NPM_TAG"
+          cp package.json package.json.bak
+          trap 'mv -f package.json.bak package.json' EXIT
+          sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
+          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
+          mv package.json.bak package.json
+          trap - EXIT
           cd "$GITHUB_WORKSPACE"
 
+          # === Vue ===
           cd packages/vue
           cp package.json package.json.bak
           trap 'mv -f package.json.bak package.json' EXIT
           sed -i 's/workspace:^/^/g' package.json
-          npm publish --tag "$NPM_TAG"
+          sed -i 's/"@363045841yyt\//"@363045841\//g' package.json
+          npm publish --registry=https://npm.pkg.github.com --tag "$NPM_TAG"
           mv package.json.bak package.json
           trap - EXIT
           cd "$GITHUB_WORKSPACE"

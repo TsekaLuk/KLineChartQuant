@@ -10,6 +10,7 @@ const decoratorTransform = babel({
     babelConfig: {
         babelrc: false,
         configFile: false,
+        sourceMaps: true,
         plugins: [
             ['@babel/plugin-proposal-decorators', { version: '2023-11' }],
             ['@babel/plugin-transform-typescript', { allowDeclareFields: true }],

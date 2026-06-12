@@ -67,9 +67,9 @@
       "types": "./dist/engine/indicators/indicatorDefinitionRegistry.d.ts",
       "import": "./dist/engine/indicators/indicatorDefinitionRegistry.js"
     },
-    "./engine/renderers/Indicator/indicatorData": {
-      "types": "./dist/engine/renderers/Indicator/indicatorData.d.ts",
-      "import": "./dist/engine/renderers/Indicator/indicatorData.js"
+    "./engine/renderers/Indicator/indicatorCatalog": {
+      "types": "./dist/engine/renderers/Indicator/indicatorCatalog.d.ts",
+      "import": "./dist/engine/renderers/Indicator/indicatorCatalog.js"
     },
     "./engine/renderers/paneTitle": {
       "types": "./dist/engine/renderers/paneTitle.d.ts",

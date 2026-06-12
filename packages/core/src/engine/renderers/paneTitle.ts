@@ -123,7 +123,7 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
                 }
 
                 if (titleInfo.values && titleInfo.values.length > 0) {
-                    y += 1
+                    // y += 1
                     for (const item of titleInfo.values) {
                         const valueText = `${item.label} ${item.value.toFixed(3)}`
                         overlayCtx.fillStyle = item.color
@@ -133,7 +133,8 @@ export function createPaneTitleRendererPlugin(options: PaneTitleOptions): Render
                 }
             } else {
                 overlayCtx.fillStyle = colors.text.primary
-                overlayCtx.fillText(currentOptions.title, x, y)
+                const fallbackTitle = meta?.displayName ?? currentOptions.title
+                overlayCtx.fillText(fallbackTitle, x, y)
 
                 if (currentOptions.description) {
                     const titleWidth = measureTextWidth(overlayCtx, currentOptions.title)

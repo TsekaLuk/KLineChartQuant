@@ -142,7 +142,7 @@ export function getStructureTitleInfo(
 @Indicator({
     name: 'structure',
     displayName: 'Structure',
-    category: 'sub',
+    category: 'main',
     defaultPaneId: 'sub_Structure',
     allowMainPane: true,
     mainPane: { rendererName: 'structure_main', toActiveConfig: (params, active) => ({ ...params, showSwingLabels: active, showBOS: active, showCHOCH: active }) },

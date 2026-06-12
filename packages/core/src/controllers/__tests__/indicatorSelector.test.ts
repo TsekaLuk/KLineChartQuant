@@ -4,7 +4,7 @@ import type { IndicatorDefinition } from '../types'
 
 // ---------------------------------------------------------------------------
 // Fixture catalog — 3 main + 3 sub, with param schemas modelled on the real
-// indicator data in src/core/renderers/Indicator/indicatorData.ts
+// indicator data in src/core/renderers/Indicator/indicatorCatalog.ts
 // ---------------------------------------------------------------------------
 
 const fixtureCatalog: ReadonlyArray<IndicatorDefinition> = [

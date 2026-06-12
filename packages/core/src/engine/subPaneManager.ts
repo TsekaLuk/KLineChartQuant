@@ -4,6 +4,7 @@ import { createSignal, type Signal } from '../reactivity/signal'
 import { createSubIndicatorRenderer } from './renderers/Indicator'
 import { createPaneTitleRendererPlugin } from './renderers/paneTitle'
 import { createIndicatorScaleRendererPlugin } from './renderers/Indicator/scale/indicator_scale'
+import { findIndicator } from './renderers/Indicator/indicatorCatalog'
 
 export interface SubPaneEntry {
     paneId: string
@@ -220,7 +221,7 @@ export class SubPaneManager {
 
         const renderer = createPaneTitleRendererPlugin({
             paneId,
-            title: indicatorId,
+            title: findIndicator(indicatorId)?.label ?? indicatorId,
             indicatorId,
             params,
         })

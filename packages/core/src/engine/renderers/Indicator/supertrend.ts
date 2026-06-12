@@ -126,7 +126,7 @@ export function getSuperTrendTitleInfo(
     name: 'supertrend',
     displayName: 'SuperTrend',
     getTitleInfo: getSuperTrendTitleInfo,
-    category: 'oscillator',
+    category: 'main',
     defaultPaneId: 'sub_SuperTrend',
     allowMainPane: true,
     mainPane: { rendererName: 'supertrend_main', toActiveConfig: (params, active) => ({ ...params, showSuperTrend: active }) },

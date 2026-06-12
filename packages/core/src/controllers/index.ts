@@ -50,8 +50,8 @@ export {
     allIndicators,
     findIndicator,
     isSubIndicatorId,
-} from '../engine/renderers/Indicator/indicatorData'
-export type { Indicator } from '../engine/renderers/Indicator/indicatorData'
+} from '../engine/renderers/Indicator/indicatorCatalog'
+export type { Indicator } from '../engine/renderers/Indicator/indicatorCatalog'
 
 // Data fetcher adapters
 export { thousandMockDataFetcher, hundredMockDataFetcher, baostockDataFetcher, routerDataFetcher } from '../data-fetchers'

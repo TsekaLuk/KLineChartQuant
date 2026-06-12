@@ -51,6 +51,29 @@
               <div class="settings-section-divider">
                 <span class="settings-section-label">样式 / 颜色</span>
               </div>
+              <template v-for="item in styleSettings" :key="item.key">
+                <div class="settings-item">
+                  <label class="settings-label">
+                    <span>{{ item.label }}</span>
+                    <template v-if="item.type === 'boolean'">
+                      <input
+                        type="checkbox"
+                        class="settings-checkbox"
+                        v-model="settings[item.key]"
+                      />
+                    </template>
+                    <template v-else-if="item.type === 'select' && item.options">
+                      <Dropdown
+                        :model-value="String(settings[item.key])"
+                        :options="item.options"
+                        size="sm"
+                        min-width="100px"
+                        @update:model-value="settings[item.key] = $event"
+                      />
+                    </template>
+                  </label>
+                </div>
+              </template>
               <div class="settings-item nav-item" @click="showColorPresetModal = true">
                 <label class="settings-label">
                   <span>颜色配置</span>
@@ -186,6 +209,9 @@ const mainSettings = computed(
 )
 const experimentalSettings = computed(
   () => DEFAULT_SETTINGS.filter((s) => s.group === 'experimental') as unknown as SettingItem[],
+)
+const styleSettings = computed(
+  () => DEFAULT_SETTINGS.filter((s) => s.group === 'style') as unknown as SettingItem[],
 )
 
 const showColorPresetModal = ref(false)

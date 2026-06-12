@@ -327,11 +327,6 @@ function handleSettingsChange(settings: ChartSettings) {
   chartSettings.value = settings
   applyThemeFromSettings(controller.value, settings.theme as string)
   controller.value?.updateSettingsFacade(settings)
-
-  controller.value?.setDataFetcher(props.dataFetcher)
-  if (semanticController.value && props.semanticConfig) {
-    semanticController.value.applyConfig(props.semanticConfig)
-  }
 }
 
 function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {

@@ -48,25 +48,10 @@
             aria-label="清空搜索"
             @click="clearSearch"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <line
-                x1="1"
-                y1="1"
-                x2="11"
-                y2="11"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              />
-              <line
-                x1="11"
-                y1="1"
-                x2="1"
-                y2="11"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              />
+            <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
             </svg>
           </button>
         </div>
@@ -306,25 +291,29 @@ watch(() => props.symbol, () => {
 
 .symbol-search__clear {
   flex: 0 0 auto;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: none;
-  border-radius: 50%;
-  background: var(--klc-color-grid-major);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
   color: var(--klc-color-axis-text);
   cursor: pointer;
-  padding: 0;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .symbol-search__clear:hover {
-  background: var(--klc-color-axis-text);
-  color: var(--klc-color-background);
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-grid-minor);
+  color: var(--klc-color-foreground);
+}
+
+.symbol-search__clear .delete-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .symbol-list {

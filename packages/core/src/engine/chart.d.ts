@@ -224,6 +224,8 @@ export declare class Chart {
     getCurrentDpr(): number;
     /** 获取缓存的 scrollLeft（避免读取 DOM 触发强制回流） */
     getCachedScrollLeft(): number;
+    /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
+    getLogicalScrollLeft(): number;
     /** 获取插件宿主 */
     get plugin(): PluginHostImpl;
     /** 安装渲染器插件 */

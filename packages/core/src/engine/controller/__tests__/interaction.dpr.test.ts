@@ -91,6 +91,7 @@ function createChartStub(args: {
     }),
     getCurrentDpr: () => args.dpr,
     getCachedScrollLeft: () => 0,
+    getLogicalScrollLeft: () => 0,
     getMarkerManager: () => markerManager,
     getPaneRenderers: () => paneRenderers,
     getData: () => data,

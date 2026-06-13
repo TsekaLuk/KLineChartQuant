@@ -192,7 +192,7 @@ export class InteractionController {
         if (!location) return
 
         const { mouseX, mouseY } = location
-        const scrollLeft = this.chart.getCachedScrollLeft()
+        const scrollLeft = this.chart.getLogicalScrollLeft()
 
         const markerManager = this.chart.getMarkerManager()
         const worldX = scrollLeft + mouseX
@@ -569,7 +569,7 @@ export class InteractionController {
 
         this.hoveredRightAxisPaneId = null
 
-        const scrollLeft = this.chart.getCachedScrollLeft()
+        const scrollLeft = this.chart.getLogicalScrollLeft()
         const dpr = this.chart.getCurrentDpr()
 
         const separatorUpperPaneId = this.hitTestPaneSeparator(mouseY)

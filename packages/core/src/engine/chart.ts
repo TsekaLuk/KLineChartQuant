@@ -705,6 +705,11 @@ export class Chart {
         return this.cachedScrollLeft
     }
 
+    /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
+    getLogicalScrollLeft(): number {
+        return this.cachedScrollLeft - this.getLeftLoadBufferWidth()
+    }
+
     /** 获取插件宿主 */
     get plugin(): PluginHostImpl {
         return this.pluginHost
@@ -1765,10 +1770,6 @@ export class Chart {
             ?? Math.round(this.dom.container?.clientWidth ?? 0)
         this.leftLoadBufferWidth = Math.max(0, plotWidth)
         return this.leftLoadBufferWidth
-    }
-
-    private getLogicalScrollLeft(): number {
-        return this.cachedScrollLeft - this.getLeftLoadBufferWidth()
     }
 
     private computeRawVisibleRange(): VisibleRange | null {

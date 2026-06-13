@@ -672,15 +672,6 @@ function isSubPaneIndicator(id: string): boolean {
   return !!def && def.category !== 'main'
 }
 
-// 副图实例计数器：用于生成 'RSI_0', 'MACD_0' 这样的 paneId
-const subPaneCounters = new Map<SubIndicatorType, number>()
-
-function generatePaneId(indicatorId: SubIndicatorType): string {
-  const count = subPaneCounters.get(indicatorId) ?? 0
-  subPaneCounters.set(indicatorId, count + 1)
-  return `${indicatorId}_${count}`
-}
-
 // 添加副图（使用 Chart API）
 function addSubPane(
   indicatorId: SubIndicatorType = 'VOLUME',
@@ -705,7 +696,6 @@ function clearAllSubPanes(): void {
   for (const pane of subPanes.value) {
     controller.value?.removeIndicator(pane.id)
   }
-  subPaneCounters.clear()
 }
 
 function initIndicatorsFromConfig(): void {
@@ -722,22 +712,6 @@ function initIndicatorsFromConfig(): void {
           'main',
           indicator.params as Record<string, number | boolean | string>,
         )
-      }
-    }
-  }
-}
-
-function syncSubPanesFromChart(): void {
-  const entries = controller.value?.subPanes.peek() ?? []
-  for (const entry of entries) {
-    const { paneId, indicatorId, params } = entry
-    const match = paneId.match(/^(.+)_(\d+)$/)
-    if (match) {
-      const [, indicator, countStr] = match
-      const count = parseInt(countStr!, 10)
-      const currentCount = subPaneCounters.get(indicator as SubIndicatorType) ?? 0
-      if (count >= currentCount) {
-        subPaneCounters.set(indicator as SubIndicatorType, count + 1)
       }
     }
   }
@@ -1067,7 +1041,6 @@ function setupSemanticController(ctrl: ChartController): void {
   // config:ready → Chart 侧已完成创建，Vue 回读状态
   semanticController.value.on('config:ready', () => {
     initIndicatorsFromConfig()
-    syncSubPanesFromChart()
     nextTick(() => controller.value?.scrollToRight())
   })
   // 暂时断开语义化配置加载，由搜索结果驱动

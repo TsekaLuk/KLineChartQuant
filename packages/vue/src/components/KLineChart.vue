@@ -145,7 +145,6 @@ import {
   type SymbolSpec,
   zoomLevelToKWidth,
   kGapFromKWidth,
-  getPhysicalKLineConfig,
   DrawingInteractionController,
 } from '@363045841yyt/klinechart-core/controllers'
 import {
@@ -873,36 +872,12 @@ const totalWidth = computed(() => {
   return controller.value?.getContentWidth() ?? 0
 })
 
-function scrollToRight() {
-  const container = containerRef.value
-  const c = controller.value
-  if (!container || !c) return
-
-  const dataLength = c.getData()?.length ?? 0
-  if (dataLength === 0) return
-
-  const vp = c.viewport.peek()
-  const dpr = vp.dpr
-  const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth.value, kGap.value, dpr)
-
-  const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
-  const leftLoadBufferWidth = Math.max(0, vp.plotWidth)
-  const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
-  const targetScrollLeft = Math.min(
-    maxScrollLeft,
-    leftLoadBufferWidth + Math.max(0, lastKLineEndPx - container.clientWidth),
-  )
-
-  container.scrollLeft = Math.round(targetScrollLeft * dpr) / dpr
-}
-
 function applyZoomToLevel(targetLevel: number, anchorX?: number) {
   controller.value?.zoomToLevel(targetLevel, anchorX)
 }
 
 defineExpose({
   scheduleRender,
-  scrollToRight,
   addSubPane,
   removeSubPane,
   switchSubIndicator,
@@ -982,19 +957,6 @@ function setupChartCallbacks(ctrl: ChartController): void {
       zoomLevel.value = vp.zoomLevel
       kWidth.value = vp.kWidth
       kGap.value = vp.kGap
-    }
-
-    const desiredLeft = vp.desiredScrollLeft
-    if (desiredLeft !== undefined && desiredLeft !== containerRef.value?.scrollLeft) {
-      invalidateContainerRectCache()
-      nextTick(() => {
-        const c = containerRef.value
-        if (!c) return
-        const maxScrollLeft = Math.max(0, c.scrollWidth - c.clientWidth)
-        const clampedScrollLeft = Math.min(Math.max(0, desiredLeft), maxScrollLeft)
-        const dpr = vp.dpr
-        c.scrollLeft = Math.round(clampedScrollLeft * dpr) / dpr
-      })
     }
   })
 
@@ -1124,7 +1086,7 @@ function setupSemanticController(ctrl: ChartController): void {
   semanticController.value.on('config:ready', () => {
     initIndicatorsFromConfig()
     syncSubPanesFromChart()
-    nextTick(() => scrollToRight())
+    nextTick(() => controller.value?.scrollToRight())
   })
   // 暂时断开语义化配置加载，由搜索结果驱动
   // semanticController.value.applyConfig(props.semanticConfig).then((result) => {

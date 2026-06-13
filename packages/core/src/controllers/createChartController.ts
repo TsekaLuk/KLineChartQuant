@@ -129,7 +129,6 @@ function mapViewportState(vp: LegacyViewportState): ChartViewport {
         dpr: vp.dpr,
         visibleFrom: vp.visibleFrom,
         visibleTo: vp.visibleTo,
-        desiredScrollLeft: vp.desiredScrollLeft,
         kWidth: vp.kWidth,
         kGap: vp.kGap,
     }
@@ -348,7 +347,6 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         dpr: currentDpr,
         visibleFrom: 0,
         visibleTo: 0,
-        desiredScrollLeft: undefined,
         kWidth: currentKWidth,
         kGap: currentKGap,
     })
@@ -607,6 +605,11 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         return chart.getContentWidth()
     }
 
+    function scrollToRight(): void {
+        if (disposed) return
+        chart.scrollToRight()
+    }
+
     function getIndicatorTitle(instanceId: string): string | undefined {
         if (disposed) return undefined
         const instances = chart.indicators.peek()
@@ -801,6 +804,7 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         setTooltipAnchorPositioning,
         getIndicatorTitle,
         getContentWidth,
+        scrollToRight,
         setDrawingTool,
         clearDrawings,
         removeDrawing,

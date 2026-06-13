@@ -90,7 +90,6 @@ export function createMockChartController(
         dpr: 1,
         visibleFrom: 0,
         visibleTo: 0,
-        desiredScrollLeft: undefined,
     })
     const data = createSignal<ReadonlyArray<KLineData>>(initialData)
     const theme = createSignal<'light' | 'dark'>('light')
@@ -224,6 +223,9 @@ export function createMockChartController(
         },
         getContentWidth() {
             return 0
+        },
+        scrollToRight() {
+            /* no-op */
         },
         updateSettingsFacade() {
             /* no-op */

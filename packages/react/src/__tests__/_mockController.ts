@@ -242,6 +242,12 @@ export function createMockChartController(
         updateOptionsFacade() {
             /* no-op */
         },
+        getContentWidth() {
+            return 0
+        },
+        scrollToRight() {
+            /* no-op */
+        },
         dispose() {
             disposeCount += 1
             indicatorSelector.dispose()

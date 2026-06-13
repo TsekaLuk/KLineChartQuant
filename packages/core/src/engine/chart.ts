@@ -202,6 +202,9 @@ export class Chart {
     /** 左侧加载缓冲宽度；DOM scrollLeft 不能为负，用它映射出逻辑负滚动 */
     private leftLoadBufferWidth = 0
 
+    /** 待写入 DOM 的 scrollLeft（在 RAF 回调中应用，确保 Vue 已完成 DOM 更新） */
+    private _pendingScrollLeft: number | null = null
+
     /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
     private overlayHadCrosshair = false
 
@@ -1661,11 +1664,13 @@ export class Chart {
             const minScrollLeft = this.getLeftLoadBufferWidth()
             if (this.cachedScrollLeft < minScrollLeft) {
                 this.cachedScrollLeft = minScrollLeft
+                this._pendingScrollLeft = minScrollLeft
             }
             const contentWidth = this.getContentWidth()
             const maxScrollLeft = Math.max(0, contentWidth - container.clientWidth)
             if (this.cachedScrollLeft > maxScrollLeft) {
                 this.cachedScrollLeft = maxScrollLeft
+                this._pendingScrollLeft = maxScrollLeft
             }
         }
 
@@ -1760,6 +1765,19 @@ export class Chart {
         return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
     }
 
+    /** 滚动到最右侧（最新数据位置） */
+    scrollToRight(): void {
+        const container = this.dom.container
+        if (!container || this._internalData.length === 0) return
+        const dpr = this.getEffectiveDpr()
+        const { unitPx, startXPx } = getPhysicalKLineConfig(this.opt.kWidth, this.opt.kGap, dpr)
+        const lastKLineEndPx = (startXPx + this._internalData.length * unitPx) / dpr
+        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
+        const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth)
+        container.scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
+        this.cachedScrollLeft = container.scrollLeft
+    }
+
     private getLeftLoadBufferWidth(): number {
         if (this._internalData.length === 0) {
             this.leftLoadBufferWidth = 0
@@ -1832,6 +1850,14 @@ export class Chart {
             const levelToDraw = this.pendingUpdateLevel
             this.pendingUpdateLevel = UpdateLevel.All  // 重置为默认值
             this.draw(levelToDraw)
+            if (this._pendingScrollLeft !== null) {
+                const c = this.dom.container
+                if (c) {
+                    c.scrollLeft = this._pendingScrollLeft
+                    this.cachedScrollLeft = c.scrollLeft
+                    this._pendingScrollLeft = null
+                }
+            }
         })
     }
 
@@ -2196,7 +2222,6 @@ export class Chart {
                 dpr: vp.dpr > 0 ? vp.dpr : current.dpr,
                 visibleFrom: current.visibleFrom,
                 visibleTo: current.visibleTo,
-                desiredScrollLeft: current.desiredScrollLeft,
                 kWidth: current.kWidth,
                 kGap: current.kGap,
             })
@@ -2214,7 +2239,6 @@ export class Chart {
         dpr: 1,
         visibleFrom: 0,
         visibleTo: 0,
-        desiredScrollLeft: undefined,
         kWidth: 0,
         kGap: 1,
     })
@@ -2527,17 +2551,7 @@ export class Chart {
                 if (this.cachedScrollLeft < this.getLeftLoadBufferWidth()) {
                     const desiredScrollLeft = this.getLeftLoadBufferWidth()
                     this.cachedScrollLeft = desiredScrollLeft
-                    this._viewportSignal.set({
-                        zoomLevel: this.currentZoomLevel,
-                        plotWidth: this._internalViewport?.plotWidth ?? 0,
-                        plotHeight: this._internalViewport?.plotHeight ?? 0,
-                        dpr: this.getEffectiveDpr(),
-                        visibleFrom: this.lastVisibleRange.start,
-                        visibleTo: this.lastVisibleRange.end,
-                        desiredScrollLeft,
-                        kWidth: this.opt.kWidth,
-                        kGap: this.opt.kGap,
-                    })
+                    this._pendingScrollLeft = desiredScrollLeft
                 }
                 this.interaction.reset()
                 if (this.lastVisibleRange.start === 0 && this.lastVisibleRange.end === 0 && this._internalData.length > 0) {
@@ -2634,20 +2648,9 @@ export class Chart {
 
         // 应用 render state
         this.currentZoomLevel = result.targetLevel
+        this.cachedScrollLeft = result.newScrollLeft
+        this._pendingScrollLeft = result.newScrollLeft
         this.applyRenderState(result.newKWidth, result.newKGap, result.targetLevel)
-
-        // 更新 viewport signal
-        this._viewportSignal.set({
-            zoomLevel: result.targetLevel,
-            plotWidth: this._internalViewport?.plotWidth ?? 0,
-            plotHeight: this._internalViewport?.plotHeight ?? 0,
-            dpr,
-            visibleFrom: this.lastVisibleRange.start,
-            visibleTo: this.lastVisibleRange.end,
-            desiredScrollLeft: result.newScrollLeft,
-            kWidth: result.newKWidth,
-            kGap: result.newKGap,
-        })
     }
 
     // ---------- Interaction (Zero-config unified entry) ----------
@@ -2759,7 +2762,7 @@ export class Chart {
     }
 
     /**
-     * 更新 viewport signal（用于滚动事件，不更新 desiredScrollLeft）
+     * 更新 viewport signal（用于滚动事件）
      */
     private updateViewportSignal(): void {
         const vp = this._internalViewport
@@ -2772,8 +2775,6 @@ export class Chart {
             dpr: vp.dpr,
             visibleFrom: this.lastVisibleRange.start,
             visibleTo: this.lastVisibleRange.end,
-            // 滚动事件不设置 desiredScrollLeft
-            desiredScrollLeft: undefined,
             kWidth: this.opt.kWidth,
             kGap: this.opt.kGap,
         })
@@ -2945,7 +2946,6 @@ export type ViewportState = {
     dpr: number
     visibleFrom: number
     visibleTo: number
-    desiredScrollLeft: number | undefined
     kWidth: number
     kGap: number
 }

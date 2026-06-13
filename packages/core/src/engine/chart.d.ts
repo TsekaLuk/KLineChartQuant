@@ -116,6 +116,8 @@ export declare class Chart {
     private observedSize;
     /** 缓存的 scrollLeft（通过 scroll 事件同步，避免每帧读取 DOM 触发强制回流） */
     private cachedScrollLeft;
+    /** 待写入 DOM 的 scrollLeft（在 RAF 回调中应用） */
+    private _pendingScrollLeft;
     /** overlay 上一帧是否有十字线（用于判断何时需要清除） */
     private overlayHadCrosshair;
     /** 用户设置配置（传递给渲染器） */
@@ -408,6 +410,8 @@ export declare class Chart {
     getDataIndexAtX(mouseX: number): number | null;
     /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
     getContentWidth(): number;
+    /** 滚动到最右侧（最新数据位置） */
+    scrollToRight(): void;
     /** 容器尺寸变化时调用 */
     resize(): void;
     /**
@@ -516,7 +520,7 @@ export declare class Chart {
      */
     handlePinchZoom(delta: number, centerClientX: number): void;
     /**
-     * 更新 viewport signal（用于滚动事件，不更新 desiredScrollLeft）
+     * 更新 viewport signal（用于滚动事件）
      */
     private updateViewportSignal;
     /**
@@ -593,7 +597,6 @@ export type ViewportState = {
     dpr: number;
     visibleFrom: number;
     visibleTo: number;
-    desiredScrollLeft: number | undefined;
     kWidth: number;
     kGap: number;
 };

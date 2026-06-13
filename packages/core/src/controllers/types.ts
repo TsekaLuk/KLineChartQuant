@@ -21,7 +21,6 @@ export interface ChartViewport {
     dpr: number
     visibleFrom: number
     visibleTo: number
-    desiredScrollLeft: number | undefined
     kWidth: number
     kGap: number
 }
@@ -303,6 +302,8 @@ export interface ChartController extends DrawingChartAdapter {
     getIndicatorTitle(instanceId: string): string | undefined
     /** total scrollable content width (replaces direct computeContentWidth imports) */
     getContentWidth(): number
+    /** scroll to the rightmost position (latest data) */
+    scrollToRight(): void
 
     // ---- Settings ----
     updateSettingsFacade(settings: Record<string, unknown>): void

@@ -528,7 +528,6 @@ function onDeleteDrawing() {
   const d = selectedDrawing.value
   if (!d || !drawingController.value) return
   drawingController.value.removeDrawing(d.id)
-  selectedDrawingId.value = null
   drawings.value = drawingController.value.getDrawings()
 }
 
@@ -536,7 +535,6 @@ function onPointerDown(e: PointerEvent) {
   controller.value?.handlePointerEvent(e, {
     onPointerDown: (event, container) => {
       if (drawingController.value?.onPointerDown(event, container)) {
-        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false
@@ -568,7 +566,6 @@ function onPointerUp(e: PointerEvent) {
   controller.value?.handlePointerEvent(e, {
     onPointerUp: (event, container) => {
       if (drawingController.value?.onPointerUp(event, container)) {
-        drawings.value = drawingController.value.getDrawings()
         return true
       }
       return false

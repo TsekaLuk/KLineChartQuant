@@ -31,7 +31,7 @@ export function getVisibleRange(
     const viewWidthPx = viewWidth * dpr
 
     // 计算可见范围（物理像素空间整数运算）
-    const start = Math.max(0, Math.floor((scrollLeftPx - startXPx) / unitPx) - 1)
+    const start = Math.floor((scrollLeftPx - startXPx) / unitPx) - 1
     const end = Math.min(totalDataCount, Math.ceil((scrollLeftPx + viewWidthPx - startXPx) / unitPx) + 1)
 
     return { start, end }

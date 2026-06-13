@@ -886,10 +886,11 @@ function scrollToRight() {
   const { unitPx, startXPx } = getPhysicalKLineConfig(kWidth.value, kGap.value, dpr)
 
   const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
+  const leftLoadBufferWidth = Math.max(0, vp.plotWidth)
   const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
   const targetScrollLeft = Math.min(
     maxScrollLeft,
-    Math.max(0, lastKLineEndPx - container.clientWidth),
+    leftLoadBufferWidth + Math.max(0, lastKLineEndPx - container.clientWidth),
   )
 
   container.scrollLeft = Math.round(targetScrollLeft * dpr) / dpr

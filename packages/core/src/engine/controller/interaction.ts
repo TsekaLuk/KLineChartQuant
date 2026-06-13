@@ -144,6 +144,10 @@ export class InteractionController {
         }
     }
 
+    isPointerDown(): boolean {
+        return this.isDragging || this.pinchTracker.getPointerCount() > 0
+    }
+
     setOnInteractionChange(callback: (snapshot: InteractionSnapshot) => void) {
         this.onInteractionChangeCallback = callback
     }
@@ -245,11 +249,15 @@ export class InteractionController {
         this.pinchTracker.handlePointerUp(e)
 
         if (e.isPrimary === false) return
+        const wasPanning = this.dragMode === 'pan'
         this.isDragging = false
         this.dragMode = 'none'
         this.activePaneIdOnDrag = null
         this.activeSeparatorUpperPaneId = null
         this.notifyInteractionChange()
+        if (wasPanning) {
+            this.chart.checkVisibleRangeGap()
+        }
     }
 
     /**

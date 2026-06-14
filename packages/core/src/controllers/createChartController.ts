@@ -370,6 +370,8 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         Readonly<Record<string, number>>
     >({})
     const interactionState: Signal<InteractionSnapshot> = createSignal(INITIAL_INTERACTION)
+    const comparisonColors: Signal<ReadonlyMap<string, string>> = createSignal<ReadonlyMap<string, string>>(new Map())
+    const comparisonLoading: Signal<boolean> = createSignal(false)
 
     // -------------------------------------------------------------------
     // Apply initial render state + seed data
@@ -476,6 +478,20 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         ),
     )
 
+    // comparisonColors
+    unsubs.push(
+        chart.comparisonColors.subscribe(() =>
+            comparisonColors.set(new Map(chart.comparisonColors.peek())),
+        ),
+    )
+
+    // comparisonLoading
+    unsubs.push(
+        chart.comparisonLoading.subscribe(() =>
+            comparisonLoading.set(chart.comparisonLoading.peek()),
+        ),
+    )
+
     // -------------------------------------------------------------------
     // Lifecycle guard
     // -------------------------------------------------------------------
@@ -498,6 +514,16 @@ export function createChartController(opts: ChartMountOptions): ChartController 
     function setSymbols(next: ReadonlyArray<SymbolSpec>): void {
         if (disposed) return
         chart.setSymbols(next)
+    }
+
+    function addComparisonSymbol(spec: SymbolSpec): void {
+        if (disposed) return
+        chart.addComparisonSymbol(spec)
+    }
+
+    function removeComparisonSymbol(symbol: string): void {
+        if (disposed) return
+        chart.removeComparisonSymbol(symbol)
     }
 
     function setDataFetcher(fetcher: DataFetcher | null): void {
@@ -782,8 +808,12 @@ export function createChartController(opts: ChartMountOptions): ChartController 
         paneRatios,
         paneLayout,
         interactionState,
+        comparisonColors,
+        comparisonLoading,
         catalog: DEFAULT_INDICATOR_CATALOG,
         setSymbols,
+        addComparisonSymbol,
+        removeComparisonSymbol,
         setDataFetcher,
         setData,
         appendData,

@@ -11,13 +11,13 @@ const periodMap: Record<string, string> = { daily: 'd', weekly: 'w', monthly: 'm
     const res = await fetch(url)
     console.log(res)
     if (!res.ok) {
-      console.warn(`[baostock] fetch failed: ${res.status} ${res.statusText}`)
-      return []
+      throw new Error(`[baostock] fetch failed: ${res.status} ${res.statusText}`)
     }
     const json = await res.json()
     console.log(json)
     return (json.data ?? json).map((item: Record<string, unknown>) => ({
       timestamp: new Date(item.date as string).getTime(),
+      date: item.date as string,
       open: Number(item.open),
       high: Number(item.high),
       low: Number(item.low),
@@ -29,6 +29,6 @@ const periodMap: Record<string, string> = { daily: 'd', weekly: 'w', monthly: 'm
     })) as KLineData[]
   } catch (err) {
     console.warn('[baostock] network error:', err)
-    return []
+    throw err
   }
 }

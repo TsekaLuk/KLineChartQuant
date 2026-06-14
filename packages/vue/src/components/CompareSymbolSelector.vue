@@ -11,6 +11,7 @@
     >
       <span class="compare-chip__icon" aria-hidden="true">+</span>
       <span class="compare-chip__text">比较商品</span>
+      <span v-if="comparisonLoading" class="compare-chip__spinner" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
     <Transition name="symbol-popover">
@@ -65,6 +66,10 @@
               :key="item.code"
               class="compare-selected__item"
             >
+              <span
+                class="compare-selected__color"
+                :style="{ background: comparisonColors?.get(item.code) ?? '#888' }"
+              />
               <span class="compare-selected__code">{{ item.code }}</span>
               <span class="compare-selected__desc">{{ item.description }}</span>
               <button
@@ -140,6 +145,8 @@ import type { SymbolItem } from './SymbolSelector.vue'
 const props = withDefaults(defineProps<{
   symbols: SymbolItem[]
   selected?: string[]
+  comparisonColors?: Map<string, string>
+  comparisonLoading?: boolean
 }>(), {
   selected: () => [],
 })
@@ -280,6 +287,20 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
   line-height: 1;
 }
 
+.compare-chip__spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--klc-color-axis-text);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: compare-spin 0.6s linear infinite;
+}
+
+@keyframes compare-spin {
+  to { transform: rotate(360deg); }
+}
+
 .compare-popover {
   position: absolute;
   top: calc(100% + 8px);
@@ -404,6 +425,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
   background: var(--klc-color-grid-minor);
   font-size: 12px;
   line-height: 1.3;
+}
+
+.compare-selected__color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .compare-selected__code {

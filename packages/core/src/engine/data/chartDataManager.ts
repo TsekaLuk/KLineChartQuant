@@ -7,6 +7,9 @@ import type { VisibleRange, UpdateLevel } from '../layout/pane'
 import { getVisibleRange } from '../viewport/viewport'
 import { getPhysicalKLineConfig } from '../utils/klineConfig'
 
+const COMPARISON_PALETTE = ['#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316']
+const DEFAULT_COMPARISON_COLOR = '#f59e0b'
+
 export interface DataDependencies {
   getOption: () => { kWidth: number; kGap: number }
   getEffectiveDpr: () => number
@@ -35,9 +38,24 @@ export class ChartDataManager {
   private _comparisonData: Map<string, KLineData[]> = new Map()
   private _comparisonBuffers: Map<string, DataBuffer> = new Map()
   private _comparisonBufferUnsubs: Map<string, () => void> = new Map()
+  private _comparisonColors: Map<string, string> = new Map()
+  private _comparisonColorsSignal = createSignal<ReadonlyMap<string, string>>(new Map())
+  private _comparisonLoadingUnsubs: Map<string, () => void> = new Map()
+  private _comparisonLoadingSignal = createSignal<boolean>(false)
 
   private _dataSignal = createSignal<ReadonlyArray<KLineData>>([])
   private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
+
+  private _pendingFetches: Array<{
+    source: string
+    spec: SymbolSpec
+    startTs: number
+    endTs: number
+    resolve: (data: ReadonlyArray<KLineData>) => void
+    reject: (err: Error) => void
+  }> = []
+
+  private _batchFlushScheduled = false
 
   private incrementalLoadHintEl: HTMLDivElement | null = null
   private incrementalLoadHintTimer: number | null = null
@@ -175,6 +193,23 @@ export class ChartDataManager {
     return this._dataBuffer
   }
 
+  get comparisonColors(): Signal<ReadonlyMap<string, string>> {
+    return this._comparisonColorsSignal
+  }
+
+  get comparisonLoading(): Signal<boolean> {
+    return this._comparisonLoadingSignal
+  }
+
+  getComparisonColors(): Map<string, string> {
+    return this._comparisonColors
+  }
+
+  private recomputeComparisonLoading(): void {
+    const anyLoading = Array.from(this._comparisonBuffers.values()).some((b) => b.loading.peek())
+    this._comparisonLoadingSignal.set(anyLoading)
+  }
+
   updateData(data: KLineData[]): void {
     this._internalData = data ?? []
     this._dataSignal.set([...this._internalData])
@@ -239,9 +274,63 @@ export class ChartDataManager {
 
   setDataFetcher(fetcher: DataFetcher | null): void {
     this._dataFetcher = fetcher
-    this._dataBuffer.setFetcher(fetcher)
+    if (!fetcher) {
+      this._dataBuffer.setRequestFetch(null)
+      for (const buffer of this._comparisonBuffers.values()) {
+        buffer.setRequestFetch(null)
+      }
+      return
+    }
+    const handler = this._createBatchHandler(fetcher)
+    this._dataBuffer.setRequestFetch(handler)
     for (const buffer of this._comparisonBuffers.values()) {
-      buffer.setFetcher(fetcher)
+      buffer.setRequestFetch(handler)
+    }
+  }
+
+  private _createBatchHandler(
+    fetcher: DataFetcher,
+  ): (spec: SymbolSpec, startTs: number, endTs: number) => Promise<ReadonlyArray<KLineData>> {
+    return (spec, startTs, endTs) =>
+      new Promise<ReadonlyArray<KLineData>>((resolve, reject) => {
+        this._pendingFetches.push({
+          source: spec.source ?? 'baostock',
+          spec,
+          startTs,
+          endTs,
+          resolve,
+          reject,
+        })
+        this._scheduleBatchFlush()
+      })
+  }
+
+  private _scheduleBatchFlush(): void {
+    if (this._batchFlushScheduled) return
+    this._batchFlushScheduled = true
+    Promise.resolve().then(() => this._flushBatch())
+  }
+
+  private async _flushBatch(): Promise<void> {
+    this._batchFlushScheduled = false
+    const batch = this._pendingFetches.splice(0)
+    if (batch.length === 0 || !this._dataFetcher) return
+    const fetcher = this._dataFetcher
+    const CONCURRENCY = 4
+    for (let i = 0; i < batch.length; i += CONCURRENCY) {
+      const chunk = batch.slice(i, i + CONCURRENCY)
+      await Promise.allSettled(
+        chunk.map(({ source, spec, startTs, endTs, resolve, reject }) =>
+          fetcher(source, {
+            symbol: spec.symbol,
+            startDate: batchFormatDate(startTs),
+            endDate: batchFormatDate(endTs),
+            period: spec.period ?? 'daily',
+            adjust: spec.adjust ?? 'none',
+            exchange: spec.exchange,
+          }).then(resolve, reject),
+        ),
+      )
     }
   }
 
@@ -251,18 +340,24 @@ export class ChartDataManager {
     if (!window) return
     const range = this.computeRawVisibleRange() ?? this.lastRawVisibleRange
 
+    const MS_PER_DAY = 86_400_000
+    let firstVisibleTs: number | undefined
+
     if (range.start < 0 && this._dataFetcher) {
-      const MS_PER_DAY = 86_400_000
       const earlierThanEarliest = window.earliestTs - 90 * MS_PER_DAY
       this._dataBuffer.ensureRange(earlierThanEarliest, window.earliestTs)
-      return
+      firstVisibleTs = this._internalData[0]?.timestamp
+    } else if (range.start < this._internalData.length) {
+      firstVisibleTs = this._internalData[Math.max(0, range.start)]?.timestamp
+      if (firstVisibleTs !== undefined && firstVisibleTs < window.earliestTs) {
+        this._dataBuffer.ensureRange(firstVisibleTs, window.earliestTs)
+      }
     }
 
-    if (range.start >= this._internalData.length) return
-    const firstVisibleTs = this._internalData[Math.max(0, range.start)]?.timestamp
     if (firstVisibleTs === undefined) return
-    if (firstVisibleTs < window.earliestTs) {
-      this._dataBuffer.ensureRange(firstVisibleTs, window.earliestTs)
+
+    for (const buffer of this._comparisonBuffers.values()) {
+      buffer.ensureRange(firstVisibleTs, window.earliestTs)
     }
   }
 
@@ -287,27 +382,88 @@ export class ChartDataManager {
       if (!buffer) {
         const newBuffer = new DataBuffer()
         newBuffer.setFetcher(this._dataFetcher)
+        if (this._dataFetcher) {
+          newBuffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+        }
         this._comparisonBuffers.set(key, newBuffer)
         const unsubscribe = newBuffer.data.subscribe(() => {
           this._comparisonData.set(key, [...newBuffer.data.peek()])
           this.deps.scheduleDraw()
         })
         this._comparisonBufferUnsubs.set(key, unsubscribe)
+        const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
+        this._comparisonLoadingUnsubs.set(key, unsubLoading)
         buffer = newBuffer
       } else {
         buffer.setFetcher(this._dataFetcher)
+        if (this._dataFetcher) {
+          buffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+        }
       }
-      buffer.setSymbol(spec)
+      const mainEarliest = this._dataBuffer.loadedWindow?.earliestTs
+      buffer.setSymbol(spec, mainEarliest)
     }
   }
 
   private clearComparisonBuffers(): void {
     for (const unsubscribe of this._comparisonBufferUnsubs.values()) unsubscribe()
     this._comparisonBufferUnsubs.clear()
+    for (const unsub of this._comparisonLoadingUnsubs.values()) unsub()
+    this._comparisonLoadingUnsubs.clear()
     for (const buffer of this._comparisonBuffers.values()) buffer.dispose()
     this._comparisonBuffers.clear()
     this._comparisonData.clear()
+    this._comparisonColors.clear()
+    this._comparisonColorsSignal.set(new Map())
+    this._comparisonLoadingSignal.set(false)
     this._comparisonSpecs = []
+  }
+
+  addComparisonSymbol(spec: SymbolSpec): void {
+    const key = spec.symbol
+    if (this._comparisonBuffers.has(key)) return
+    this._comparisonSpecs.push(spec)
+
+    const color = COMPARISON_PALETTE[this._comparisonColors.size % COMPARISON_PALETTE.length] ?? DEFAULT_COMPARISON_COLOR
+    this._comparisonColors.set(key, color)
+    this._comparisonColorsSignal.set(new Map(this._comparisonColors))
+
+    if (!this._dataFetcher) return
+
+    const newBuffer = new DataBuffer()
+    newBuffer.setFetcher(this._dataFetcher)
+    if (this._dataFetcher) {
+      newBuffer.setRequestFetch(this._createBatchHandler(this._dataFetcher))
+    }
+    this._comparisonBuffers.set(key, newBuffer)
+    const unsubscribe = newBuffer.data.subscribe(() => {
+      this._comparisonData.set(key, [...newBuffer.data.peek()])
+      this.deps.scheduleDraw()
+    })
+    this._comparisonBufferUnsubs.set(key, unsubscribe)
+    const unsubLoading = newBuffer.loading.subscribe(() => this.recomputeComparisonLoading())
+    this._comparisonLoadingUnsubs.set(key, unsubLoading)
+    const mainEarliest = this._dataBuffer.loadedWindow?.earliestTs
+    newBuffer.setSymbol(spec, mainEarliest)
+    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
+  }
+
+  removeComparisonSymbol(symbol: string): void {
+    const key = symbol
+    if (!this._comparisonBuffers.has(key)) return
+
+    this._comparisonBufferUnsubs.get(key)?.()
+    this._comparisonBufferUnsubs.delete(key)
+    this._comparisonLoadingUnsubs.get(key)?.()
+    this._comparisonLoadingUnsubs.delete(key)
+    this._comparisonBuffers.get(key)?.dispose()
+    this._comparisonBuffers.delete(key)
+    this._comparisonData.delete(key)
+    this._comparisonColors.delete(key)
+    this._comparisonColorsSignal.set(new Map(this._comparisonColors))
+    this._comparisonSpecs = this._comparisonSpecs.filter((s) => s.symbol !== symbol)
+    this._symbolsSignal.set([this._symbolsSignal.peek()[0]!, ...this._comparisonSpecs])
+    this.recomputeComparisonLoading()
   }
 
   setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
@@ -429,9 +585,10 @@ export class ChartDataManager {
   getComparisonEquivalentPriceRange(range: VisibleRange): { min: number; max: number } | null {
     if (this._comparisonSpecs.length === 0 || this._comparisonData.size === 0) return null
     const baseIndex = Math.max(0, range.start)
-    const mainBase = this._internalData[baseIndex]?.close
-    const baseTimestamp = this._internalData[baseIndex]?.timestamp
-    if (!Number.isFinite(mainBase) || mainBase <= 0 || baseTimestamp === undefined) return null
+    const baseItem = this._internalData[baseIndex]
+    if (!baseItem || !Number.isFinite(baseItem.close) || baseItem.close <= 0) return null
+    const mainBase = baseItem.close
+    const baseDate = baseItem.date ?? ''
 
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
@@ -440,16 +597,22 @@ export class ChartDataManager {
       const data = this._comparisonData.get(spec.symbol)
       if (!data?.length) continue
 
-      const baseline = this.findComparisonBaseline(data, baseTimestamp)
+      const baseline = baseDate
+        ? findComparisonBaselineByDate(data, baseDate)
+        : findComparisonBaselineByTimestamp(data, baseItem.timestamp)
       if (!baseline || !Number.isFinite(baseline.close) || baseline.close <= 0) continue
 
-      const byTimestamp = new Map<number, KLineData>()
-      for (const item of data) byTimestamp.set(item.timestamp, item)
+      const byDate = new Map<string, KLineData>()
+      for (const item of data) {
+        if (item.date) byDate.set(item.date, item)
+        else byDate.set(String(item.timestamp), item)
+      }
 
       for (let i = Math.max(0, range.start); i < range.end && i < this._internalData.length; i++) {
         const mainItem = this._internalData[i]
         if (!mainItem) continue
-        const item = byTimestamp.get(mainItem.timestamp)
+        const key = mainItem.date ?? String(mainItem.timestamp)
+        const item = byDate.get(key)
         if (!item || !Number.isFinite(item.close)) continue
 
         const pct = (item.close - baseline.close) / baseline.close
@@ -462,13 +625,6 @@ export class ChartDataManager {
 
     if (!Number.isFinite(min) || !Number.isFinite(max)) return null
     return { min, max }
-  }
-
-  private findComparisonBaseline(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
-    for (const item of data) {
-      if (item.timestamp >= timestamp) return item
-    }
-    return null
   }
 
   getLogicalSlotCount(): number {
@@ -510,4 +666,26 @@ export class ChartDataManager {
     this._dataBuffer.dispose()
     this.clearComparisonBuffers()
   }
+}
+
+function findComparisonBaselineByDate(data: ReadonlyArray<KLineData>, date: string): KLineData | null {
+  for (const item of data) {
+    if (item.date && item.date >= date) return item
+  }
+  return null
+}
+
+function findComparisonBaselineByTimestamp(data: ReadonlyArray<KLineData>, timestamp: number): KLineData | null {
+  for (const item of data) {
+    if (item.timestamp >= timestamp) return item
+  }
+  return null
+}
+
+function batchFormatDate(ts: number): string {
+  const d = new Date(ts)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }

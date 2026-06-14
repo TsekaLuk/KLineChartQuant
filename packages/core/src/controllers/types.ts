@@ -71,6 +71,7 @@ export interface KLineData {
     changePercent?: number
     changeAmount?: number
     turnoverRate?: number
+    date?: string
 }
 
 export type { PaneSpec }
@@ -242,12 +243,16 @@ export interface ChartController extends DrawingChartAdapter {
     readonly paneRatios: Signal<Readonly<Record<string, number>>>
     readonly paneLayout: Signal<ReadonlyArray<PaneSpec>>
     readonly interactionState: Signal<InteractionSnapshot>
+    readonly comparisonColors: Signal<ReadonlyMap<string, string>>
+    readonly comparisonLoading: Signal<boolean>
 
     // indicator catalog (static — adapters use for picker UI)
     readonly catalog: ReadonlyArray<IndicatorDefinition>
 
     // ---- Data ----
     setSymbols(next: ReadonlyArray<SymbolSpec>): void
+    addComparisonSymbol(spec: SymbolSpec): void
+    removeComparisonSymbol(symbol: string): void
     setDataFetcher(fetcher: DataFetcher | null): void
     setData(next: ReadonlyArray<KLineData>): void
     appendData(next: ReadonlyArray<KLineData>): void

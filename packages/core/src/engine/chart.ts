@@ -319,11 +319,13 @@ export class Chart {
         this.interaction.updateSettings(settings)
 
         // 同步刻度类型设置到所有 pane（百分比仅用于主图）
-        const axisType = (settings.axisType as ScaleType) ?? 'linear'
-        for (const renderer of this.paneRenderers) {
-            const pane = renderer.getPane()
-            const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType
-            pane.yAxis.setScaleType(scaleType)
+        if ('axisType' in settings) {
+            const axisType = (settings.axisType as ScaleType) ?? 'linear'
+            for (const renderer of this.paneRenderers) {
+                const pane = renderer.getPane()
+                const scaleType = axisType === 'percent' && pane.role !== 'price' ? 'linear' : axisType
+                pane.yAxis.setScaleType(scaleType)
+            }
         }
 
         this.scheduleDraw()
@@ -736,6 +738,16 @@ export class Chart {
         return this.dataManager.symbols
     }
 
+    /** 比较商品颜色信号 */
+    get comparisonColors(): Signal<ReadonlyMap<string, string>> {
+        return this.dataManager.comparisonColors
+    }
+
+    /** 比较商品加载信号 */
+    get comparisonLoading(): Signal<boolean> {
+        return this.dataManager.comparisonLoading
+    }
+
     /** 主题信号 */
     get theme(): Signal<'light' | 'dark'> {
         return this._themeSignal
@@ -799,6 +811,14 @@ export class Chart {
 
     setSymbols(specs: ReadonlyArray<SymbolSpec>): void {
         this.dataManager.setSymbols(specs)
+    }
+
+    addComparisonSymbol(spec: SymbolSpec): void {
+        this.dataManager.addComparisonSymbol(spec)
+    }
+
+    removeComparisonSymbol(symbol: string): void {
+        this.dataManager.removeComparisonSymbol(symbol)
     }
 
     // ---------- Theme ----------

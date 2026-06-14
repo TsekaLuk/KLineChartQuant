@@ -60,11 +60,19 @@ export class ChartPaneLayout {
   }
 
   private initPanes() {
+    const prevScaleTypes = new Map<string, 'linear' | 'log' | 'percent'>()
+    for (const r of this.paneRenderers) {
+      prevScaleTypes.set(r.getPane().id, r.getPane().yAxis.getScaleType())
+    }
+
     this.paneRenderers = this._paneSpecs.map((spec, index) => {
       const pane = new Pane(spec.id, {
         role: this.resolvePaneRole(spec, index),
         capabilities: spec.capabilities,
       })
+
+      const prev = prevScaleTypes.get(spec.id)
+      if (prev) pane.yAxis.setScaleType(prev)
 
       const mainCanvas = document.createElement('canvas')
       const overlayCanvas = document.createElement('canvas')

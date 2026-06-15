@@ -153,6 +153,12 @@ export class DataBuffer {
             return fetchPromise.then((incoming) => {
                 if (this._disposed) return
 
+                if (incoming.length === 0) {
+                    throw new Error(
+                        `[DataBuffer] empty data for ${spec.symbol} ${formatDate(startTs)}~${formatDate(endTs)}`,
+                    )
+                }
+
                 const oldLength = this._data.length
                 const oldEarliestTs = oldLength > 0 ? this._data[0]!.timestamp : null
                 const merged = mergeSortedData(this._data, [...incoming])

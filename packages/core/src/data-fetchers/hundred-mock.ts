@@ -6,13 +6,43 @@ export const hundredMockDataFetcher: DataFetcher = async (_source, config) => {
   const end = new Date(config.endDate).getTime()
   const dayMs = 86400000
   const totalDays = Math.floor((end - start) / dayMs) + 1
+  if (totalDays <= 0) return []
+
+  const basePrice = 12.5
   const data: KLineData[] = []
-  let price = 10 + Math.random() * 5
+
+  if (totalDays === 1) {
+    data.push({
+      timestamp: start,
+      open: basePrice,
+      high: basePrice,
+      low: basePrice,
+      close: basePrice,
+      volume: Math.round(Math.random() * 10000000 + 1000000),
+    })
+    return data
+  }
+
+  const meanReversionStrength = 0.005
+
+  // raw random walk with mean reversion (close prices before bridge)
+  const rawWalk: number[] = [basePrice]
+  for (let i = 1; i < totalDays; i++) {
+    const prev = rawWalk[i - 1]!
+    const reversion = meanReversionStrength * (basePrice - prev)
+    const change = (Math.random() - 0.48) * prev * 0.06 + reversion
+    rawWalk.push(prev + change)
+  }
+
+  // Brownian bridge: subtract linear drift so last close = basePrice
+  const finalOffset = rawWalk[totalDays - 1]! - basePrice
   for (let i = 0; i < totalDays; i++) {
+    const bridge = finalOffset * (i / (totalDays - 1))
+    const close = Math.round((rawWalk[i]! - bridge) * 100) / 100
+
     const ts = start + i * dayMs
-    const change = (Math.random() - 0.48) * price * 0.06
-    const open = price
-    const close = Math.round((open + change) * 100) / 100
+    const open = i === 0 ? basePrice : data[i - 1]!.close
+
     const high = Math.round(Math.max(open, close) * (1 + Math.random() * 0.03) * 100) / 100
     const low = Math.round(Math.min(open, close) * (1 - Math.random() * 0.03) * 100) / 100
     const volume = Math.round(Math.random() * 10000000 + 1000000)
@@ -25,7 +55,7 @@ export const hundredMockDataFetcher: DataFetcher = async (_source, config) => {
       volume,
       turnover: Math.round((volume * (open + close)) / 2),
     })
-    price = close
   }
+
   return data
 }

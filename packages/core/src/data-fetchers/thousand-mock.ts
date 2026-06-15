@@ -5,26 +5,42 @@ export const thousandMockDataFetcher: DataFetcher = async (_source, _config) => 
   const data: KLineData[] = []
   const startTime = new Date('2020-01-01').getTime()
   const dayMs = 24 * 60 * 60 * 1000
-  let lastClose = 3000
-  for (let i = 0; i < 10000; i++) {
+  const totalDays = 10000
+
+  const basePrice = 3000
+  const meanReversionStrength = 0.0005
+  const volatility = 0.02
+
+  // raw random walk with mean reversion (close prices before bridge)
+  const rawWalk: number[] = [basePrice]
+  for (let i = 1; i < totalDays; i++) {
+    const prev = rawWalk[i - 1]!
+    const reversion = meanReversionStrength * (basePrice - prev)
+    const change = (Math.random() - 0.5) * 2 * volatility * prev + reversion
+    rawWalk.push(prev + change)
+  }
+
+  // Brownian bridge: subtract linear drift so last close = basePrice
+  const finalOffset = rawWalk[totalDays - 1]! - basePrice
+  for (let i = 0; i < totalDays; i++) {
+    const bridge = finalOffset * (i / (totalDays - 1))
+    const close = Math.round((rawWalk[i]! - bridge) * 100) / 100
+
     const timestamp = startTime + i * dayMs
-    const volatility = 0.02
-    const trend = 0.0001
-    const change = (Math.random() - 0.5) * 2 * volatility + trend
-    const open = lastClose
-    const close = open * (1 + change)
-    const high = Math.max(open, close) * (1 + Math.random() * 0.01)
-    const low = Math.min(open, close) * (1 - Math.random() * 0.01)
+    const open = i === 0 ? basePrice : data[i - 1]!.close
+
+    const high = Math.round(Math.max(open, close) * (1 + Math.random() * 0.01) * 100) / 100
+    const low = Math.round(Math.min(open, close) * (1 - Math.random() * 0.01) * 100) / 100
     const volume = Math.floor(1000000 + Math.random() * 5000000)
     data.push({
       timestamp,
-      open: parseFloat(open.toFixed(2)),
-      high: parseFloat(high.toFixed(2)),
-      low: parseFloat(low.toFixed(2)),
-      close: parseFloat(close.toFixed(2)),
+      open,
+      high,
+      low,
+      close,
       volume,
     })
-    lastClose = close
   }
+
   return data
 }

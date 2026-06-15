@@ -18,12 +18,14 @@ export type KLineLevel =
   | '15min'
   | '30min'
   | '60min'
+  | 'daily'
   | 'weekly'
   | 'monthly'
   | 'quarterly'
   | 'yearly'
 
 const kLineLevelOptions: Array<{ label: string; value: KLineLevel }> = [
+  { label: '1day', value: 'daily' },
   { label: '1min', value: '1min' },
   { label: '5min', value: '5min' },
   { label: '15min', value: '15min' },

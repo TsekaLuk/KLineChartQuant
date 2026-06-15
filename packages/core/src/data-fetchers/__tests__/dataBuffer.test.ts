@@ -294,7 +294,9 @@ describe('DataBuffer', () => {
         const fetcher: DataFetcher = async () => {
             fetchCount++
             if (fetchCount === 1) return initialData
-            return []
+            // Return data with same timestamps so mergeSortedData deduplicates them,
+            // avoiding loadedWindow change while keeping boundary in _attemptedBoundaries
+            return initialData
         }
 
         buffer.setFetcher(fetcher)
@@ -314,6 +316,7 @@ describe('DataBuffer', () => {
 
         expect(fetchCount).toBe(2)
 
+        // same boundary → should be skipped
         buffer.ensureRange(oneYearAgo - 60 * MS_PER_DAY, oneYearAgo)
 
         await new Promise((r) => setTimeout(r, 50))
@@ -331,7 +334,7 @@ describe('DataBuffer', () => {
             fetchCount++
             if (fetchCount === 1) return initialData
             if (fetchCount === 2) return [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
-            return []
+            return [makeKLine(oneYearAgo - 180 * MS_PER_DAY)]
         }
 
         buffer.setFetcher(fetcher)

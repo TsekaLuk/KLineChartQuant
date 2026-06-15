@@ -3,6 +3,7 @@
     <TopToolbar
       :symbol="currentSymbol"
       :k-line-level="kLineLevel"
+      :k-line-adjust="kLineAdjust"
       :symbol-loading="symbolLoading"
       :symbol-error="symbolError"
       :overlay-symbols="overlaySymbols"
@@ -11,6 +12,7 @@
       @add-overlay-symbol="onAddOverlaySymbol"
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
+      @k-line-adjust-change="onKLineAdjustChange"
       @toggle-indicator="onToggleIndicator"
       @symbol-change="onSymbolChange"
     />
@@ -209,9 +211,11 @@ const emit = defineEmits<{
   (e: 'toggleFullscreen'): void
   (e: 'themeChange', theme: 'light' | 'dark'): void
   (e: 'kLineLevelChange', level: string): void
+  (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
 }>()
 
 const kLineLevel = ref(props.semanticConfig?.data?.period ?? 'daily')
+const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const currentSymbol = ref('选择商品')
 const currentSymbolItem = ref<SymbolItem | null>(null)
 const symbolLoading = ref(false)
@@ -222,6 +226,12 @@ const overlaySymbolItems = ref<SymbolItem[]>([])
 function onKLineLevelChange(level: string) {
   kLineLevel.value = level as typeof kLineLevel.value
   emit('kLineLevelChange', level)
+  syncSymbolsToController()
+}
+
+function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
+  kLineAdjust.value = adjust
+  emit('kLineAdjustChange', adjust)
   syncSymbolsToController()
 }
 
@@ -255,7 +265,7 @@ function toSymbolSpec(item: SymbolItem): SymbolSpec {
     source: item.source,
     startDate: props.semanticConfig?.data?.startDate ?? '',
     endDate: props.semanticConfig?.data?.endDate ?? '',
-    adjust: props.semanticConfig?.data?.adjust ?? 'none',
+    adjust: kLineAdjust.value,
   }
 }
 

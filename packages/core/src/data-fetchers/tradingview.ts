@@ -16,8 +16,15 @@ export const tradingviewDataFetcher: DataFetcher = async (source, config) => {
   const startDate = config.startDate.split('T')[0]
   const endDate = config.endDate.split('T')[0]
 
+  const ADJUST_TO_TV: Record<string, string | undefined> = {
+    qfq: 'dividends',
+    splits: 'splits',
+    none: 'none',
+  }
+  const tvAdjust = ADJUST_TO_TV[config.adjust]
   const exchangeQ = config.exchange ? `&exchange=${config.exchange}` : ''
-  const url = `${baseUrl}/api/tradingview/kdata?symbol=${config.symbol}&timeframe=${timeframe}&start_date=${startDate}&end_date=${endDate}${exchangeQ}`
+  const adjustQ = tvAdjust ? `&adjust=${tvAdjust}` : ''
+  const url = `${baseUrl}/api/tradingview/kdata?symbol=${config.symbol}&timeframe=${timeframe}&start_date=${startDate}&end_date=${endDate}${exchangeQ}${adjustQ}`
   try {
     const res = await fetch(url)
     if (!res.ok) {

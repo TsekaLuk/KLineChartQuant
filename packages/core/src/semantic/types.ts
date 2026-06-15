@@ -19,6 +19,8 @@ export interface SemanticChartConfig {
 // ============ 数据配置 ============
 
 /** 数据配置 */
+export type AdjustType = 'qfq' | 'hfq' | 'splits' | 'none'
+
 export interface DataConfig {
   source: 'baostock' | 'dongcai'
   /** 股票代码（6位数字，不含前缀） */
@@ -30,7 +32,7 @@ export interface DataConfig {
   /** 结束日期 YYYY-MM-DD */
   endDate: string
   period: 'daily' | 'weekly' | 'monthly' | '5min' | '15min' | '30min' | '60min'
-  adjust: 'qfq' | 'hfq' | 'none'
+  adjust: AdjustType
 }
 
 // ============ 指标配置 ============

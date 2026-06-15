@@ -33,7 +33,7 @@
           "type": "string",
           "enum": ["daily", "weekly", "monthly", "5min", "15min", "30min", "60min"]
         },
-        "adjust": { "type": "string", "enum": ["qfq", "hfq", "none"] }
+        "adjust": { "type": "string", "enum": ["qfq", "hfq", "splits", "none"] }
       }
     },
     "IndicatorsConfig": {

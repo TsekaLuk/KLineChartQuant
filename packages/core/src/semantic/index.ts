@@ -1,5 +1,6 @@
 export type {
   SemanticChartConfig,
+  AdjustType,
   DataConfig,
   IndicatorsConfig,
   MainIndicatorConfig,

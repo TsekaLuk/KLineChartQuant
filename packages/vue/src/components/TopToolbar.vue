@@ -20,6 +20,10 @@
       :model-value="kLineLevel"
       @update:model-value="emit('kLineLevelChange', $event)"
     />
+    <KLineAdjustmentDropdown
+      :model-value="kLineAdjust"
+      @update:model-value="emit('kLineAdjustChange', $event)"
+    />
     <button
       type="button"
       class="indicator-button"
@@ -36,6 +40,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import KLineLevelDropdown, { type KLineLevel } from './KLineLevelDropdown.vue'
+import KLineAdjustmentDropdown, { type KLineAdjustment } from './KLineAdjustmentDropdown.vue'
 import SymbolSelector from './SymbolSelector.vue'
 import CompareSymbolSelector from './CompareSymbolSelector.vue'
 import type { SymbolItem } from './SymbolSelector.vue'
@@ -45,6 +50,7 @@ export type { SymbolItem }
 const props = defineProps<{
   symbol?: string
   kLineLevel?: string
+  kLineAdjust?: string
   symbols?: SymbolItem[]
   symbolLoading?: boolean
   symbolError?: boolean
@@ -57,6 +63,7 @@ const emit = defineEmits<{
   (e: 'addOverlaySymbol', item: SymbolItem): void
   (e: 'removeOverlaySymbol', code: string): void
   (e: 'kLineLevelChange', level: KLineLevel): void
+  (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
   (e: 'toggleIndicator'): void
   (e: 'symbolChange', symbol: SymbolItem): void
 }>()

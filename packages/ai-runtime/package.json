@@ -1,0 +1,59 @@
+{
+  "name": "@363045841yyt/klinechart-ai-runtime",
+  "version": "0.1.0",
+  "description": "AI Native runtime for @363045841yyt/klinechart — MCP tool schemas, controller describe() output, chart state serialization.",
+  "keywords": [
+    "kline",
+    "candlestick",
+    "chart",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "agent",
+    "websocket",
+    "trading",
+    "quantitative"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mcp-server": {
+      "types": "./dist/mcpServer.d.ts",
+      "import": "./dist/mcpServer.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build",
+    "start": "tsx scripts/dev.ts",
+    "test": "vitest run",
+    "inspect": "npx @modelcontextprotocol/inspector npx tsx scripts/dev.ts"
+  },
+  "peerDependencies": {
+    "@363045841yyt/klinechart-core": "workspace:*"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1",
+    "ws": "^8"
+  },
+  "devDependencies": {
+    "@types/ws": "^8",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -56,6 +56,7 @@ export default defineConfig({
             { find: /^@363045841yyt\/klinechart-core\/engine\/drawing$/, replacement: r('engine/drawing/index.ts') },
             { find: /^@363045841yyt\/klinechart-core\/version$/, replacement: r('version.ts') },
             { find: /^@363045841yyt\/klinechart-core$/, replacement: r('index.ts') },
+            { find: /^@363045841yyt\/klinechart-ai-runtime$/, replacement: `${root}/packages/ai-runtime/src/index.ts` },
         ],
     },
 })

@@ -56,7 +56,7 @@ function resolveFactory(): ChartControllerFactory {
     return chartFactory
 }
 
-export async function createChart(opts: ChartMountOptions): Promise<ChartController> {
+export function createChart(opts: ChartMountOptions): ChartController | Promise<ChartController> {
     if (opts === null || opts === undefined) {
         throw new Error('[@363045841yyt/klinechart-react] createChart: opts is required')
     }
@@ -66,7 +66,7 @@ export async function createChart(opts: ChartMountOptions): Promise<ChartControl
         )
     }
     const factory = resolveFactory()
-    return await factory(opts)
+    return factory(opts)
 }
 
 export function useChart(
@@ -74,6 +74,7 @@ export function useChart(
     opts: Omit<ChartMountOptions, 'container'>,
 ): ChartController | null {
     const [controller, setController] = useState<ChartController | null>(null)
+    const controllerRef = useRef<ChartController | null>(null)
     const optsRef = useRef(opts)
     optsRef.current = opts
 
@@ -83,22 +84,29 @@ export function useChart(
             return
         }
         let mounted = true
-        createChart({
+        const created = createChart({
             ...optsRef.current,
             container,
-        }).then((created) => {
+        })
+        const applyController = (next: ChartController) => {
             if (!mounted) {
-                created.dispose()
+                next.dispose()
                 return
             }
-            setController(created)
-        })
+            controllerRef.current = next
+            setController(next)
+        }
+
+        if (typeof (created as Promise<ChartController>).then === 'function') {
+            ;(created as Promise<ChartController>).then(applyController)
+        } else {
+            applyController(created as ChartController)
+        }
         return () => {
             mounted = false
-            setController((prev) => {
-                prev?.dispose()
-                return null
-            })
+            controllerRef.current?.dispose()
+            controllerRef.current = null
+            setController(null)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ref])

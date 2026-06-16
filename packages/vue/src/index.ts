@@ -88,7 +88,7 @@ export function __setControllerFactory(
  *
  * Throws if container is null/undefined (SSR-safe guard).
  */
-export async function createChart(opts: ChartMountOptions): Promise<ChartController> {
+export function createChart(opts: ChartMountOptions): ChartController | Promise<ChartController> {
     if (opts.container == null) {
         throw new Error(
             '[@363045841yyt/klinechart] createChart: `container` is required and must be a non-null HTMLElement',
@@ -100,7 +100,7 @@ export async function createChart(opts: ChartMountOptions): Promise<ChartControl
                 'Call __setControllerFactory(...) before mounting (the core package wires this in production).',
         )
     }
-    return await controllerFactory(opts)
+    return controllerFactory(opts)
 }
 
 // ---------------------------------------------------------------------------
@@ -147,10 +147,24 @@ export function useChart(
     opts: Omit<ChartMountOptions, 'container'>,
 ): { chart: Ref<ChartController | null> } {
     const chart = shallowRef<ChartController | null>(null)
+    let disposed = false
 
     const mountIfReady = (el: HTMLElement | null): void => {
         if (el == null || chart.value != null) return
-        chart.value = createChart({ ...opts, container: el })
+        const created = createChart({ ...opts, container: el })
+        const applyController = (ctrl: ChartController): void => {
+            if (disposed) {
+                ctrl.dispose()
+                return
+            }
+            chart.value = ctrl
+        }
+
+        if (typeof (created as Promise<ChartController>).then === 'function') {
+            ;(created as Promise<ChartController>).then(applyController)
+        } else {
+            applyController(created as ChartController)
+        }
     }
 
     // Mount synchronously if the ref is already populated (e.g. SFC where the
@@ -167,6 +181,7 @@ export function useChart(
     )
 
     const dispose = (): void => {
+        disposed = true
         stopWatch()
         const ctrl = chart.value
         if (ctrl != null) {
@@ -359,29 +374,40 @@ export const KLineChart = defineComponent({
         const scope = effectScope()
 
         const chart = shallowRef<ChartController | null>(null)
+        let mounted = true
+
+        const applyController = (ctrl: ChartController): void => {
+            if (!mounted) {
+                ctrl.dispose()
+                return
+            }
+            chart.value = ctrl
+            emit('ready', ctrl)
+            // Bridge viewport changes back out as zoomLevelChange.
+            const emitViewport = (): void => {
+                const vp = ctrl.viewport.peek()
+                emit('zoomLevelChange', vp.zoomLevel, vp.kWidth)
+            }
+            emitViewport()
+            const unsub = ctrl.viewport.subscribe(emitViewport)
+            onScopeDispose(unsub)
+        }
 
         onMounted(() => {
             const el = containerRef.value
             if (el == null) return
             scope.run(() => {
-                chart.value = createChart({
+                const created = createChart({
                     container: el,
                     data: props.data,
                     initialZoomLevel: props.initialZoomLevel,
                     zoomLevels: props.zoomLevels,
                     theme: props.theme,
                 })
-                if (chart.value != null) {
-                    emit('ready', chart.value)
-                    // Bridge viewport changes back out as zoomLevelChange.
-                    const ctrl = chart.value
-                    const emitViewport = (): void => {
-                        const vp = ctrl.viewport.peek()
-                        emit('zoomLevelChange', vp.zoomLevel, vp.kWidth)
-                    }
-                    emitViewport()
-                    const unsub = ctrl.viewport.subscribe(emitViewport)
-                    onScopeDispose(unsub)
+                if (typeof (created as Promise<ChartController>).then === 'function') {
+                    ;(created as Promise<ChartController>).then(applyController)
+                } else {
+                    applyController(created as ChartController)
                 }
             })
 
@@ -401,6 +427,7 @@ export const KLineChart = defineComponent({
         })
 
         onUnmounted(() => {
+            mounted = false
             chart.value?.dispose()
             chart.value = null
             scope.stop()

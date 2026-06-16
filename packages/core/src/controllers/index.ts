@@ -52,6 +52,7 @@ export {
     isSubIndicatorId,
 } from '../engine/renderers/Indicator/indicatorCatalog'
 export type { Indicator } from '../engine/renderers/Indicator/indicatorCatalog'
+export { loadBuiltinIndicators, isBuiltinIndicatorsLoaded } from '../engine/indicators/registerBuiltins'
 
 // Data fetcher adapters
 export { thousandMockDataFetcher, hundredMockDataFetcher, baostockDataFetcher, routerDataFetcher, DataBuffer } from '../data-fetchers'

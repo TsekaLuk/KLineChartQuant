@@ -315,29 +315,38 @@ const uiMeta: Record<string, {
   },
 }
 
-function buildAllIndicators(): Indicator[] {
-  return getRegisteredIndicatorDefinitions().map((def) => {
-    const key = normalizeId(def.name)
-    const ui = uiMeta[key]
-    return {
-      id: def.displayName.toUpperCase(),
-      label: def.displayName,
-      name: ui?.name ?? def.displayName,
-      pane: def.category === 'main' || def.allowMainPane ? 'main' : 'sub',
-      description: ui?.description,
-      params: ui?.params,
-    }
-  })
+let _allIndicators: Indicator[] | null = null
+
+function rebuildIfStale(): Indicator[] {
+  if (_allIndicators === null || getRegisteredIndicatorDefinitions().length !== _allIndicators.length) {
+    _allIndicators = getRegisteredIndicatorDefinitions()
+      .map((def) => {
+        const key = normalizeId(def.name)
+        const ui = uiMeta[key]
+        return {
+          id: def.displayName.toUpperCase(),
+          label: def.displayName,
+          name: ui?.name ?? def.displayName,
+          pane: def.category === 'main' || def.allowMainPane ? 'main' : 'sub',
+          description: ui?.description,
+          params: ui?.params,
+        }
+      })
+      .sort((a, b) => {
+        const paneOrder = a.pane === 'main' ? 0 : 1
+        const paneOrderB = b.pane === 'main' ? 0 : 1
+        return paneOrder - paneOrderB || a.label.localeCompare(b.label)
+      })
+  }
+  return _allIndicators ?? []
 }
-
-export const allIndicators: Indicator[] = buildAllIndicators()
-
-export const mainIndicators = allIndicators.filter((i) => i.pane === 'main')
-export const subIndicators = allIndicators.filter((i) => i.pane === 'sub')
+export function allIndicators(): Indicator[] {
+  return rebuildIfStale()
+}
 
 export function findIndicator(id: string): Indicator | undefined {
   const norm = normalizeId(id)
-  return allIndicators.find((i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm)
+  return rebuildIfStale().find((i) => normalizeId(i.id) === norm || normalizeId(i.label) === norm)
 }
 
 export function isSubIndicatorId(id: string): boolean {

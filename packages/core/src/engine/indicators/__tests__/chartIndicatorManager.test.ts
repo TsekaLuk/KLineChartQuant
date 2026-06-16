@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { ChartIndicatorManager, type IndicatorDependencies } from '../chartIndicatorManager'
 import { createPluginHost } from '../../../plugin/PluginHost'
 import { createSignal } from '../../../reactivity/signal'
 import type { VisibleRange } from '../../layout/pane'
 import { UpdateLevel } from '../../layout/pane'
+import { loadBuiltinIndicators } from '../registerBuiltins'
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
 
 function createMockDeps() {
   const rendererMap = new Map<string, any>()

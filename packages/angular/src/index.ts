@@ -118,9 +118,9 @@ export function coreSignalToAngular<T>(
 /**
  * Imperative escape hatch. Mirrors React/Vue.
  */
-export function createChart(
+export async function createChart(
     opts: ChartMountOptions & { factory?: ChartControllerFactory },
-): ChartController {
+): Promise<ChartController> {
     if (opts.container === null || opts.container === undefined) {
         throw new Error('createChart: container is required')
     }
@@ -130,7 +130,7 @@ export function createChart(
         )
     }
     const { factory, ...mountOpts } = opts
-    return factory(mountOpts)
+    return await factory(mountOpts)
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     private readonly factory = inject(KLINE_CHART_FACTORY)
     private readonly destroyRef = inject(DestroyRef)
 
-    ngAfterViewInit(): void {
+    async ngAfterViewInit(): Promise<void> {
         if (!isPlatformBrowser(this.platformId)) return
 
         const containerEl = this.container?.nativeElement ?? null
@@ -185,7 +185,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
             )
         }
 
-        const controller = createChart({
+        const controller = await createChart({
             container: containerEl,
             data: this.data,
             symbols: this.symbols,

@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeAll } from 'vitest'
 import type { IndicatorMetadata } from '../indicatorMetadata'
 import { composeRenderStates, composeVisibleSubIndicatorStates, computeMainIndicatorPriceRange } from '../stateComposer'
 import type { IndicatorSeriesBundle } from '../workerProtocol'
-import '../registerBuiltins'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
+import { loadBuiltinIndicators } from '../registerBuiltins'
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
 
 function createBundle(): IndicatorSeriesBundle {
   return {

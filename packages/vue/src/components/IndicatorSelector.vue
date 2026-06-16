@@ -219,6 +219,8 @@ import {
   allIndicators,
   findIndicator,
   type Indicator,
+  loadBuiltinIndicators,
+  isBuiltinIndicatorsLoaded,
 } from '@363045841yyt/klinechart-core/controllers'
 
 const props = defineProps<{
@@ -233,7 +235,7 @@ const emit = defineEmits<{
 }>()
 
 // ── 将 Indicator[] 转换为 IndicatorDefinition[] ──
-function toIndicatorDefinitions(source: typeof allIndicators): IndicatorDefinition[] {
+function toIndicatorDefinitions(source: Indicator[]): IndicatorDefinition[] {
   return source.map((i) => ({
     id: i.id,
     label: i.label,
@@ -253,9 +255,7 @@ function toIndicatorDefinitions(source: typeof allIndicators): IndicatorDefiniti
 }
 
 // ── Controller ──
-const controller = createIndicatorSelectorController({
-  catalog: toIndicatorDefinitions(allIndicators),
-})
+const controller = createIndicatorSelectorController()
 
 // ── 从 Controller Signal 桥接的 Vue 响应式状态 ──
 const menuOpen = coreSignalToVueRef(controller.menuOpen)
@@ -267,7 +267,15 @@ const hasSearchResults = computed(
   () => filteredMain.value.length > 0 || filteredSub.value.length > 0,
 )
 
-const catalogLen = controller.catalog.peek().length
+const catalog = coreSignalToVueRef(controller.catalog)
+const catalogLen = computed(() => catalog.value.length)
+
+onMounted(async () => {
+  if (!isBuiltinIndicatorsLoaded()) {
+    await loadBuiltinIndicators()
+  }
+  controller.catalog.set(toIndicatorDefinitions(allIndicators()))
+})
 
 // ── 本地 UI 状态（非 Controller 管理的纯 UI 状态） ──
 const paramsVisible = ref(false)

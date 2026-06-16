@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeAll } from 'vitest'
 import { getRegisteredIndicatorDefinition } from '../indicatorDefinitionRegistry'
-import { getBuiltinIndicatorDefinitions } from '../registerBuiltins'
+import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
 
 describe('builtin indicator registration', () => {
   it('loads all builtin indicator definitions through decorators', () => {

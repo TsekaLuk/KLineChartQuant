@@ -41,6 +41,7 @@ import type {
     DrawingToolType as LegacyDrawingToolType,
 } from '../engine/chartTypes'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
+import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
 import { ChartBridge } from '../mcp/chartBridge'
 
 // Plugin-backed drawings expose `kind` instead of legacy `type`.
@@ -282,13 +283,15 @@ function buildDom(container: HTMLElement): MountedDom {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createChartController(opts: ChartMountOptions): ChartController {
+export async function createChartController(opts: ChartMountOptions): Promise<ChartController> {
     if (!opts) {
         throw new Error('[createChartController] opts is required')
     }
     if (!opts.container) {
         throw new Error('[createChartController] opts.container must be a non-null HTMLElement')
     }
+
+    await loadBuiltinIndicators()
 
     const hasExistingDom = !!(opts.canvasLayer && opts.rightAxisLayer && opts.xAxisCanvas)
     const mounted = hasExistingDom

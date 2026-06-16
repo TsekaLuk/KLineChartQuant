@@ -894,7 +894,7 @@ function initChart(
   canvasLayer: HTMLDivElement,
   rightAxisLayer: HTMLDivElement,
   xAxisCanvas: HTMLCanvasElement,
-): ChartController {
+): Promise<ChartController> {
   const ctrl = createChartController({
     container,
     data: [],
@@ -1096,7 +1096,7 @@ function setupSemanticController(ctrl: ChartController): void {
   // })
 }
 
-onMounted(() => {
+onMounted(async () => {
   useAnchorPositioning.value = false
 
   const container = containerRef.value
@@ -1111,7 +1111,8 @@ onMounted(() => {
   const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
   const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
   const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
-  const ctrl = initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
+  const ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
+  if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
   controller.value = ctrl
 
   // 3) 信号回调

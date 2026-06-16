@@ -56,7 +56,7 @@ function resolveFactory(): ChartControllerFactory {
     return chartFactory
 }
 
-export function createChart(opts: ChartMountOptions): ChartController {
+export async function createChart(opts: ChartMountOptions): Promise<ChartController> {
     if (opts === null || opts === undefined) {
         throw new Error('[@363045841yyt/klinechart-react] createChart: opts is required')
     }
@@ -66,7 +66,7 @@ export function createChart(opts: ChartMountOptions): ChartController {
         )
     }
     const factory = resolveFactory()
-    return factory(opts)
+    return await factory(opts)
 }
 
 export function useChart(
@@ -82,14 +82,23 @@ export function useChart(
         if (container === null || container === undefined) {
             return
         }
-        const created = createChart({
+        let mounted = true
+        createChart({
             ...optsRef.current,
             container,
+        }).then((created) => {
+            if (!mounted) {
+                created.dispose()
+                return
+            }
+            setController(created)
         })
-        setController(created)
         return () => {
-            setController(null)
-            created.dispose()
+            mounted = false
+            setController((prev) => {
+                prev?.dispose()
+                return null
+            })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ref])
@@ -223,7 +232,8 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
         useEffect(() => {
             const container = divRef.current
             if (container === null) return
-            const created = createChart({
+            let mounted = true
+            createChart({
                 container,
                 data,
                 symbols,
@@ -231,11 +241,17 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
                 initialZoomLevel,
                 zoomLevels,
                 theme,
+            }).then((created) => {
+                if (!mounted) {
+                    created.dispose()
+                    return
+                }
+                controllerRef.current = created
             })
-            controllerRef.current = created
             return () => {
+                mounted = false
+                controllerRef.current?.dispose()
                 controllerRef.current = null
-                created.dispose()
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [])

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Chart, type ChartDom, type ChartOptions } from '@/core/chart'
+import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 
 class ResizeObserverMock {
   static instances: ResizeObserverMock[] = []
@@ -105,6 +106,10 @@ describe('Chart DPR pipeline', () => {
   const originalResizeObserver = globalThis.ResizeObserver
   const originalDevicePixelRatio = window.devicePixelRatio
   const originalGetContext = HTMLCanvasElement.prototype.getContext
+
+  beforeAll(async () => {
+    await loadBuiltinIndicators()
+  })
 
   beforeEach(() => {
     ResizeObserverMock.reset()

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { IndicatorScheduler } from '../scheduler'
-import { getBuiltinIndicatorDefinitions } from '../registerBuiltins'
+import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../registerBuiltins'
 import { MA_STATE_KEY, EMPTY_MA_STATE, type MARenderState } from '../maState'
 import { BOLL_STATE_KEY, EMPTY_BOLL_STATE, type BOLLRenderState } from '../bollState'
 import { EXPMA_STATE_KEY, EMPTY_EXPMA_STATE, type EXPMARenderState } from '../expmaState'
@@ -16,7 +16,12 @@ function applyMainResult(key: string): NonNullable<IndicatorMetadata['applyResul
   }
 }
 
-const builtinDefinitionsByName = new Map(getBuiltinIndicatorDefinitions().map((definition) => [definition.name, definition]))
+let builtinDefinitionsByName: Map<string, IndicatorMetadata>
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+  builtinDefinitionsByName = new Map(getBuiltinIndicatorDefinitions().map((definition) => [definition.name, definition]))
+})
 
 function getBuiltinTestIndicator(name: string): IndicatorMetadata {
   const definition = builtinDefinitionsByName.get(name)

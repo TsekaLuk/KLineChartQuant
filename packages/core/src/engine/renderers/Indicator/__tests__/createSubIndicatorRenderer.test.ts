@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeAll } from 'vitest'
 import type { RendererPluginWithHost } from '../../../../plugin'
 import { IndicatorRegistry } from '../../../indicators/indicatorRegistry'
-import { getBuiltinIndicatorDefinitions } from '../../../indicators/registerBuiltins'
+import { getBuiltinIndicatorDefinitions, loadBuiltinIndicators } from '../../../indicators/registerBuiltins'
 import type { IndicatorMetadata } from '../../../indicators/indicatorMetadata'
 import { createSubIndicatorRenderer } from '../index'
+
+beforeAll(async () => {
+  await loadBuiltinIndicators()
+})
 
 function createRenderer(name: string): RendererPluginWithHost {
   return {

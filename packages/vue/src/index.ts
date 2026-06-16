@@ -88,7 +88,7 @@ export function __setControllerFactory(
  *
  * Throws if container is null/undefined (SSR-safe guard).
  */
-export function createChart(opts: ChartMountOptions): ChartController {
+export async function createChart(opts: ChartMountOptions): Promise<ChartController> {
     if (opts.container == null) {
         throw new Error(
             '[@363045841yyt/klinechart] createChart: `container` is required and must be a non-null HTMLElement',
@@ -100,7 +100,7 @@ export function createChart(opts: ChartMountOptions): ChartController {
                 'Call __setControllerFactory(...) before mounting (the core package wires this in production).',
         )
     }
-    return controllerFactory(opts)
+    return await controllerFactory(opts)
 }
 
 // ---------------------------------------------------------------------------

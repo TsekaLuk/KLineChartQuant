@@ -112,28 +112,28 @@ function makeContainerRef(): ElementRef<HTMLElement> {
 // ---------------------------------------------------------------------------
 
 describe('createChart()', () => {
-    it('throws when container is null', () => {
-        expect(() =>
+    it('throws when container is null', async () => {
+        await expect(
             createChart({
                 container: null as unknown as HTMLElement,
                 data: [],
             }),
-        ).toThrow(/container is required/)
+        ).rejects.toThrow(/container is required/)
     })
 
-    it('throws when no factory is registered', () => {
-        expect(() =>
+    it('throws when no factory is registered', async () => {
+        await expect(
             createChart({
                 container: {} as HTMLElement,
                 data: [],
             }),
-        ).toThrow(/no ChartControllerFactory/)
+        ).rejects.toThrow(/no ChartControllerFactory/)
     })
 
-    it('delegates to factory when provided', () => {
+    it('delegates to factory when provided', async () => {
         const { controller } = createMockChartController()
-        const factory = vi.fn<ChartControllerFactory>(() => controller)
-        const result = createChart({
+        const factory = vi.fn<ChartControllerFactory>(() => Promise.resolve(controller))
+        const result = await createChart({
             container: {} as HTMLElement,
             data: [],
             factory,
@@ -162,7 +162,7 @@ describe('provideKLineChart()', () => {
 
     it('provides factory via DI when factory option is set', () => {
         const { controller } = createMockChartController()
-        const factory: ChartControllerFactory = () => controller
+        const factory: ChartControllerFactory = () => Promise.resolve(controller)
         const providers = provideKLineChart({ factory })
         const injector = Injector.create({ providers })
         expect(injector.get(KLINE_CHART_FACTORY)).toBe(factory)
@@ -197,15 +197,15 @@ describe('coreSignalToAngular()', () => {
 // ---------------------------------------------------------------------------
 
 describe('@363045841yyt/klinechart-angular —component lifecycle', () => {
-    it('renders <kline-chart> with default theme —ngAfterViewInit calls createChart', () => {
+    it('renders <kline-chart> with default theme —ngAfterViewInit calls createChart', async () => {
         const handle = createMockChartController()
-        const factory = vi.fn<ChartControllerFactory>(() => handle.controller)
+        const factory = vi.fn<ChartControllerFactory>(() => Promise.resolve(handle.controller))
         const { injector } = buildInjector(factory, { theme: 'light' })
 
         const component = runInInjectionContext(injector, () => new KLineChartComponent())
         component.container = makeContainerRef()
         component.data = []
-        component.ngAfterViewInit()
+        await component.ngAfterViewInit()
 
         expect(factory).toHaveBeenCalledOnce()
         const call = factory.mock.calls[0][0]
@@ -214,34 +214,31 @@ describe('@363045841yyt/klinechart-angular —component lifecycle', () => {
         expect(component.controller).toBe(handle.controller)
     })
 
-    it('OnPush refresh: Angular viewport signal reflects core signal change synchronously', () => {
+    it('OnPush refresh: Angular viewport signal reflects core signal change synchronously', async () => {
         const handle = createMockChartController()
-        const factory: ChartControllerFactory = () => handle.controller
+        const factory: ChartControllerFactory = () => Promise.resolve(handle.controller)
         const { injector } = buildInjector(factory)
 
         const component = runInInjectionContext(injector, () => new KLineChartComponent())
         component.container = makeContainerRef()
-        component.ngAfterViewInit()
+        await component.ngAfterViewInit()
 
         const initial = component.viewport()
         expect(initial).not.toBeNull()
         expect((initial as ChartViewport).zoomLevel).toBe(1)
 
-        // Mutate via the controller's public API —this fires through the
-        // core signal, the bridge listener writes into the Angular signal,
-        // and component.viewport() returns the new value on the next read.
         handle.controller.zoomToLevel(5)
         expect((component.viewport() as ChartViewport).zoomLevel).toBe(5)
     })
 
-    it('ngOnDestroy disposes the controller and unsubscribes the bridge', () => {
+    it('ngOnDestroy disposes the controller and unsubscribes the bridge', async () => {
         const handle = createMockChartController()
-        const factory: ChartControllerFactory = () => handle.controller
+        const factory: ChartControllerFactory = () => Promise.resolve(handle.controller)
         const { injector } = buildInjector(factory)
 
         const component = runInInjectionContext(injector, () => new KLineChartComponent())
         component.container = makeContainerRef()
-        component.ngAfterViewInit()
+        await component.ngAfterViewInit()
 
         const disposeSpy = vi.spyOn(handle.controller, 'dispose')
         component.ngOnDestroy()

@@ -105,6 +105,7 @@ const menuStyle = computed(() => {
   const w = menuWidth.value || (props.minWidth ? parseInt(props.minWidth) : 0)
   return {
     width: w ? `${w}px` : undefined,
+    zIndex: 1010,
     ...popupStyle.value,
   }
 })
@@ -245,7 +246,6 @@ onBeforeUnmount(close)
 }
 
 .dropdown__menu {
-  z-index: 1010;
   padding: 4px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 4px;

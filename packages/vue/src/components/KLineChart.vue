@@ -1222,6 +1222,8 @@ watch(
   outline: none;
   padding: 1px 4px;
   width: 80px;
+  height: 24px;
+  box-sizing: border-box;
   font-family: inherit;
   border-radius: 3px;
   text-align: center;
@@ -1237,6 +1239,7 @@ watch(
   position: sticky;
   left: 0;
   top: 0;
+  z-index: 26;
   pointer-events: none;
 }
 

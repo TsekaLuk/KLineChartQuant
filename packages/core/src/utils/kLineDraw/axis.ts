@@ -505,7 +505,7 @@ export function drawAxisPriceLabel(ctx: CanvasRenderingContext2D, opts: AxisPric
 
     const centerX = x + width / 2
     ctx.fillStyle = textColor
-    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(yy, dpr))
+    ctx.fillText(priceText, roundToPhysicalPixel(centerX, dpr), roundToPhysicalPixel(yy, dpr) + 1)
 
     ctx.restore()
 }

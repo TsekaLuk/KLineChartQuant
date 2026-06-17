@@ -182,7 +182,7 @@ const primaryTools: ToolDef[] = [
       { id: 'disjoint-channel', title: '不相交通道', icon: IconTablerBrackets },
     ],
   },
-  { id: 'range-select', title: '区间选择', icon: IconTablerArrowsHorizontal },
+  { id: 'range-select', title: '导出区间数据', icon: IconTablerArrowsHorizontal },
 ]
 
 defineProps<{
@@ -484,5 +484,4 @@ onUnmounted(() => {
     height: 36px;
   }
 }
-
 </style>

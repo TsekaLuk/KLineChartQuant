@@ -36,6 +36,7 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **Optimized Interaction** - Stable zoom anchor, precise crosshair cursor, smooth drag
 - **Multi-Symbol Comparison** - Supports unlimited number of instruments for trend comparison
 - **Multi-Source Aggregation** - Supports aggregation and unification of multiple data sources
+- **Batch Data Export** - Select a date range and export multiple stocks' K-line data into a single CSV file, with progress indication
 
 ## 🚀 Quick Start
 

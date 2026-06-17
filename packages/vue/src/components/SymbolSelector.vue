@@ -13,8 +13,16 @@
       <span v-if="loading" class="symbol-chip__spinner" aria-hidden="true" />
       <IconTablerAlertTriangle v-else-if="error" class="symbol-chip__warn" aria-hidden="true" />
     </button>
-    <Transition name="symbol-popover">
-      <div v-if="showPopup" class="symbol-popover" role="dialog" aria-label="切换合约">
+    <Teleport :to="teleportTarget">
+      <Transition name="symbol-popover">
+        <div
+          v-if="showPopup"
+          ref="popupRef"
+          class="symbol-popover"
+          :style="popupStyle"
+          role="dialog"
+          aria-label="切换合约"
+        >
         <div class="symbol-search">
           <span class="symbol-search__icon" aria-hidden="true">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -95,14 +103,17 @@
             <span class="symbol-list__exchange">{{ item.exchange }}</span>
           </button>
         </div>
-      </div>
-    </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
+import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
 export interface SymbolItem {
   code: string
@@ -126,6 +137,15 @@ const showPopup = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const chipWrapRef = ref<HTMLElement | null>(null)
+const popupRef = ref<HTMLElement | null>(null)
+
+const teleportTarget = useFullscreenTeleportTarget()
+
+const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
+  chipWrapRef,
+  popupRef,
+  8,
+)
 
 const currentSymbol = computed<SymbolItem | undefined>(() =>
   props.symbols.find((s) => s.code === props.symbol),
@@ -155,6 +175,14 @@ function togglePopup() {
   }
 }
 
+watch(showPopup, (val) => {
+  if (val) {
+    startPositionSync()
+  } else {
+    stopPositionSync()
+  }
+})
+
 function clearSearch() {
   searchQuery.value = ''
   searchInputRef.value?.focus()
@@ -170,7 +198,9 @@ function selectSymbol(item: SymbolItem) {
 }
 
 function onDocumentClick(e: MouseEvent) {
-  if (chipWrapRef.value && !chipWrapRef.value.contains(e.target as Node)) {
+  const chip = chipWrapRef.value
+  const popup = popupRef.value
+  if (chip && !chip.contains(e.target as Node) && !popup?.contains(e.target as Node)) {
     showPopup.value = false
   }
 }
@@ -238,9 +268,6 @@ watch(() => props.symbol, () => {
 }
 
 .symbol-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
   z-index: 20;
   width: min(320px, calc(100vw - 24px));
   padding: 14px;

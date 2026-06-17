@@ -14,8 +14,16 @@
       <span v-if="comparisonLoading" class="compare-chip__spinner" />
       <span v-if="selected.length > 0" class="compare-chip__badge">{{ selected.length }}</span>
     </button>
-    <Transition name="symbol-popover">
-      <div v-if="showPopup" class="compare-popover" role="dialog" aria-label="比较商品">
+    <Teleport :to="teleportTarget">
+      <Transition name="symbol-popover">
+        <div
+          v-if="showPopup"
+          ref="popupRef"
+          class="compare-popover"
+          :style="popupStyle"
+          role="dialog"
+          aria-label="比较商品"
+        >
         <div class="compare-search">
           <span class="compare-search__icon" aria-hidden="true">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -134,13 +142,16 @@
           </button>
         </div>
       </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import type { SymbolItem } from './SymbolSelector.vue'
+import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
 const props = withDefaults(defineProps<{
   symbols: SymbolItem[]
@@ -160,6 +171,15 @@ const showPopup = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const rootRef = ref<HTMLElement | null>(null)
+const popupRef = ref<HTMLElement | null>(null)
+
+const teleportTarget = useFullscreenTeleportTarget()
+
+const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
+  rootRef,
+  popupRef,
+  8,
+)
 
 const selectedSet = computed(() => new Set(props.selected ?? []))
 
@@ -202,13 +222,23 @@ function togglePopup() {
   }
 }
 
+watch(showPopup, (val) => {
+  if (val) {
+    startPositionSync()
+  } else {
+    stopPositionSync()
+  }
+})
+
 function clearSearch() {
   searchQuery.value = ''
   searchInputRef.value?.focus()
 }
 
 function onDocumentClick(e: MouseEvent) {
-  if (rootRef.value && !rootRef.value.contains(e.target as Node)) {
+  const root = rootRef.value
+  const popup = popupRef.value
+  if (root && !root.contains(e.target as Node) && !popup?.contains(e.target as Node)) {
     showPopup.value = false
     searchQuery.value = ''
   }
@@ -302,9 +332,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentClick)
 }
 
 .compare-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
   z-index: 20;
   width: min(360px, calc(100vw - 24px));
   padding: 14px;

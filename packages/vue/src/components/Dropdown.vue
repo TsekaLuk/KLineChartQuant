@@ -19,20 +19,29 @@
       <span class="dropdown__chevron" aria-hidden="true"></span>
     </button>
 
-    <div v-if="isOpen" class="dropdown__menu" :style="menuStyle" role="listbox" tabindex="-1">
-      <button
-        v-for="option in options"
-        :key="option.value"
-        type="button"
-        class="dropdown__option"
-        :class="{ 'is-selected': option.value === selectedValue }"
-        role="option"
-        :aria-selected="option.value === selectedValue"
-        @click="selectOption(option.value)"
+    <Teleport :to="teleportTarget">
+      <div
+        v-if="isOpen"
+        ref="menuRef"
+        class="dropdown__menu"
+        :style="menuStyle"
+        role="listbox"
+        tabindex="-1"
       >
-        {{ option.label }}
-      </button>
-    </div>
+        <button
+          v-for="option in options"
+          :key="option.value"
+          type="button"
+          class="dropdown__option"
+          :class="{ 'is-selected': option.value === selectedValue }"
+          role="option"
+          :aria-selected="option.value === selectedValue"
+          @click="selectOption(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -44,6 +53,8 @@ let dropdownIdSeed = 0
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { useTeleportedPopup } from '../composables/useTeleportedPopup'
+import { useFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 
 export interface DropdownOption<T extends string = string> {
   label: string
@@ -71,9 +82,18 @@ const emit = defineEmits<{
 
 const rootRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLElement | null>(null)
+const menuRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 const menuWidth = ref(0)
 const dropdownId = ++dropdownIdSeed
+
+const teleportTarget = useFullscreenTeleportTarget()
+
+const { popupStyle, startPositionSync, stopPositionSync } = useTeleportedPopup(
+  triggerRef,
+  menuRef,
+  4,
+)
 
 const triggerStyle = computed(() => {
   if (props.minWidth) return { minWidth: props.minWidth }
@@ -83,7 +103,10 @@ const triggerStyle = computed(() => {
 const menuStyle = computed(() => {
   if (!isOpen.value) return undefined
   const w = menuWidth.value || (props.minWidth ? parseInt(props.minWidth) : 0)
-  return { width: w ? `${w}px` : undefined }
+  return {
+    width: w ? `${w}px` : undefined,
+    ...popupStyle.value,
+  }
 })
 
 const selectedValue = computed(() => {
@@ -107,6 +130,7 @@ function open() {
   activeDropdownClose = close
   menuWidth.value = triggerRef.value?.offsetWidth ?? 0
   isOpen.value = true
+  startPositionSync()
   document.addEventListener('pointerdown', handleDocumentPointerDown)
 }
 
@@ -117,6 +141,7 @@ function close() {
     activeDropdownId = 0
     activeDropdownClose = null
   }
+  stopPositionSync()
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
 }
 
@@ -135,7 +160,8 @@ function selectOption(value: string) {
 
 function handleDocumentPointerDown(event: PointerEvent) {
   const root = rootRef.value
-  if (root && !root.contains(event.target as Node | null)) {
+  const menu = menuRef.value
+  if (root && !root.contains(event.target as Node | null) && !menu?.contains(event.target as Node | null)) {
     close()
   }
 }
@@ -219,10 +245,7 @@ onBeforeUnmount(close)
 }
 
 .dropdown__menu {
-  position: absolute;
   z-index: 30;
-  top: calc(100% + 4px);
-  left: 0;
   padding: 4px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 4px;

@@ -142,34 +142,20 @@ import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTel
 import {
   createChartController,
   type ChartController,
-  type PaneSpec,
-  type IndicatorInstance,
-  type SubIndicatorType,
   type InteractionSnapshot,
-  type DrawingToolId,
   type KLineData,
   type SymbolSpec,
   zoomLevelToKWidth,
   kGapFromKWidth,
-  DrawingInteractionController,
 } from '@363045841yyt/klinechart-core/controllers'
-import {
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
-} from '@363045841yyt/klinechart-core/indicators'
-import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
+import { useChartTheme } from '../composables/chart/useChartTheme'
+import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
+import { useDrawingManager } from '../composables/chart/useDrawingManager'
 import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
-import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-import {
-  resolveThemeColors,
-  themeToCssVars,
-  lightTheme,
-  darkTheme,
-  type ColorPresetSettings,
-} from '@363045841yyt/klinechart-core'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
 
+// ── Props & Emits ──
 const props = withDefaults(
   defineProps<{
     /** 语义化配置（可选，唯一控制源） */
@@ -231,6 +217,7 @@ const emit = defineEmits<{
   (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
 }>()
 
+// ── Symbol / Comparison State ──
 const kLineLevel = ref(props.semanticConfig?.data?.period ?? 'daily')
 const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const isIntraday = computed(() => kLineLevel.value.includes('min'))
@@ -302,9 +289,12 @@ function forcePercentAxis() {
   controller.value?.updateSettingsFacade(nextSettings)
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings))
-  } catch { /* quota exceeded */ }
+  } catch {
+    /* quota exceeded */
+  }
 }
 
+// ── DOM Template Refs ──
 const containerRef = ref<HTMLDivElement | null>(null)
 const chartMainRef = ref<HTMLDivElement | null>(null)
 const chartWrapperRef = ref<HTMLDivElement | null>(null)
@@ -313,13 +303,21 @@ const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
 
-/* ========== 图表控制器 ========== */
+// ── Controller & Composable Wiring ──
 const controller = shallowRef<ChartController | null>(null)
 
-/* ========== 语义化控制器 ========== */
+const {
+  chartTheme,
+  chartSettings,
+  tooltipColors,
+  themeCssVars,
+  handleSettingsChange,
+  applyThemeFromSettings,
+} = useChartTheme(controller)
+
 const semanticController = shallowRef<SemanticChartController | null>(null)
 
-/* ========== 本地响应式状态（信号驱动，取代 ChartStore） ========== */
+/* ========== 本地响应式状态 ========== */
 const dataLength = ref(0)
 const dataVersion = ref(0)
 const viewportDpr = ref(1)
@@ -328,11 +326,41 @@ const kWidth = ref(0)
 const kGap = ref(1)
 const viewWidth = ref(0)
 const paneRatios = ref<Record<string, number>>({})
-const selectedDrawingId = ref<string | null>(null)
-const drawings = ref<DrawingObject[]>([])
 const comparisonColorsMap = ref<Map<string, string>>(new Map())
 const comparisonLoading = ref(false)
 
+const {
+  mainActiveIndicators,
+  subActiveIndicators,
+  activeIndicators,
+  indicatorParams,
+  subPanes,
+  buildPaneLayoutIntent,
+  getDefaultParams,
+  isSubPaneIndicator,
+  addSubPane,
+  removeSubPane,
+  clearAllSubPanes,
+  initIndicatorsFromConfig,
+  switchSubIndicator,
+  handleIndicatorToggle,
+  handleUpdateParams,
+  handleReorderSubIndicators,
+  setupIndicatorSubscriptions,
+} = useIndicatorManager(controller, paneRatios)
+
+const {
+  drawingController,
+  selectedDrawingId,
+  selectedDrawing,
+  drawings,
+  handleSelectTool,
+  onUpdateDrawingStyle,
+  onDeleteDrawing,
+  setupDrawing,
+} = useDrawingManager(controller)
+
+// ── Viewport Initial Values ──
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
 const initZoom = zoomLevel.value
 kWidth.value = zoomLevelToKWidth(initZoom, {
@@ -343,66 +371,12 @@ kWidth.value = zoomLevelToKWidth(initZoom, {
 })
 kGap.value = kGapFromKWidth(kWidth.value, viewportDpr.value)
 
-/* ========== 主题状态 ========== */
-const chartTheme = ref<'light' | 'dark'>('light')
-
-const chartSettings = ref<ChartSettings>({})
-
-const tooltipColors = computed(() => {
-  const isAsiaMarket = chartSettings.value.isAsiaMarket ?? false
-  const colors = resolveThemeColors(chartTheme.value, isAsiaMarket as boolean | undefined)
-  return {
-    upColor: colors.candleUpBody,
-    downColor: colors.candleDownBody,
-  }
-})
-
-const themeCssVars = computed(() => {
-  const theme = chartTheme.value === 'dark' ? darkTheme : lightTheme
-  const overrides = (chartSettings.value.colorPresetSettings as ColorPresetSettings | undefined)?.[
-    chartTheme.value
-  ]
-  if (overrides && Object.keys(overrides).length > 0) {
-    return themeToCssVars({ ...theme, colors: { ...theme.colors, ...overrides } })
-  }
-  return themeToCssVars(theme)
-})
-
-/* ========== 主题切换（支持 light / dark / auto 跟随系统） ========== */
-let autoThemeMediaQuery: MediaQueryList | null = null
-
-function onSystemThemeChange(e: MediaQueryListEvent) {
-  controller.value?.setTheme(e.matches ? 'dark' : 'light')
-}
-
-function applyThemeFromSettings(ctrl: ChartController | null, themeSetting: string | undefined) {
-  if (!ctrl || !themeSetting) return
-
-  if (themeSetting === 'auto') {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    ctrl.setTheme(mq.matches ? 'dark' : 'light')
-    if (autoThemeMediaQuery !== mq) {
-      autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
-      autoThemeMediaQuery = mq
-      mq.addEventListener('change', onSystemThemeChange)
-    }
-  } else {
-    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
-    autoThemeMediaQuery = null
-    ctrl.setTheme(themeSetting as 'light' | 'dark')
-  }
-}
-
+// ── No-op Render Trigger (exposed) ──
 function scheduleRender() {
   /* Controller auto-renders on state changes */
 }
 
-function handleSettingsChange(settings: ChartSettings) {
-  chartSettings.value = settings
-  applyThemeFromSettings(controller.value, settings.theme as string)
-  controller.value?.updateSettingsFacade(settings)
-}
-
+// ── Tooltip Measurement ──
 function measureTooltipSize(el: HTMLDivElement, minWidth: number, minHeight: number) {
   const r = el.getBoundingClientRect()
   return {
@@ -428,11 +402,10 @@ function setMarkerTooltipEl(el: HTMLDivElement | null) {
   })
 }
 
-// ===== Marker tooltip 状态 =====
+// ── Marker Tooltip & Container Rect Cache ──
 const mousePos = ref({ x: 0, y: 0 })
 const useAnchorPositioning = ref(false)
 
-// 容器 rect 缓存，避免 pointermove 中反复 getBoundingClientRect 强制同步布局
 let _cachedContainerRect: DOMRect | null = null
 function invalidateContainerRectCache(): void {
   _cachedContainerRect = null
@@ -444,7 +417,7 @@ function getContainerRect(container: HTMLDivElement): DOMRect {
   return _cachedContainerRect
 }
 
-// ===== 交互状态（单一来源：InteractionController snapshot） =====
+// ── Interaction State Bridge ──
 const interactionState = shallowRef<InteractionSnapshot>({
   crosshairPos: null,
   crosshairIndex: null,
@@ -462,12 +435,6 @@ const interactionState = shallowRef<InteractionSnapshot>({
   isHoveringRightAxis: false,
 })
 
-const drawingController = shallowRef<DrawingInteractionController | null>(null)
-const selectedDrawing = computed(() => {
-  const id = selectedDrawingId.value
-  if (!id) return null
-  return drawings.value.find((d) => d.id === id) ?? null
-})
 const paneSeparatorLines = ref<Array<{ id: string; top: number }>>([])
 const markerTooltipSize = ref({ width: 220, height: 120 })
 const tooltipLayerOffset = computed(() => {
@@ -490,7 +457,7 @@ const isHoveringRightAxis = computed(() => interactionState.value.isHoveringRigh
 const hoveredIdx = computed(() => interactionState.value.hoveredIndex)
 const crosshairIdx = computed(() => interactionState.value.crosshairIndex)
 
-// 统一光标样式：用内联 style 替代 CSS 类后代选择器，切断级联失效链
+// ── Derived Computed (Cursor, Hovered, Tooltip) ──
 const containerCursor = computed(() => {
   if (isDragging.value) return 'grabbing'
   if (isResizingPane.value || isHoveringPaneSeparator.value) return 'ns-resize'
@@ -544,27 +511,9 @@ const chartData = computed(() => {
   return controller.value?.getData() ?? []
 })
 
-// 通知数据变化（在数据更新后调用）
-function handleSelectTool(toolId: string) {
-  drawingController.value?.setTool(toolId as DrawingToolId)
-}
-
+// ── Pointer Event Handlers ──
 function onToggleIndicator() {
   indicatorSelectorRef.value?.toggleMenu()
-}
-
-function onUpdateDrawingStyle(style: Partial<DrawingStyle>) {
-  const d = selectedDrawing.value
-  if (!d || !drawingController.value) return
-  drawingController.value.updateDrawingStyle(d.id, style)
-  drawings.value = drawingController.value.getDrawings()
-}
-
-function onDeleteDrawing() {
-  const d = selectedDrawing.value
-  if (!d || !drawingController.value) return
-  drawingController.value.removeDrawing(d.id)
-  drawings.value = drawingController.value.getDrawings()
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -633,223 +582,7 @@ function onScroll() {
   controller.value?.handleScrollEvent()
 }
 
-// 主图指标显式状态（副图指标从 subPanes 派生）
-const mainActiveIndicators = ref<string[]>([])
-
-// 副图指标列表从 subPanes 自动派生
-const subActiveIndicators = computed(() => {
-  const ids: string[] = []
-  const seen = new Set<string>()
-  for (const pane of subPanes.value) {
-    if (!seen.has(pane.indicatorId)) {
-      seen.add(pane.indicatorId)
-      ids.push(pane.indicatorId)
-    }
-  }
-  return ids
-})
-
-// 最终合并列表（主图 + 副图），保持显示顺序
-const activeIndicators = computed(() => [
-  ...mainActiveIndicators.value,
-  ...subActiveIndicators.value,
-])
-
-// 指标参数配置（MA 的 periods 是数组，需要更宽松的类型）
-const indicatorParams = ref<Record<string, Record<string, unknown>>>({})
-
-// 副图槽位状态
-interface SubPaneSlot {
-  id: string // pane ID: 'RSI_0', 'MACD_0', ...
-  indicatorId: SubIndicatorType
-  params: Record<string, unknown>
-}
-
-// 副图槽位数组（支持多副图）
-const subPanes = ref<SubPaneSlot[]>([])
-
-// 最大副图数量
-const maxSubPanes = 4
-
-function buildPaneLayoutIntent(): PaneSpec[] {
-  const mainRatio = paneRatios.value['main'] ?? 3
-  return subPanes.value.length === 0
-    ? [{ id: 'main', ratio: mainRatio, visible: true, role: 'price' }]
-    : [
-        { id: 'main', ratio: mainRatio, visible: true, role: 'price' },
-        ...subPanes.value.map((pane) => ({
-          id: pane.id,
-          ratio: paneRatios.value[pane.id] ?? 1,
-          visible: true,
-          role: 'indicator' as const,
-        })),
-      ]
-}
-
-// 获取指标默认参数
-function getDefaultParams(
-  indicatorId: SubIndicatorType,
-): Record<string, number | boolean | string> {
-  if (indicatorId === 'VOLUME') return {}
-  const meta = getRegisteredIndicatorDefinition(indicatorId)
-  if (meta?.runtime?.defaultConfig) {
-    return { ...meta.runtime.defaultConfig } as Record<string, number | boolean | string>
-  }
-  return {}
-}
-
-// 副图指标判定（基于 registry category + VOLUME 特例）
-function isSubPaneIndicator(id: string): boolean {
-  if (id === 'VOLUME') return true
-  const def = getRegisteredIndicatorDefinition(id)
-  return !!def && def.category !== 'main'
-}
-
-// 添加副图（使用 Chart API）
-function addSubPane(
-  indicatorId: SubIndicatorType = 'VOLUME',
-  params?: Record<string, number | boolean | string>,
-): boolean {
-  if (subPanes.value.length >= maxSubPanes) {
-    return false
-  }
-
-  const mergedParams = params ?? getDefaultParams(indicatorId)
-
-  const paneId = controller.value?.addIndicator(indicatorId, 'sub', mergedParams)
-  if (!paneId) return false
-  return true
-}
-
-function removeSubPane(paneId: string): void {
-  controller.value?.removeIndicator(paneId)
-}
-
-function clearAllSubPanes(): void {
-  for (const pane of subPanes.value) {
-    controller.value?.removeIndicator(pane.id)
-  }
-}
-
-function initIndicatorsFromConfig(): void {
-  const config = props.semanticConfig
-  const c = controller.value
-  if (!config || !c) return
-
-  const mainIndicators = config.indicators?.main
-  if (mainIndicators) {
-    for (const indicator of mainIndicators) {
-      if (indicator.enabled) {
-        const added = c.addIndicator(
-          indicator.type,
-          'main',
-          indicator.params as Record<string, number | boolean | string>,
-        )
-      }
-    }
-  }
-}
-
-function switchSubIndicator(paneId: string, newIndicatorId: SubIndicatorType): void {
-  const nextParams = getDefaultParams(newIndicatorId)
-  controller.value?.replaceSubPaneIndicator(paneId, newIndicatorId, nextParams)
-}
-
-function handleIndicatorToggle(indicatorId: string, active: boolean) {
-  const c = controller.value
-  if (!c) return
-
-  const def = getRegisteredIndicatorDefinition(indicatorId)
-  const isMain = def && (def.category === 'main' || def.allowMainPane)
-  if (isMain) {
-    const existingIndicator = mainActiveIndicators.value.find((id) => id === indicatorId)
-    if (active && !existingIndicator) {
-      c.addIndicator(indicatorId, 'main', indicatorParams.value[indicatorId])
-    } else if (!active && existingIndicator) {
-      c.removeIndicator(indicatorId.toUpperCase())
-    }
-    return
-  }
-
-  if (isSubPaneIndicator(indicatorId)) {
-    if (active) {
-      const existingPane = subPanes.value.find((p) => p.indicatorId === indicatorId)
-      if (existingPane) return
-      if (subPanes.value.length >= maxSubPanes) return
-
-      const paneId = c.addIndicator(indicatorId, 'sub', indicatorParams.value[indicatorId])
-      if (!paneId && subPanes.value.length > 0) {
-        const lastPane = subPanes.value[subPanes.value.length - 1]
-        switchSubIndicator(lastPane.id, indicatorId as SubIndicatorType)
-      }
-    } else {
-      const panesToRemove = subPanes.value.filter((p) => p.indicatorId === indicatorId)
-      panesToRemove.forEach((pane) => {
-        c.removeIndicator(pane.id)
-      })
-    }
-  }
-}
-
-function handleUpdateParams(indicatorId: string, params: Record<string, unknown>) {
-  if (
-    indicatorId === 'MA' ||
-    indicatorId === 'BOLL' ||
-    indicatorId === 'EXPMA' ||
-    indicatorId === 'ENE'
-  ) {
-    controller.value?.updateIndicatorParams(indicatorId, params)
-    return
-  }
-  if (isSubPaneIndicator(indicatorId)) {
-    subPanes.value
-      .filter((p) => p.indicatorId === indicatorId)
-      .forEach((pane) => {
-        controller.value?.updateIndicatorParams(pane.id, params)
-      })
-  }
-}
-
-function handleReorderSubIndicators(orderedIndicatorIds: string[]) {
-  if (!orderedIndicatorIds.length || subPanes.value.length <= 1) return
-
-  const validOrder = orderedIndicatorIds.filter((id): id is SubIndicatorType =>
-    isSubPaneIndicator(id),
-  )
-  if (!validOrder.length) return
-
-  const paneByIndicator = new Map(subPanes.value.map((pane) => [pane.indicatorId, pane] as const))
-  const nextSubPanes: SubPaneSlot[] = []
-
-  for (const indicatorId of validOrder) {
-    const pane = paneByIndicator.get(indicatorId)
-    if (pane) {
-      nextSubPanes.push(pane)
-      paneByIndicator.delete(indicatorId)
-    }
-  }
-
-  if (nextSubPanes.length === 0) return
-
-  for (const pane of subPanes.value) {
-    if (paneByIndicator.has(pane.indicatorId)) {
-      nextSubPanes.push(pane)
-      paneByIndicator.delete(pane.indicatorId)
-    }
-  }
-
-  const currentSubIds = subPanes.value.map((p) => p.id)
-  const nextSubIds = nextSubPanes.map((p) => p.id)
-  if (currentSubIds.join('|') === nextSubIds.join('|')) return
-
-  subPanes.value = nextSubPanes
-
-  const c = controller.value
-  if (!c) return
-  c.updatePaneLayout(buildPaneLayoutIntent())
-}
-
-/* 计算总宽度：从 Vue 响应式状态读取，zoom 变化时自动重算 */
+// ── Width / Zoom / Expose ──
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
 
 const totalWidth = computed(() => {
@@ -879,7 +612,7 @@ defineExpose({
   getController: () => controller.value,
 })
 
-// ==================== onMounted 拆分函数 ====================
+// ── Lifecycle Setup ──
 
 function setupWheelHandler(): (e: WheelEvent) => void {
   const onWheelHandler = (e: WheelEvent) => {
@@ -968,58 +701,7 @@ function setupChartCallbacks(ctrl: ChartController): void {
     emit('themeChange', newTheme)
   })
 
-  const unsubscribeIndicators = ctrl.indicators.subscribe(() => {
-    const instances = ctrl.indicators.peek()
-
-    const mains = instances
-      .filter((i): i is IndicatorInstance & { role: 'main' } => i.role === 'main')
-      .map((i) => i.definitionId)
-    mainActiveIndicators.value = mains
-
-    const nextParams = { ...indicatorParams.value }
-    for (const inst of instances) {
-      if (inst.role === 'main' && inst.params && Object.keys(inst.params).length > 0) {
-        nextParams[inst.definitionId] = { ...inst.params }
-      }
-    }
-
-    ctrl.updateRendererConfig('mainIndicatorLegend', {
-      indicators: {
-        MA: { enabled: mains.includes('MA'), params: nextParams['MA'] || {} },
-        BOLL: { enabled: mains.includes('BOLL'), params: nextParams['BOLL'] || {} },
-        EXPMA: { enabled: mains.includes('EXPMA'), params: nextParams['EXPMA'] || {} },
-        ENE: { enabled: mains.includes('ENE'), params: nextParams['ENE'] || {} },
-      },
-    })
-
-    indicatorParams.value = nextParams
-  })
-
-  const unsubscribeSubPanes = ctrl.subPanes.subscribe(() => {
-    const subPaneInfos = ctrl.subPanes.peek()
-    const signalIds = new Set(subPaneInfos.map((sp) => sp.paneId))
-
-    const merged = subPanes.value.filter((p) => signalIds.has(p.id))
-    const existingIds = new Set(merged.map((p) => p.id))
-    for (const sp of subPaneInfos) {
-      if (!existingIds.has(sp.paneId)) {
-        merged.push({
-          id: sp.paneId,
-          indicatorId: sp.indicatorId as SubIndicatorType,
-          params: sp.params,
-        })
-      }
-    }
-    subPanes.value = merged
-
-    const nextParams = { ...indicatorParams.value }
-    for (const sp of subPaneInfos) {
-      if (sp.params && Object.keys(sp.params).length > 0) {
-        nextParams[sp.indicatorId] = { ...sp.params }
-      }
-    }
-    indicatorParams.value = nextParams
-  })
+  const unsubscribeIndicators = setupIndicatorSubscriptions(ctrl)
 
   const unsubscribeComparisonColors = ctrl.comparisonColors.subscribe(() => {
     comparisonColorsMap.value = new Map(ctrl.comparisonColors.peek())
@@ -1037,32 +719,16 @@ function setupChartCallbacks(ctrl: ChartController): void {
     unsubscribePaneLayout()
     unsubscribeTheme()
     unsubscribeIndicators()
-    unsubscribeSubPanes()
     unsubscribeComparisonColors()
     unsubscribeComparisonLoading()
-    autoThemeMediaQuery?.removeEventListener('change', onSystemThemeChange)
   })
 }
 
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
   chartSettings.value = initialSettings
-  applyThemeFromSettings(ctrl, initialSettings.theme as string)
+  applyThemeFromSettings(initialSettings.theme as string)
   ctrl.updateSettingsFacade(initialSettings)
-}
-
-function setupDrawingController(ctrl: ChartController): void {
-  drawingController.value = new DrawingInteractionController(ctrl)
-  drawingController.value.setCallbacks({
-    onDrawingCreated: (drawing) => {
-      drawings.value = [...drawings.value, drawing]
-      selectedDrawingId.value = drawing.id
-    },
-    onToolChange: () => {},
-    onDrawingSelected: (drawing) => {
-      selectedDrawingId.value = drawing?.id ?? null
-    },
-  })
 }
 
 function setupInteractionCallbacks(ctrl: ChartController): void {
@@ -1085,7 +751,7 @@ function setupSemanticController(ctrl: ChartController): void {
 
   // config:ready → Chart 侧已完成创建，Vue 回读状态
   semanticController.value.on('config:ready', () => {
-    initIndicatorsFromConfig()
+    initIndicatorsFromConfig(props.semanticConfig)
     nextTick(() => controller.value?.scrollToRight())
   })
   // 暂时断开语义化配置加载，由搜索结果驱动
@@ -1096,6 +762,7 @@ function setupSemanticController(ctrl: ChartController): void {
   // })
 }
 
+// ── onMounted ──
 onMounted(async () => {
   useAnchorPositioning.value = false
 
@@ -1121,13 +788,13 @@ onMounted(async () => {
   // 3.5) 在任何 draw 之前注册主图指标（BOLL/MA 等）
   //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
   //      确保 scheduler 首次 applyResults 时 BOLL 已在 registry 里
-  initIndicatorsFromConfig()
+  initIndicatorsFromConfig(props.semanticConfig)
 
   // 4) 工具栏初始设置
   applyInitialSettings(ctrl)
 
   // 5) 绘图交互控制器
-  setupDrawingController(ctrl)
+  setupDrawing(ctrl)
 
   // 6) 交互信号桥接
   setupInteractionCallbacks(ctrl)
@@ -1136,6 +803,7 @@ onMounted(async () => {
   setupSemanticController(ctrl)
 })
 
+// ── onUnmounted & Watchers ──
 onUnmounted(() => {
   const ctrl = controller.value
   if (ctrl) {

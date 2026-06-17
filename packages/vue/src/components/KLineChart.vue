@@ -66,6 +66,75 @@
                 @update-style="onUpdateDrawingStyle"
                 @delete="onDeleteDrawing"
               />
+              <div
+                v-if="rangeSelectionReady"
+                class="range-selection-export"
+                @pointerdown.stop
+                @pointermove.stop
+                @pointerup.stop
+              >
+                <input
+                  class="range-selection-export__label"
+                  v-model="customStartDate"
+                  :placeholder="rangeSelectionStartLabel"
+                />
+                <span class="range-selection-export__sep">~</span>
+                <input
+                  class="range-selection-export__label"
+                  v-model="customEndDate"
+                  :placeholder="rangeSelectionEndLabel"
+                />
+                <button
+                  type="button"
+                  class="toolbar-btn"
+                  title="批量设置"
+                  @click.stop="showBatchStockDialog = true"
+                >
+                  批量设置
+                </button>
+                <button
+                  type="button"
+                  class="toolbar-btn"
+                  title="导出"
+                  @click.stop="exportRangeToCsv"
+                >
+                  导出
+                </button>
+                <button
+                  type="button"
+                  class="toolbar-btn delete-btn"
+                  title="删除选区"
+                  @click.stop="clearRangeSelection"
+                >
+                  <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div
+              v-if="rangeSelectionOverlayStyle"
+              class="range-selection-overlay"
+              :class="{ 'is-dragging': rangeSelection.isDragging }"
+              :style="rangeSelectionOverlayStyle"
+              aria-label="已选择的 K 线区间"
+            >
+              <div
+                v-if="rangeSelectionReady"
+                class="range-selection-handle range-selection-handle--left"
+                @pointerdown.stop="onEdgePointerDown('left', $event)"
+                @pointermove.stop="onEdgePointerMove($event)"
+                @pointerup.stop="onEdgePointerUp($event)"
+              />
+              <div
+                v-if="rangeSelectionReady"
+                class="range-selection-handle range-selection-handle--right"
+                @pointerdown.stop="onEdgePointerDown('right', $event)"
+                @pointermove.stop="onEdgePointerMove($event)"
+                @pointerup.stop="onEdgePointerUp($event)"
+              />
             </div>
           </div>
         </div>
@@ -116,6 +185,12 @@
         ></div>
       </div>
     </div>
+    <ExportProgressDialog :progress="exportingProgress" @close="exportingProgress = null" />
+    <BatchStockDialog
+      :show="showBatchStockDialog"
+      @close="showBatchStockDialog = false"
+      @apply="onBatchApply"
+    />
     <IndicatorSelector
       ref="indicatorSelectorRef"
       :active-indicators="activeIndicators"
@@ -143,7 +218,6 @@ import {
   createChartController,
   type ChartController,
   type InteractionSnapshot,
-  type KLineData,
   type SymbolSpec,
   zoomLevelToKWidth,
   kGapFromKWidth,
@@ -152,8 +226,11 @@ import { useChartTheme } from '../composables/chart/useChartTheme'
 import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
 import { useDrawingManager } from '../composables/chart/useDrawingManager'
 import { SETTINGS_STORAGE_KEY } from '@363045841yyt/klinechart-core/config'
+import { useRangeSelection } from '../composables/chart/useRangeSelection'
 import LeftToolbar from './LeftToolbar.vue'
 import TopToolbar, { type SymbolItem } from './TopToolbar.vue'
+import BatchStockDialog from './BatchStockDialog.vue'
+import ExportProgressDialog from './ExportProgressDialog.vue'
 
 // ── Props & Emits ──
 const props = withDefaults(
@@ -320,6 +397,9 @@ const semanticController = shallowRef<SemanticChartController | null>(null)
 /* ========== 本地响应式状态 ========== */
 const dataLength = ref(0)
 const dataVersion = ref(0)
+const showBatchStockDialog = ref(false)
+const batchStockCodes = ref<string[]>([])
+const viewportVersion = ref(0)
 const viewportDpr = ref(1)
 const zoomLevel = ref(props.initialZoomLevel ?? 1)
 const kWidth = ref(0)
@@ -328,6 +408,7 @@ const viewWidth = ref(0)
 const paneRatios = ref<Record<string, number>>({})
 const comparisonColorsMap = ref<Map<string, string>>(new Map())
 const comparisonLoading = ref(false)
+const activeToolId = ref('cursor')
 
 const {
   mainActiveIndicators,
@@ -354,11 +435,43 @@ const {
   selectedDrawingId,
   selectedDrawing,
   drawings,
-  handleSelectTool,
+  handleSelectTool: handleDrawingToolSelect,
   onUpdateDrawingStyle,
   onDeleteDrawing,
   setupDrawing,
 } = useDrawingManager(controller)
+
+const {
+  rangeSelection,
+  customStartDate,
+  customEndDate,
+  containerScrollLeft,
+  isRangeSelectActive,
+  rangeSelectionReady,
+  rangeSelectionBounds,
+  rangeSelectionStartLabel,
+  rangeSelectionEndLabel,
+  rangeSelectionOverlayStyle,
+  clearRangeSelection,
+  handleRangePointerDown,
+  handleRangePointerMove,
+  handleRangePointerUp,
+  exportRangeToCsv,
+  exportingProgress,
+  onEdgePointerDown,
+  onEdgePointerMove,
+  onEdgePointerUp,
+  onScroll: onRangeScroll,
+  syncScrollLeft: syncRangeScrollLeft,
+} = useRangeSelection({
+  controller,
+  activeToolId,
+  containerRef,
+  dataVersion,
+  viewportVersion,
+  dataFetcher: computed(() => props.dataFetcher),
+  batchStockCodes,
+})
 
 // ── Viewport Initial Values ──
 // 初始化 kWidth / kGap（与 Chart 引擎 zoom→物理值 转换一致）
@@ -516,9 +629,28 @@ function onToggleIndicator() {
   indicatorSelectorRef.value?.toggleMenu()
 }
 
+function onBatchApply(codes: string[]) {
+  batchStockCodes.value = codes
+}
+
+function handleSelectTool(toolId: string) {
+  activeToolId.value = toolId
+  if (toolId === 'range-select') {
+    drawingController.value?.setTool('cursor')
+    selectedDrawingId.value = null
+    return
+  }
+
+  clearRangeSelection()
+  handleDrawingToolSelect(toolId)
+}
+
 function onPointerDown(e: PointerEvent) {
   controller.value?.handlePointerEvent(e, {
     onPointerDown: (event, container) => {
+      if (handleRangePointerDown(event, container)) {
+        return true
+      }
       if (drawingController.value?.onPointerDown(event, container)) {
         return true
       }
@@ -538,6 +670,9 @@ function onPointerMove(e: PointerEvent) {
   }
   controller.value?.handlePointerEvent(e, {
     onPointerMove: (event, container) => {
+      if (handleRangePointerMove(event, container)) {
+        return true
+      }
       if (drawingController.value?.onPointerMove(event, container)) {
         drawings.value = drawingController.value.getDrawings()
         return true
@@ -550,6 +685,9 @@ function onPointerMove(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
   controller.value?.handlePointerEvent(e, {
     onPointerUp: (event, container) => {
+      if (handleRangePointerUp(event, container)) {
+        return true
+      }
       if (drawingController.value?.onPointerUp(event, container)) {
         return true
       }
@@ -579,6 +717,7 @@ function onRightAxisPointerLeave(e: PointerEvent) {
 }
 
 function onScroll() {
+  onRangeScroll()
   controller.value?.handleScrollEvent()
 }
 
@@ -671,6 +810,8 @@ function setupChartCallbacks(ctrl: ChartController): void {
   const unsubscribeViewport = ctrl.viewport.subscribe(() => {
     const vp = ctrl.viewport.peek()
 
+    viewportVersion.value++
+
     if (viewportDpr.value !== vp.dpr) {
       viewportDpr.value = vp.dpr
     }
@@ -682,6 +823,12 @@ function setupChartCallbacks(ctrl: ChartController): void {
       kWidth.value = vp.kWidth
       kGap.value = vp.kGap
     }
+
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        syncRangeScrollLeft()
+      })
+    })
   })
 
   const unsubscribeData = ctrl.data.subscribe(() => {
@@ -973,6 +1120,117 @@ watch(
   height: 100%;
   min-height: inherit;
   position: relative;
+}
+
+.range-selection-overlay {
+  position: absolute;
+  top: 0;
+  z-index: 25;
+  box-sizing: border-box;
+  border: 1px solid rgba(24, 144, 255, 0.75);
+  background: rgba(24, 144, 255, 0.14);
+  pointer-events: none;
+}
+
+.range-selection-overlay.is-dragging {
+  background: rgba(24, 144, 255, 0.2);
+}
+
+.range-selection-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  pointer-events: auto;
+  z-index: 101;
+}
+
+.range-selection-handle--left { left: -4px; }
+
+.range-selection-handle--right { right: -4px; }
+
+.range-selection-export {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  height: 32px;
+  background: color-mix(in srgb, var(--klc-color-tag-bg-white) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--klc-color-border-button);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.range-selection-export .toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--klc-color-border-button);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--klc-color-axis-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+.range-selection-export .toolbar-btn:hover {
+  border-color: var(--klc-color-axis-line);
+  background: var(--klc-color-grid-minor);
+  color: var(--klc-color-foreground);
+}
+
+.range-selection-export .toolbar-btn.delete-btn {
+  padding: 0;
+  width: 24px;
+  border-color: transparent;
+}
+
+.range-selection-export .toolbar-btn.delete-btn:hover {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.range-selection-export .delete-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.range-selection-export__label {
+  color: var(--klc-color-axis-text);
+  font-size: 11px;
+  white-space: nowrap;
+  border: 1px solid var(--klc-color-border-button);
+  background: none;
+  outline: none;
+  padding: 1px 4px;
+  width: 80px;
+  font-family: inherit;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.range-selection-export__sep {
+  color: var(--klc-color-axis-text);
+  font-size: 11px;
+  user-select: none;
 }
 
 .canvas-layer {

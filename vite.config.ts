@@ -3,13 +3,12 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import dts from 'vite-plugin-dts'
 import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Components from 'unplugin-vue-components/vite'
 
 const decoratorTransform = babel({
-  include: [/\/src\/.*\.tsx?$/],
+  include: [/\/packages\/.*\.tsx?$/],
   exclude: [/node_modules/],
   babelConfig: {
     babelrc: false,
@@ -27,10 +26,6 @@ export default defineConfig({
     decoratorTransform,
     vue(),
     vueDevTools(),
-    dts({
-      insertTypesEntry: true,
-      tsconfigPath: './tsconfig.app.json',
-    }),
     Components({
       resolvers: [IconsResolver()],
     }),
@@ -45,7 +40,6 @@ export default defineConfig({
     },
   },
 
-  // 让手机/局域网设备可以访问本机 dev server
   server: {
     host: '0.0.0.0',
     proxy: {
@@ -56,22 +50,6 @@ export default defineConfig({
       '/api/public': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
-      },
-    },
-  },
-
-  build: {
-    target: 'esnext',
-    lib: {
-      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-      name: 'klinechart',
-      formats: ['es', 'cjs'],
-      fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
-    },
-    rollupOptions: {
-      external: ['vue', 'ajv'],
-      output: {
-        globals: { vue: 'Vue', ajv: 'Ajv' },
       },
     },
   },

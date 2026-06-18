@@ -45,15 +45,14 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "dev": "vite",
-    "dev:lan": "vite --host 0.0.0.0",
+    "dev": "pnpm --filter @363045841yyt/klinechart dev",
+    "dev:lan": "pnpm --filter @363045841yyt/klinechart dev:lan",
     "stockbao": "cd .. && cd stockbao && uv run python ./server.py",
     "aktools": "cd .. && cd aktoolshttp && uv run python -m aktools",
-    "build": "run-p type-check \"build-only {@}\" --",
-    "build-only": "vite build",
+    "build": "pnpm build:packages",
     "build:packages": "pnpm --filter @363045841yyt/klinechart-core build && pnpm --filter @363045841yyt/klinechart-ai-runtime build && pnpm --filter @363045841yyt/klinechart build",
     "build:demo": "vite build --config vite.demo.config.ts",
-    "preview": "vite preview",
+    "preview": "pnpm --filter @363045841yyt/klinechart preview",
     "preview:demo": "vite preview --config vite.demo.config.ts",
     "type-check": "vue-tsc --build",
     "test:unit": "vitest",
@@ -61,28 +60,7 @@
     "size:packages": "pnpm -r --workspace-concurrency=4 size",
     "lint:publish": "pnpm -r --workspace-concurrency=4 lint:publish",
     "lint:types": "pnpm -r --workspace-concurrency=4 lint:types",
-    "format": "prettier --write --experimental-cli src/",
-    "prepublishOnly": "pnpm run build-only"
-  },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    },
-    "./style.css": "./dist/klinechart.css"
-  },
-  "files": [
-    "dist"
-  ],
-  "peerDependencies": {
-    "vue": "^3.5.0"
-  },
-  "dependencies": {
-    "ajv": "^8.20.0"
+    "format": "prettier --write --experimental-cli packages/"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

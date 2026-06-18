@@ -1,11 +1,6 @@
 <template>
-  <div
-    class="drawing-style-toolbar"
-    @pointerdown.stop
-    @pointermove.stop
-    @pointerup.stop
-  >
-    <div class="toolbar-item color-item" title="颜色">
+  <CanvasToolbar>
+    <div class="color-item" title="颜色">
       <span class="color-swatch" :style="{ background: drawing.style.stroke ?? '#2962ff' }"></span>
       <input
         type="color"
@@ -31,20 +26,35 @@
       @update:model-value="onLineStyleChange($event as 'solid' | 'dashed' | 'dotted')"
     />
 
-    <button type="button" class="toolbar-btn delete-btn" title="删除" @click="$emit('delete')">
-      <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <button
+      type="button"
+      class="toolbar-btn toolbar-btn--delete"
+      title="删除"
+      @click="$emit('delete')"
+    >
+      <svg
+        class="delete-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
         <path d="M3 6h18" />
         <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
         <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
       </svg>
     </button>
-  </div>
+  </CanvasToolbar>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import type { DrawingObject, DrawingStyle } from '@363045841yyt/klinechart-core/plugin'
 import Dropdown from './Dropdown.vue'
+import CanvasToolbar from './common/CanvasToolbar.vue'
 
 const widthOptions = [
   { label: '1px', value: '1' },
@@ -92,46 +102,29 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
 </script>
 
 <style scoped>
-.drawing-style-toolbar {
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  height: 32px;
-  background: color-mix(in srgb, var(--klc-color-background) 88%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  z-index: 100;
-  user-select: none;
-  pointer-events: auto;
-}
-
-.toolbar-item {
+.color-item {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.color-item {
-  position: relative;
-  width: 24px;
-  height: 24px;
+.color-item:hover {
+  background: var(--klc-color-grid-minor);
 }
 
 .color-swatch {
   display: block;
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--klc-color-axis-line);
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 4px;
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .color-input {
@@ -141,37 +134,5 @@ function onLineStyleChange(style: 'solid' | 'dashed' | 'dotted') {
   cursor: pointer;
   width: 100%;
   height: 100%;
-}
-
-.toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--klc-color-axis-text);
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-
-.toolbar-btn:hover {
-  border-color: var(--klc-color-axis-line);
-  background: var(--klc-color-grid-minor);
-  color: var(--klc-color-foreground);
-}
-
-.delete-btn:hover {
-  color: #dc2626;
-  border-color: #fca5a5;
-  background: #fef2f2;
-}
-
-.delete-icon {
-  width: 14px;
-  height: 14px;
 }
 </style>

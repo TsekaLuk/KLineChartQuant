@@ -60,69 +60,25 @@
             <div class="canvas-layer" ref="canvasLayerRef">
               <canvas class="x-axis-canvas" ref="xAxisCanvasRef"></canvas>
 
-              <DrawingStyleToolbar
-                v-if="selectedDrawing"
-                :drawing="selectedDrawing"
-                @update-style="onUpdateDrawingStyle"
-                @delete="onDeleteDrawing"
-              />
-              <div
-                v-if="rangeSelectionReady"
-                class="range-selection-export"
-                @pointerdown.stop
-                @pointermove.stop
-                @pointerup.stop
-              >
-                <input
-                  class="range-selection-export__label"
-                  v-model="customStartDate"
-                  :placeholder="rangeSelectionStartLabel"
+              <CanvasToolbarStack>
+                <RangeSelectionExport
+                  v-if="rangeSelectionReady"
+                  v-model:start-date="customStartDate"
+                  v-model:end-date="customEndDate"
+                  :start-label="rangeSelectionStartLabel"
+                  :end-label="rangeSelectionEndLabel"
+                  :count="rangeSelectionCount"
+                  @export="exportRangeToCsv"
+                  @clear="clearRangeSelection"
+                  @batch-setting="showBatchStockDialog = true"
                 />
-                <span class="range-selection-export__sep">~</span>
-                <input
-                  class="range-selection-export__label"
-                  v-model="customEndDate"
-                  :placeholder="rangeSelectionEndLabel"
+                <DrawingStyleToolbar
+                  v-if="selectedDrawing"
+                  :drawing="selectedDrawing"
+                  @update-style="onUpdateDrawingStyle"
+                  @delete="onDeleteDrawing"
                 />
-                <span class="range-selection-export__count">共 {{ rangeSelectionCount }} 条</span>
-                <button
-                  type="button"
-                  class="toolbar-btn"
-                  title="批量设置"
-                  @click.stop="showBatchStockDialog = true"
-                >
-                  批量设置
-                </button>
-                <button
-                  type="button"
-                  class="toolbar-btn"
-                  title="导出"
-                  @click.stop="exportRangeToCsv"
-                >
-                  导出
-                </button>
-                <button
-                  type="button"
-                  class="toolbar-btn delete-btn"
-                  title="取消选区"
-                  @click.stop="clearRangeSelection"
-                >
-                  <svg
-                    class="delete-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  </svg>
-                </button>
-              </div>
+              </CanvasToolbarStack>
             </div>
             <div
               v-if="rangeSelectionOverlayStyle"
@@ -223,6 +179,8 @@ import KLineTooltip from './KLineTooltip.vue'
 import MarkerTooltip from './MarkerTooltip.vue'
 import IndicatorSelector from './IndicatorSelector.vue'
 import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
+import RangeSelectionExport from './RangeSelectionExport.vue'
+import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
 import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import {
   createChartController,
@@ -1165,98 +1123,6 @@ watch(
   right: -4px;
 }
 
-.range-selection-export {
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  height: 32px;
-  background: color-mix(in srgb, var(--klc-color-background) 88%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  z-index: 100;
-  user-select: none;
-  pointer-events: auto;
-}
-
-.range-selection-export .toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--klc-color-border-button);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--klc-color-axis-text);
-  font-size: 12px;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
-  white-space: nowrap;
-}
-
-.range-selection-export .toolbar-btn:hover {
-  border-color: var(--klc-color-axis-line);
-  background: var(--klc-color-grid-minor);
-  color: var(--klc-color-foreground);
-}
-
-.range-selection-export .toolbar-btn.delete-btn {
-  padding: 0;
-  width: 24px;
-  border-color: transparent;
-}
-
-.range-selection-export .toolbar-btn.delete-btn:hover {
-  color: #dc2626;
-  border-color: #fca5a5;
-  background: #fef2f2;
-}
-
-.range-selection-export .delete-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.range-selection-export__label {
-  color: var(--klc-color-axis-text);
-  font-size: 11px;
-  white-space: nowrap;
-  border: 1px solid var(--klc-color-border-button);
-  background: none;
-  outline: none;
-  padding: 1px 4px;
-  width: 80px;
-  height: 24px;
-  box-sizing: border-box;
-  font-family: inherit;
-  border-radius: 3px;
-  text-align: center;
-}
-
-.range-selection-export__sep {
-  color: var(--klc-color-axis-text);
-  font-size: 11px;
-  user-select: none;
-}
-
-.range-selection-export__count {
-  color: var(--klc-color-axis-text);
-  font-size: 12px;
-  white-space: nowrap;
-  user-select: none;
-}
-
 .canvas-layer {
   position: sticky;
   left: 0;
@@ -1296,6 +1162,7 @@ watch(
     gap: 4px;
   }
 }
+
 </style>
 
 <style>

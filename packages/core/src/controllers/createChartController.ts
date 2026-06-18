@@ -815,7 +815,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     let bridge: ChartBridge | null = null
     if (opts.mcp) {
         const mcp = opts.mcp
-        const wsUrl = mcp.wsUrl ?? 'ws://localhost:8080'
+        const wsUrl = mcp.wsUrl ?? 'ws://localhost:8081'
         console.info(`[MCP] Creating bridge, wsUrl=${wsUrl}`)
         bridge = new ChartBridge({
             wsUrl,

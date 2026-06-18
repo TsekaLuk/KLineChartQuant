@@ -3,6 +3,7 @@
 ## Quick Search
 
 - **MUST USE CodeGraph MCP FIRST**: You can use `codegraph_codegraph_callees, codegraph_codegraph_callers, codegraph_codegraph_explore, codegraph_codegraph_files, codegraph_codegraph_impact, codegraph_codegraph_node, codegraph_codegraph_search, codegraph_codegraph_status` to expolore project, Call analysis.It is a replacement for grep and similar commands.
+When you launch a sub-agent, use codegraph MCP when prompted to explore the code in the sub-agent prompt
 
 ## Committing
 

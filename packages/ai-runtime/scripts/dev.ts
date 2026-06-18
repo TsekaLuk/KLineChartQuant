@@ -1,6 +1,6 @@
 import { createMcpServer } from '../src/mcpServer'
 
-const WS_PORT = Number(process.env.WS_PORT) || 8080
+const WS_PORT = Number(process.env.WS_PORT) || 8081
 const MCP_TRANSPORT = process.env.MCP_TRANSPORT || 'stdio'
 
 const { start, stop, wss } = createMcpServer({

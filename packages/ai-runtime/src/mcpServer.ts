@@ -134,7 +134,7 @@ function createCallToolHandler(registry: SessionRegistry) {
 
 export function createMcpServer(options: McpServerOptions = {}): McpServerInstance {
   const registry = options.registry ?? new SessionRegistry()
-  const wsPort = options.ws?.port ?? 8080
+  const wsPort = options.ws?.port ?? 8081
   const wsHost = options.ws?.host ?? '0.0.0.0'
 
   const transport = createWsTransport({ port: wsPort, host: wsHost })

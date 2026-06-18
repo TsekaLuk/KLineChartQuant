@@ -51,7 +51,7 @@ export function createIchimokuRendererPlugin(options: IchimokuRendererOptions = 
         description: '一目均衡表渲染器（WebGL 线 + Canvas2D 云图）',
         debugName: 'Ichimoku',
         paneId,
-        priority: RENDERER_PRIORITY.MAIN,
+        priority: RENDERER_PRIORITY.INDICATOR,
 
         onInstall(host: PluginHost) { pluginHost = host },
         getDeclaredNamespaces() { const key = resolveKey(); return key ? [key] : [] },

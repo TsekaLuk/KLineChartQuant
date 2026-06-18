@@ -6,7 +6,7 @@
 
 # 📈 KLineChartQuant
 
-**渲染清晰 · 高性能 · 交互优化**
+**渲染清晰 · 高性能 · 交互优化 · 移动端友好**
 
 [![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/npm/l/@363045841yyt/klinechart.svg?style=flat&color=orange)](https://github.com/363045841/klinechart/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-在线体验-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
 
@@ -24,6 +24,10 @@
   <br/>
   <img src="https://files.seeusercontent.com/2026/06/05/Udw3/white1.png" width="400" style="border-radius: 12px; margin: 8px;" />
   <img src="https://files.seeusercontent.com/2026/06/05/vQg8/white2.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <br/>
+  <img src="https://files.seeusercontent.com/2026/06/18/N0vc/pasted-image-1781797523313.webp" width="200" style="border-radius: 12px; margin: 8px;" />
+  <br/>
+  <img src="https://files.seeusercontent.com/2026/06/18/z2Oc/pasted-image-1781797517678.webp" width="200" style="border-radius: 12px; margin: 8px;" />
 </div>
 
 ## ✨ 核心特性
@@ -35,6 +39,7 @@
 - **高性能** - 流畅处理万级数据点，无卡顿缩放平移；**200Hz 屏幕下支持 190-200fps**，单帧生成时间低至 **2ms**
 - **WebGL 渲染** - K 线、成交量柱、MACD 柱通过 WebGL 渲染，GPU 加速，**200Hz 屏幕下可达 190fps**，每帧 GPU 耗时 **<1ms**
 - **交互优化** - 缩放锚点稳定、十字光标精准、拖拽流畅
+- **移动端交互优化** - 长按十字线浏览数据不触发滚动，拖拽移动十字线，轻点取消，再次触摸手势滚动
 - **商品比较** - 支持无限数量商品走势比较
 - **多数据源** - 支持多数据源聚合并可自由扩展
 - **批量数据导出** - 选择时间范围后，批量输入多个股票代码，一键导出合并 CSV 文件，支持进度提示

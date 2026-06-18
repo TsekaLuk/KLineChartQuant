@@ -5,7 +5,7 @@ English | [简体中文](README_CN.md)
 
 # 📈 KLineChartQuant
 
-**Crisp Rendering · High Performance · Optimized Interaction**
+**Crisp Rendering · High Performance · Optimized Interaction · Mobile-Friendly**
 
 [![npm version](https://img.shields.io/npm/v/@363045841yyt/klinechart.svg?style=flat&color=blue)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![npm downloads](https://img.shields.io/npm/dm/@363045841yyt/klinechart.svg?style=flat&color=green)](https://www.npmjs.com/package/@363045841yyt/klinechart) [![license](https://img.shields.io/npm/l/@363045841yyt/klinechart.svg?style=flat&color=orange)](https://github.com/363045841/klinechart/blob/main/LICENSE) [![demo](https://img.shields.io/badge/Demo-Online-purple?style=flat)](https://363045841.github.io/KLineChartQuant/)
 
@@ -23,6 +23,10 @@ A lightweight financial K-line charting library focused on quantitative trading 
   <br/>
   <img src="https://files.seeusercontent.com/2026/06/05/Udw3/white1.png" width="400" style="border-radius: 12px; margin: 8px;" />
   <img src="https://files.seeusercontent.com/2026/06/05/vQg8/white2.png" width="400" style="border-radius: 12px; margin: 8px;" />
+  <br/>
+  <img src="https://files.seeusercontent.com/2026/06/18/N0vc/pasted-image-1781797523313.webp" width="200" style="border-radius: 12px; margin: 8px;" />
+  <br/>
+  <img src="https://files.seeusercontent.com/2026/06/18/z2Oc/pasted-image-1781797517678.webp" width="200" style="border-radius: 12px; margin: 8px;" />
 </div>
 
 ## ✨ Core Features
@@ -34,6 +38,7 @@ A lightweight financial K-line charting library focused on quantitative trading 
 - **High Performance** - Smoothly handles tens of thousands of data points, no lag during zoom or pan; supports **190-200fps on 200Hz displays** with single-frame generation time as low as **2ms**
 - **WebGL Rendering** - K-lines, volume bars, and MACD bars rendered via WebGL for GPU-accelerated performance, reaching **190fps on 200Hz displays** with per-frame GPU time under **1ms**
 - **Optimized Interaction** - Stable zoom anchor, precise crosshair cursor, smooth drag
+- **Mobile-Optimized Interaction** - Long-press crosshair for data exploration, tap to dismiss, slide to browse data without triggering chart scroll, gesture-based scroll mode
 - **Multi-Symbol Comparison** - Supports unlimited number of instruments for trend comparison
 - **Multi-Source Aggregation** - Supports aggregation and unification of multiple data sources
 - **Batch Data Export** - Select a date range and export multiple stocks' K-line data into a single CSV file, with progress indication

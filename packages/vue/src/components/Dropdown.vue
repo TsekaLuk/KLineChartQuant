@@ -219,7 +219,7 @@ onBeforeUnmount(close)
 
 .dropdown__value {
   flex: 1 1 auto;
-  color: var(--klc-color-axis-text);
+  color: var(--klc-color-foreground);
   font-size: 13px;
   font-weight: 600;
   line-height: 1;

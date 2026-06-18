@@ -18,7 +18,10 @@
         title="显示/隐藏说明"
       >
         <svg viewBox="0 0 1024 1024">
-          <path d="M512 97.52381c228.912762 0 414.47619 185.563429 414.47619 414.47619s-185.563429 414.47619-414.47619 414.47619S97.52381 740.912762 97.52381 512 283.087238 97.52381 512 97.52381z m0 73.142857C323.486476 170.666667 170.666667 323.486476 170.666667 512s152.81981 341.333333 341.333333 341.333333 341.333333-152.81981 341.333333-341.333333S700.513524 170.666667 512 170.666667z m36.571429 268.190476v292.571428h-73.142858V438.857143h73.142858z m0-121.904762v73.142857h-73.142858v-73.142857h73.142858z" fill="currentColor" />
+          <path
+            d="M512 97.52381c228.912762 0 414.47619 185.563429 414.47619 414.47619s-185.563429 414.47619-414.47619 414.47619S97.52381 740.912762 97.52381 512 283.087238 97.52381 512 97.52381z m0 73.142857C323.486476 170.666667 170.666667 323.486476 170.666667 512s152.81981 341.333333 341.333333 341.333333 341.333333-152.81981 341.333333-341.333333S700.513524 170.666667 512 170.666667z m36.571429 268.190476v292.571428h-73.142858V438.857143h73.142858z m0-121.904762v73.142857h-73.142858v-73.142857h73.142858z"
+            fill="currentColor"
+          />
         </svg>
       </button>
     </template>
@@ -39,10 +42,7 @@
         <div class="param-header">
           <label class="param-label">
             <span class="param-label-text">{{ param.label }}</span>
-            <span
-              v-if="param.min !== undefined || param.max !== undefined"
-              class="param-range"
-            >
+            <span v-if="param.min !== undefined || param.max !== undefined" class="param-range">
               {{ param.min ?? '-∞' }} ~ {{ param.max ?? '+∞' }}
             </span>
           </label>
@@ -179,39 +179,42 @@ function onConfirm() {
 <style scoped>
 /* ── 指标描述 ── */
 .indicator-description {
-  padding: 12px 20px;
-  background: color-mix(in srgb, var(--klc-color-alert-active) 10%, var(--klc-color-background));
-  border-bottom: 1px solid color-mix(in srgb, var(--klc-color-alert-active) 20%, transparent);
+  padding: 8px 12px;
+  background: var(--klc-color-grid-minor);
+  border-left: 3px solid var(--klc-color-alert-active);
+  border-radius: 4px;
+  margin-bottom: 12px;
 }
 
 .indicator-description p {
   margin: 0;
   font-size: 12px;
-  line-height: 1.6;
-  color: var(--klc-color-alert-active);
+  line-height: 1.5;
+  color: var(--klc-color-axis-text);
 }
 
 /* ── 体部 ── */
 .params-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .param-item {
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: var(--klc-color-background);
-  border: 1px solid var(--klc-color-grid-major);
-  transition: border-color 0.2s;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.15s ease;
 }
 
+.param-item:hover,
 .param-item:has(.param-input:focus) {
-  border-color: var(--klc-color-axis-text);
+  background: var(--klc-color-grid-minor);
 }
 
 .param-item.has-desc {
-  padding: 10px 14px 8px;
+  padding: 8px 12px 6px;
 }
 
 .param-header {
@@ -240,19 +243,19 @@ function onConfirm() {
 
 /* ── 参数描述 ── */
 .param-description {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px dashed var(--klc-color-border-button);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.4;
   color: var(--klc-color-axis-text);
 }
 
 /* ── 描述切换按钮 ── */
 .toggle-desc-btn {
-  background: var(--klc-color-background);
+  background: transparent;
   border: 1px solid var(--klc-color-border-button);
-  border-radius: 8px;
+  border-radius: 6px;
   width: 32px;
   height: 32px;
   display: flex;
@@ -260,20 +263,20 @@ function onConfirm() {
   justify-content: center;
   cursor: pointer;
   color: var(--klc-color-axis-text);
-  transition: all 0.2s;
+  transition: all 0.15s ease;
   padding: 0;
 }
 
 .toggle-desc-btn:hover {
-  background: var(--klc-color-tag-bg-hover);
+  background: var(--klc-color-grid-minor);
   color: var(--klc-color-foreground);
   border-color: var(--klc-color-axis-line);
 }
 
 .toggle-desc-btn.active {
-  background: var(--klc-color-foreground);
-  border-color: var(--klc-color-foreground);
-  color: var(--klc-color-background);
+  background: var(--klc-color-grid-minor);
+  border-color: var(--klc-color-axis-line);
+  color: var(--klc-color-foreground);
 }
 
 .toggle-desc-btn svg {
@@ -285,12 +288,12 @@ function onConfirm() {
 .input-wrapper {
   display: flex;
   align-items: stretch;
-  height: 32px;
-  border: 1px solid var(--klc-color-axis-line);
-  border-radius: 7px;
+  height: 30px;
+  border: 1px solid var(--klc-color-border-button);
+  border-radius: 6px;
   overflow: hidden;
   background: var(--klc-color-background);
-  transition: border-color 0.2s;
+  transition: border-color 0.15s ease;
 }
 
 .input-wrapper:focus-within {
@@ -299,7 +302,7 @@ function onConfirm() {
 
 .stepper-btn {
   width: 28px;
-  background: var(--klc-color-grid-minor);
+  background: transparent;
   border: none;
   cursor: pointer;
   font-size: 15px;
@@ -308,13 +311,15 @@ function onConfirm() {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   flex-shrink: 0;
   line-height: 1;
 }
 
 .stepper-btn:hover:not(:disabled) {
-  background: var(--klc-color-border-button);
+  background: var(--klc-color-grid-minor);
   color: var(--klc-color-foreground);
 }
 
@@ -326,8 +331,8 @@ function onConfirm() {
 .param-input {
   width: 60px;
   border: none;
-  border-left: 1px solid var(--klc-color-grid-major);
-  border-right: 1px solid var(--klc-color-grid-major);
+  border-left: 1px solid var(--klc-color-border-button);
+  border-right: 1px solid var(--klc-color-border-button);
   font-size: 13px;
   font-weight: 600;
   text-align: center;
@@ -353,49 +358,52 @@ function onConfirm() {
 }
 
 .params-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border-radius: 7px;
+  justify-content: center;
+  gap: 6px;
+  min-width: 68px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.15s;
-  line-height: 1.4;
+  transition: all 0.15s ease;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .params-btn svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
 
 /* 重置 */
 .params-btn.reset {
   background: transparent;
-  border-color: var(--klc-color-axis-line);
+  border-color: var(--klc-color-border-button);
   color: var(--klc-color-axis-text);
 }
 
 .params-btn.reset:hover {
-  border-color: #c0392b;
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.08);
+  border-color: #f0a020;
+  color: #f0a020;
+  background: rgba(240, 160, 32, 0.08);
 }
 
 /* 取消 */
 .params-btn.cancel {
   background: transparent;
-  border-color: var(--klc-color-axis-line);
-  color: var(--klc-color-axis-text);
+  border-color: var(--klc-color-border-button);
+  color: var(--klc-color-foreground);
 }
 
 .params-btn.cancel:hover {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-  border-color: var(--klc-color-axis-text);
+  background: var(--klc-color-grid-minor);
+  border-color: var(--klc-color-axis-line);
 }
 
 /* 确定 */
@@ -406,15 +414,11 @@ function onConfirm() {
 }
 
 .params-btn.confirm:hover {
-  background: var(--klc-color-foreground);
-  border-color: var(--klc-color-foreground);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
 .params-btn.confirm:active {
-  transform: translateY(0);
-  box-shadow: none;
+  opacity: 0.8;
 }
 
 /* ── 动画 ── */
@@ -422,6 +426,7 @@ function onConfirm() {
 .slide-leave-active {
   transition: all 0.2s ease;
   overflow: hidden;
+  max-height: 200px;
 }
 
 .slide-enter-from,
@@ -431,5 +436,6 @@ function onConfirm() {
   padding-top: 0;
   padding-bottom: 0;
   margin-top: 0;
+  margin-bottom: 0;
 }
 </style>

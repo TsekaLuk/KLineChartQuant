@@ -105,7 +105,7 @@ export const darkTheme: Theme = {
             transparent: 'transparent',
             active: '#1890ff',
             activeHover: '#40a9ff',
-            hover: '#3a3a4a',
+            hover: '#262C36',
         },
         border: {
             dark: 'rgba(255, 255, 255, 0.15)',

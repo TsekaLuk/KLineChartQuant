@@ -86,46 +86,94 @@ export function createMainIndicatorLegendRendererPlugin(options: {
         if (k) {
           const isUp = k.close >= k.open
           const volText = typeof k.volume === 'number' ? formatVolumeShort(k.volume) : null
-          rows.push({
-            draw: (rowIndex: number) => {
-              let x = legendX
-              const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
-              const upColor = isUp ? colors.candleUpBody : colors.candleDownBody
+          const upColor = isUp ? colors.candleUpBody : colors.candleDownBody
 
-              overlayCtx.fillStyle = colors.text.primary
-              overlayCtx.fillText('O ', x, y)
-              x += measureTextWidth(overlayCtx, 'O ')
-              overlayCtx.fillStyle = upColor
-              overlayCtx.fillText(k.open.toFixed(2), x, y)
-              x += measureTextWidth(overlayCtx, k.open.toFixed(2)) + gap
+          if (context.paneWidth >= 400) {
+            rows.push({
+              draw: (rowIndex: number) => {
+                let x = legendX
+                const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
 
-              overlayCtx.fillStyle = colors.text.primary
-              overlayCtx.fillText('H ', x, y)
-              x += measureTextWidth(overlayCtx, 'H ')
-              overlayCtx.fillText(k.high.toFixed(2), x, y)
-              x += measureTextWidth(overlayCtx, k.high.toFixed(2)) + gap
-
-              overlayCtx.fillText('L ', x, y)
-              x += measureTextWidth(overlayCtx, 'L ')
-              overlayCtx.fillText(k.low.toFixed(2), x, y)
-              x += measureTextWidth(overlayCtx, k.low.toFixed(2)) + gap
-
-              overlayCtx.fillStyle = colors.text.primary
-              overlayCtx.fillText('C ', x, y)
-              x += measureTextWidth(overlayCtx, 'C ')
-              overlayCtx.fillStyle = upColor
-              overlayCtx.fillText(k.close.toFixed(2), x, y)
-              x += measureTextWidth(overlayCtx, k.close.toFixed(2)) + gap
-
-              if (volText) {
-                overlayCtx.fillStyle = colors.text.tertiary
-                overlayCtx.fillText('Vol ', x, y)
-                x += measureTextWidth(overlayCtx, 'Vol ')
                 overlayCtx.fillStyle = colors.text.primary
-                overlayCtx.fillText(volText, x, y)
-              }
-            },
-          })
+                overlayCtx.fillText('O ', x, y)
+                x += measureTextWidth(overlayCtx, 'O ')
+                overlayCtx.fillStyle = upColor
+                overlayCtx.fillText(k.open.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.open.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('H ', x, y)
+                x += measureTextWidth(overlayCtx, 'H ')
+                overlayCtx.fillText(k.high.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.high.toFixed(2)) + gap
+
+                overlayCtx.fillText('L ', x, y)
+                x += measureTextWidth(overlayCtx, 'L ')
+                overlayCtx.fillText(k.low.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.low.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('C ', x, y)
+                x += measureTextWidth(overlayCtx, 'C ')
+                overlayCtx.fillStyle = upColor
+                overlayCtx.fillText(k.close.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.close.toFixed(2)) + gap
+
+                if (volText) {
+                  overlayCtx.fillStyle = colors.text.tertiary
+                  overlayCtx.fillText('Vol ', x, y)
+                  x += measureTextWidth(overlayCtx, 'Vol ')
+                  overlayCtx.fillStyle = colors.text.primary
+                  overlayCtx.fillText(volText, x, y)
+                }
+              },
+            })
+          } else {
+            rows.push({
+              draw: (rowIndex: number) => {
+                let x = legendX
+                const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('O ', x, y)
+                x += measureTextWidth(overlayCtx, 'O ')
+                overlayCtx.fillStyle = upColor
+                overlayCtx.fillText(k.open.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.open.toFixed(2)) + gap
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('H ', x, y)
+                x += measureTextWidth(overlayCtx, 'H ')
+                overlayCtx.fillText(k.high.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.high.toFixed(2)) + gap
+
+                overlayCtx.fillText('L ', x, y)
+                x += measureTextWidth(overlayCtx, 'L ')
+                overlayCtx.fillText(k.low.toFixed(2), x, y)
+              },
+            })
+            rows.push({
+              draw: (rowIndex: number) => {
+                let x = legendX
+                const y = config.yPaddingPx / 2 + legendYOffset + rowIndex * lineHeight
+
+                overlayCtx.fillStyle = colors.text.primary
+                overlayCtx.fillText('C ', x, y)
+                x += measureTextWidth(overlayCtx, 'C ')
+                overlayCtx.fillStyle = upColor
+                overlayCtx.fillText(k.close.toFixed(2), x, y)
+                x += measureTextWidth(overlayCtx, k.close.toFixed(2)) + gap
+
+                if (volText) {
+                  overlayCtx.fillStyle = colors.text.tertiary
+                  overlayCtx.fillText('Vol ', x, y)
+                  x += measureTextWidth(overlayCtx, 'Vol ')
+                  overlayCtx.fillStyle = colors.text.primary
+                  overlayCtx.fillText(volText, x, y)
+                }
+              },
+            })
+          }
         }
       }
 

@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { ref, nextTick, type Ref } from 'vue'
 
 export function useTeleportedPopup(
   triggerRef: Ref<HTMLElement | null>,
@@ -11,15 +11,28 @@ export function useTeleportedPopup(
     const trigger = triggerRef.value
     if (!trigger) return
     const rect = trigger.getBoundingClientRect()
+    const popup = popupRef.value
+
+    let left = rect.left
+    if (popup) {
+      const popupWidth = popup.offsetWidth
+      const viewportWidth = window.innerWidth
+      const margin = 8
+      if (left + popupWidth > viewportWidth - margin) {
+        left = Math.max(margin, viewportWidth - popupWidth - margin)
+      }
+    }
+
     popupStyle.value = {
       position: 'fixed',
       top: `${rect.bottom + gap}px`,
-      left: `${rect.left}px`,
+      left: `${left}px`,
     }
   }
 
   function startPositionSync() {
     updatePosition()
+    nextTick(() => updatePosition())
     document.addEventListener('scroll', updatePosition, { capture: true, passive: true })
     window.addEventListener('resize', updatePosition, { passive: true })
   }

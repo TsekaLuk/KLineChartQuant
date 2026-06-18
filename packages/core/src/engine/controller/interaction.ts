@@ -36,7 +36,7 @@ export interface InteractionSnapshot {
 export class InteractionController {
     private chart: Chart
     private isDragging = false
-    private dragMode: 'none' | 'pan' | 'resize-separator' | 'scale-price' = 'none'
+    private dragMode: 'none' | 'pan' | 'resize-separator' | 'scale-price' | 'explore' = 'none'
     private dragStartX = 0
     private scrollStartX = 0
 

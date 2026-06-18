@@ -21,14 +21,13 @@
         </div>
         <template v-for="item in mainSettings" :key="item.key">
           <div class="settings-item">
-            <label class="settings-label">
+            
               <span>{{ item.label }}</span>
               <template v-if="item.type === 'boolean'">
-                <input
-                  type="checkbox"
-                  class="settings-checkbox"
-                  v-model="settings[item.key]"
-                />
+                <label class="md-switch">
+                  <input type="checkbox" v-model="settings[item.key]" />
+                  <span class="md-switch-slider"></span>
+                </label>
               </template>
               <template v-else-if="item.type === 'select' && item.options">
                 <Dropdown
@@ -39,7 +38,6 @@
                   @update:model-value="settings[item.key] = $event"
                 />
               </template>
-            </label>
           </div>
         </template>
       </template>
@@ -49,14 +47,13 @@
       </div>
       <template v-for="item in styleSettings" :key="item.key">
         <div class="settings-item">
-          <label class="settings-label">
+          
             <span>{{ item.label }}</span>
             <template v-if="item.type === 'boolean'">
-              <input
-                type="checkbox"
-                class="settings-checkbox"
-                v-model="settings[item.key]"
-              />
+              <label class="md-switch">
+                <input type="checkbox" v-model="settings[item.key]" />
+                <span class="md-switch-slider"></span>
+              </label>
             </template>
             <template v-else-if="item.type === 'select' && item.options">
               <Dropdown
@@ -67,16 +64,22 @@
                 @update:model-value="settings[item.key] = $event"
               />
             </template>
-          </label>
         </div>
       </template>
       <div class="settings-item nav-item" @click="showColorPresetModal = true">
-        <label class="settings-label">
+        
           <span>颜色配置</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="nav-arrow">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="16"
+            height="16"
+            class="nav-arrow"
+          >
             <path d="M9 18l6-6-6-6" />
           </svg>
-        </label>
       </div>
 
       <template v-if="experimentalSettings.length > 0">
@@ -85,14 +88,13 @@
         </div>
         <template v-for="item in experimentalSettings" :key="item.key">
           <div class="settings-item experimental">
-            <label class="settings-label">
+            
               <span>{{ item.label }}</span>
               <template v-if="item.type === 'boolean'">
-                <input
-                  type="checkbox"
-                  class="settings-checkbox"
-                  v-model="settings[item.key]"
-                />
+                <label class="md-switch">
+                  <input type="checkbox" v-model="settings[item.key]" />
+                  <span class="md-switch-slider"></span>
+                </label>
               </template>
               <template v-else-if="item.type === 'select' && item.options">
                 <Dropdown
@@ -103,7 +105,6 @@
                   @update:model-value="settings[item.key] = $event"
                 />
               </template>
-            </label>
           </div>
         </template>
       </template>
@@ -137,14 +138,22 @@
     width="min(92vw, 460px)"
     max-height="min(720px, calc(100vh - 48px))"
     :z-index="1100"
+    footer-align="space-between"
     @close="showColorPresetModal = false"
   >
     <ColorPresetPanel
+      ref="colorPresetPanelRef"
       :color-preset-settings="settings.colorPresetSettings"
-      @update:color-preset-settings="
-        settings = { ...settings, colorPresetSettings: $event }
-      "
+      @update:color-preset-settings="settings = { ...settings, colorPresetSettings: $event }"
     />
+    <template #footer>
+      <button type="button" class="settings-btn reset" @click="colorPresetPanelRef?.resetCurrentThemeColors()">
+        重置颜色
+      </button>
+      <button type="button" class="settings-btn confirm" @click="showColorPresetModal = false">
+        确认
+      </button>
+    </template>
   </BaseModal>
 </template>
 
@@ -181,6 +190,7 @@ const styleSettings = computed(
 )
 
 const showColorPresetModal = ref(false)
+const colorPresetPanelRef = ref<InstanceType<typeof ColorPresetPanel> | null>(null)
 
 function loadSettings(): ChartSettings {
   try {
@@ -241,104 +251,138 @@ function confirmSettings() {
 }
 
 .settings-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--klc-color-foreground);
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .settings-subtitle {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--klc-color-axis-text);
   line-height: 1.3;
+  font-weight: 400;
 }
 
 .settings-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
-.settings-item {
-  padding: 0;
-  border-radius: 8px;
-  background: var(--klc-color-background);
-  border: 1px solid var(--klc-color-grid-major);
-  transition:
-    border-color 0.15s,
-    background 0.15s,
-    box-shadow 0.15s;
-}
-
-.settings-item:hover {
-  border-color: var(--klc-color-axis-line);
-  background: var(--klc-color-background);
-}
-
-.settings-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 42px;
-  padding: 9px 12px;
-  font-size: 13px;
-  color: var(--klc-color-foreground);
-  cursor: pointer;
-}
-
-.settings-label > span {
-  min-width: 0;
-  line-height: 1.35;
-}
-
-.settings-checkbox {
-  flex: 0 0 auto;
-  width: 17px;
-  height: 17px;
-  cursor: pointer;
-  accent-color: var(--klc-color-foreground);
-}
-
+/* 优化区块小标题 */
 .settings-section-divider {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 10px 0 2px;
+  margin: 18px 0 6px;
 }
 
 .settings-section-divider:first-child {
   margin-top: 0;
 }
 
-.settings-section-divider::before,
-.settings-section-divider::after {
-  content: '';
-  flex: 1;
-  border-top: 1px solid var(--klc-color-border-button);
-}
-
 .settings-section-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--klc-color-axis-text);
+  font-weight: 500;
   white-space: nowrap;
   line-height: 1;
+  letter-spacing: 0.3px;
 }
 
+/* 扁平化列表项 */
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--klc-color-foreground);
+  transition: background 0.15s ease;
+}
+
+.settings-item:hover {
+  background: var(--klc-color-grid-minor);
+}
+
+.settings-item > span {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+/* Material Design 风格开关 */
+.md-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.md-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.md-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(128, 128, 128, 0.4);
+  transition: 0.3s;
+  border-radius: 20px;
+}
+
+.md-switch-slider::before {
+  position: absolute;
+  content: '';
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #e0e0e0;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.md-switch input:checked + .md-switch-slider {
+  background-color: #3b82f6;
+  opacity: 1;
+}
+
+.md-switch input:checked + .md-switch-slider::before {
+  transform: translateX(16px);
+  background-color: #ffffff;
+}
+
+/* 导航项交互优化 */
 .settings-item.nav-item {
   cursor: pointer;
 }
 
-.settings-item.nav-item:hover .nav-arrow {
-  color: var(--klc-color-foreground);
-}
-
 .nav-arrow {
   color: var(--klc-color-axis-text);
-  transition: color 0.15s;
+  transition:
+    transform 0.15s,
+    color 0.15s;
   flex-shrink: 0;
 }
 
+.settings-item.nav-item:hover .nav-arrow {
+  color: var(--klc-color-foreground);
+  transform: translateX(2px);
+}
+
+/* 底部按钮 */
 .footer-right {
   display: flex;
   gap: 8px;
@@ -346,57 +390,50 @@ function confirmSettings() {
 }
 
 .settings-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   min-width: 68px;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 7px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid transparent;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s,
-    box-shadow 0.15s,
-    transform 0.15s;
+  transition: all 0.15s ease;
   line-height: 1;
   white-space: nowrap;
 }
 
 .settings-btn svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
 
 .settings-btn.reset {
   background: transparent;
-  border-color: var(--klc-color-axis-line);
+  border-color: var(--klc-color-border-button);
   color: var(--klc-color-axis-text);
-  min-width: 76px;
 }
 
 .settings-btn.reset:hover {
-  border-color: #c0392b;
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.08);
+  border-color: #f0a020;
+  color: #f0a020;
+  background: rgba(240, 160, 32, 0.08);
 }
 
 .settings-btn.cancel {
   background: transparent;
-  border-color: var(--klc-color-axis-line);
-  color: var(--klc-color-axis-text);
+  border-color: var(--klc-color-border-button);
+  color: var(--klc-color-foreground);
 }
 
 .settings-btn.cancel:hover {
-  background: var(--klc-color-tag-bg-hover);
-  color: var(--klc-color-foreground);
-  border-color: var(--klc-color-axis-text);
+  background: var(--klc-color-grid-minor);
+  border-color: var(--klc-color-axis-line);
 }
 
 .settings-btn.confirm {
@@ -406,32 +443,23 @@ function confirmSettings() {
 }
 
 .settings-btn.confirm:hover {
-  background: var(--klc-color-foreground);
-  border-color: var(--klc-color-foreground);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .settings-btn.confirm:active {
-  transform: translateY(0);
-  box-shadow: none;
+  transform: scale(0.98);
 }
 
 @media (max-width: 480px) {
-  .settings-label {
-    align-items: flex-start;
-    flex-direction: column;
+  .settings-item {
     gap: 8px;
-  }
-
-  .settings-checkbox {
-    align-self: flex-end;
-    margin-top: -26px;
   }
 
   .footer-right {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    width: 100%;
   }
 
   .settings-btn {

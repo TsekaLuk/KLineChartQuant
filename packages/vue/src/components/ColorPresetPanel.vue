@@ -1,27 +1,24 @@
 <template>
-  <div>
-    <div class="color-preset-tools">
-      <div class="theme-tabs" role="tablist" aria-label="颜色主题">
-        <button
-          v-for="option in themeOptions"
-          :key="option.value"
-          type="button"
-          class="theme-tab"
-          :class="{ active: editingTheme === option.value }"
-          @click="editingTheme = option.value"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-      <button type="button" class="color-reset-btn" @click="resetCurrentThemeColors">
-        重置颜色
+  <div class="color-preset-container">
+    <div class="theme-tabs" role="tablist" aria-label="颜色主题">
+      <button
+        v-for="option in themeOptions"
+        :key="option.value"
+        type="button"
+        class="theme-tab"
+        :class="{ active: editingTheme === option.value }"
+        @click="editingTheme = option.value"
+      >
+        {{ option.label }}
       </button>
     </div>
+
+    <!-- 颜色分组列表 -->
     <template v-for="group in colorPresetGroups" :key="group.group">
       <div class="color-group-label">{{ group.label }}</div>
       <div class="color-grid">
         <label v-for="item in group.items" :key="item.key" class="color-item">
-          <span>{{ item.label }}</span>
+          <span class="color-item-text">{{ item.label }}</span>
           <input
             type="color"
             class="color-input"
@@ -105,30 +102,27 @@ function resetCurrentThemeColors(): void {
   delete nextColorSettings[editingTheme.value]
   emit('update:colorPresetSettings', nextColorSettings)
 }
+
+defineExpose({ resetCurrentThemeColors })
 </script>
 
 <style scoped>
-/* ── 工具栏 ── */
-.color-preset-tools {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+.color-preset-container {
+  padding: 4px 0;
 }
 
-/* ── 主题切换 ── */
 .theme-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  padding: 3px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 12px;
   border: 1px solid var(--klc-color-border-button);
   border-radius: 8px;
   background: var(--klc-color-grid-minor);
 }
 
 .theme-tab {
+  flex: 1;
   height: 28px;
   border: none;
   border-radius: 6px;
@@ -137,10 +131,8 @@ function resetCurrentThemeColors(): void {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition:
-    background 0.18s ease,
-    color 0.18s ease,
-    box-shadow 0.18s ease;
+  transition: all 0.18s ease;
+  white-space: nowrap;
 }
 
 .theme-tab:not(.active):hover {
@@ -149,137 +141,97 @@ function resetCurrentThemeColors(): void {
 }
 
 .theme-tab.active {
-  background: var(--klc-color-background);
   color: var(--klc-color-foreground);
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* ── 重置按钮 ── */
-.color-reset-btn {
-  height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--klc-color-axis-line);
-  border-radius: 8px;
-  background: var(--klc-color-background);
-  color: var(--klc-color-axis-text);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.color-reset-btn:hover {
-  border-color: var(--klc-color-axis-text);
-  background: var(--klc-color-background);
-  color: var(--klc-color-foreground);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.color-reset-btn:active {
-  background: var(--klc-color-tag-bg-hover);
-  box-shadow: none;
 }
 
 /* ── 分组标签 ── */
 .color-group-label {
-  margin: 6px 0 6px;
+  margin: 18px 0 6px;
   color: var(--klc-color-axis-text);
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+.color-group-label:first-of-type {
+  margin-top: 0;
 }
 
 /* ── 颜色网格 ── */
 .color-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 
-/* ── 颜色条目 ── */
+/* ── 颜色条目 (扁平化样式) ── */
 .color-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--klc-color-grid-major);
-  border-radius: 8px;
-  background: var(--klc-color-background);
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
   color: var(--klc-color-foreground);
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 13px;
   cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    box-shadow 0.18s ease;
+  transition: background 0.15s ease;
 }
 
 .color-item:hover {
-  border-color: var(--klc-color-axis-line);
-  background: var(--klc-color-tag-bg-hover);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--klc-color-foreground) 6%, transparent);
+  background: var(--klc-color-grid-minor);
 }
 
-.color-item span {
+.color-item-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   user-select: none;
+  line-height: 1.4;
 }
 
-/* ── 颜色输入 ── */
+/* ── 颜色输入 (无边框圆角矩形) ── */
 .color-input {
   flex: 0 0 auto;
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid var(--klc-color-axis-line);
+  border: 1px solid var(--klc-color-border-button);
   border-radius: 6px;
   background: transparent;
   cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+  transition: transform 0.15s ease;
+  overflow: hidden;
 }
 
 .color-input:hover {
-  border-color: var(--klc-color-axis-text);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 6%, transparent);
-}
-
-.color-input:focus-visible {
-  outline: none;
-  border-color: var(--klc-color-axis-text);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--klc-color-foreground) 10%, transparent);
+  transform: scale(1.1);
 }
 
 .color-input::-webkit-color-swatch-wrapper {
-  padding: 2px;
+  padding: 0;
 }
 
 .color-input::-webkit-color-swatch {
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
+}
+
+.color-input::-moz-color-swatch {
+  border: none;
+  border-radius: 6px;
 }
 
 /* ── 响应式 ── */
 @media (max-width: 480px) {
   .color-preset-tools {
-    grid-template-columns: 1fr;
-  }
-
-  .color-reset-btn {
-    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .color-grid {

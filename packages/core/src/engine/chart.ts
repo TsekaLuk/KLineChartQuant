@@ -268,6 +268,11 @@ export class Chart {
         return this.viewportManager.getCachedScrollLeft()
     }
 
+    /** 同步程序性 scrollLeft 写入后的缓存，避免等待异步 scroll 事件 */
+    syncScrollLeft(scrollLeft: number): void {
+        this.viewportManager.setCachedScrollLeft(scrollLeft)
+    }
+
     /** 获取逻辑 scrollLeft（减去左侧加载缓冲宽度，可为负值） */
     getLogicalScrollLeft(): number {
         return this.viewportManager.getLogicalScrollLeft()

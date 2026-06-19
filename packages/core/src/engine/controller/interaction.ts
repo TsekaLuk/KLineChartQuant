@@ -46,6 +46,7 @@ export class InteractionController {
         const dpr = this.chart.getCurrentDpr()
         const rounded = Math.round(clampedScrollLeft * dpr) / dpr
         container.scrollLeft = rounded
+        this.chart.syncScrollLeft(container.scrollLeft)
     }
 
     /** 垂直拖动相关 */
@@ -275,7 +276,6 @@ export class InteractionController {
             } else if (wasPanning) {
                 // 有实际滑动 → 下次支持长按
                 this.exploreMode = true
-                this.chart.checkVisibleRangeGap()
             } else {
                 // 既未触发 explore 也未滑动
                 const elapsed = Date.now() - this.touchStartTime
@@ -291,6 +291,11 @@ export class InteractionController {
                     this.exploreMode = true
                 }
             }
+        }
+
+        // 鼠标和触屏拖拽结束后都检查左侧缺口 → 触发增量加载
+        if (wasPanning) {
+            this.chart.checkVisibleRangeGap()
         }
 
         this.isDragging = false

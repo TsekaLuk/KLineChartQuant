@@ -159,15 +159,20 @@ export class DataBuffer {
                 const oldLength = this._data.length
                 const oldEarliestTs = oldLength > 0 ? this._data[0]!.timestamp : null
                 const merged = mergeSortedData(this._data, [...incoming])
+                const newEarliestTs = merged[0]?.timestamp ?? null
+                const advancedEarliest = oldEarliestTs !== null
+                    && newEarliestTs !== null
+                    && newEarliestTs < oldEarliestTs
 
-                if (oldLength > 0 && merged.length > oldLength && oldEarliestTs !== null) {
-                    const newEarliestTs = merged[0]!.timestamp
-                    if (newEarliestTs < oldEarliestTs) {
-                        const prependCount = merged.findIndex((d) => d.timestamp === oldEarliestTs)
-                        if (prependCount > 0) {
-                            this.onPrepend?.(prependCount)
-                        }
+                if (oldLength > 0 && merged.length > oldLength && advancedEarliest) {
+                    const prependCount = merged.findIndex((d) => d.timestamp === oldEarliestTs)
+                    if (prependCount > 0) {
+                        this.onPrepend?.(prependCount)
                     }
+                }
+
+                if (oldLength > 0 && !advancedEarliest) {
+                    this._attemptedBoundaries.delete(endTs)
                 }
 
                 this._data = merged

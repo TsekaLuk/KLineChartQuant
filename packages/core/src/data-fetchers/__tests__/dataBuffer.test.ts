@@ -199,6 +199,38 @@ describe('DataBuffer', () => {
         expect(fetchCount).toBeGreaterThanOrEqual(2)
     })
 
+    it('deduplicates same-boundary ensureRange calls while request is pending', async () => {
+        const now = Date.now()
+        const oneYearAgo = now - 365 * MS_PER_DAY
+
+        const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
+        let fetchCount = 0
+        const fetcher: DataFetcher = async () => {
+            fetchCount++
+            await new Promise((r) => setTimeout(r, 10))
+            if (fetchCount === 1) return initialData
+            return [makeKLine(oneYearAgo - 90 * MS_PER_DAY)]
+        }
+
+        buffer.setFetcher(fetcher)
+        buffer.setSymbol(defaultSpec)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        buffer.ensureRange(oneYearAgo - 30 * MS_PER_DAY, oneYearAgo)
+        buffer.ensureRange(oneYearAgo - 60 * MS_PER_DAY, oneYearAgo)
+
+        expect(fetchCount).toBe(2)
+
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
+
+        expect(fetchCount).toBe(2)
+    })
+
     it('dispose prevents further fetches', async () => {
         const fetcher: DataFetcher = async () => {
             return [makeKLine(Date.now())]
@@ -285,7 +317,7 @@ describe('DataBuffer', () => {
         expect(prependCalls).toHaveLength(0)
     })
 
-    it('ensureRange skips when same boundary was already attempted (empty fetch)', async () => {
+    it('ensureRange allows retry when previous fetch did not advance earliestTs', async () => {
         const now = Date.now()
         const oneYearAgo = now - 365 * MS_PER_DAY
         const initialData = [makeKLine(oneYearAgo), makeKLine(now)]
@@ -295,7 +327,7 @@ describe('DataBuffer', () => {
             fetchCount++
             if (fetchCount === 1) return initialData
             // Return data with same timestamps so mergeSortedData deduplicates them,
-            // avoiding loadedWindow change while keeping boundary in _attemptedBoundaries
+            // avoiding loadedWindow change. The boundary should remain retryable.
             return initialData
         }
 
@@ -316,12 +348,14 @@ describe('DataBuffer', () => {
 
         expect(fetchCount).toBe(2)
 
-        // same boundary → should be skipped
+        // Same boundary but the previous fetch did not prepend data, so retry.
         buffer.ensureRange(oneYearAgo - 60 * MS_PER_DAY, oneYearAgo)
 
-        await new Promise((r) => setTimeout(r, 50))
+        await vi.waitFor(() => {
+            expect(buffer.loading()).toBe(false)
+        })
 
-        expect(fetchCount).toBe(2)
+        expect(fetchCount).toBe(3)
     })
 
     it('ensureRange allows retry when earliestTs moves after successful load', async () => {

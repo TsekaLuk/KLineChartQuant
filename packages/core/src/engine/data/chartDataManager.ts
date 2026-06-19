@@ -102,7 +102,6 @@ export class ChartDataManager {
     return 24
   }
 
-  private static readonly LEADING_SLOTS = 60
   private static readonly TRAILING_DRAWING_SLOTS = 24
 
   private clearIncrementalLoadHintTimer(): void {
@@ -570,7 +569,7 @@ export class ChartDataManager {
     const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
     const dpr = this.deps.getEffectiveDpr()
     const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const dataPlotWidth = (startXPx + (ChartDataManager.LEADING_SLOTS + dataLength + ChartDataManager.TRAILING_DRAWING_SLOTS) * unitPx) / dpr
+    const dataPlotWidth = (startXPx + (dataLength + ChartDataManager.TRAILING_DRAWING_SLOTS) * unitPx) / dpr
     return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
   }
 

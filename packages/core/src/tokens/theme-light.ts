@@ -20,9 +20,13 @@
  */
 
 import type { Theme } from './types'
+import { spacing, typography, motion } from './theme-base'
 
 export const lightTheme: Theme = {
     name: 'light',
+    spacing,
+    typography,
+    motion,
     colors: {
         background: '#FAFAFA',
         foreground: '#1F1F1F',
@@ -210,37 +214,5 @@ price: {
             obBearFill: 'rgba(239, 68, 68, 0.25)',
         },
         wmsrGrid: 'rgba(0, 0, 0, 0.1)',
-    },
-    spacing: {
-        none: '0',
-        xxs: '2px',
-        xs: '4px',
-        sm: '8px',
-        md: '12px',
-        lg: '16px',
-        xl: '24px',
-        xxl: '32px',
-        xxxl: '64px',
-    },
-    typography: {
-        fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-        fontFamilyMono:
-            "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
-        fontSizeSm: '10px',
-        fontSizeMd: '12px',
-        fontSizeLg: '14px',
-        fontWeightRegular: 400,
-        fontWeightMedium: 500,
-        fontWeightBold: 700,
-        lineHeightTight: 1.2,
-        lineHeightStandard: 1.4,
-    },
-    motion: {
-        durationInstant: '0ms',
-        durationFast: '120ms',
-        durationModerate: '200ms',
-        easingStandard: 'cubic-bezier(0.4, 0, 0.2, 1)',
-        easingDecelerate: 'cubic-bezier(0, 0, 0.2, 1)',
     },
 }

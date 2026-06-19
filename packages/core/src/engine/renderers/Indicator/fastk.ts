@@ -1,7 +1,7 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import { resolveThemeColors } from '../../../tokens'
-import { alignToPhysicalPixelCenter } from '../../draw/pixelAlign'
+import { createDashedLineRenderer } from './shared/dashedLines'
 import type { FASTKRenderState } from '../../indicators/fastkState'
 import { createFASTKStateKey, EMPTY_FASTK_STATE } from '../../indicators/fastkState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
@@ -10,7 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, FASTKSchedulerConfig } from '../../indicators/scheduler'
 import { createFastkScaleRendererPlugin } from './scale/fastk_scale'
 import { calcFASTKData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }
 
@@ -49,63 +49,11 @@ function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): Renderer
     let cachedFASTKPoints: LinePoint[] = []
 
     // 离屏 Canvas 缓存虚线背景线 (80/20)
-    let offscreenCanvas: HTMLCanvasElement | null = null
-    let offscreenCtx: CanvasRenderingContext2D | null = null
-    let cachedDashedLinesKey = ''
+    const dashedLines = createDashedLineRenderer()
 
     function clearLineCache() {
         cachedKey = ''
         cachedFASTKPoints = []
-    }
-
-    function getOffscreenCanvas(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
-        if (!offscreenCanvas || offscreenCanvas.width !== width || offscreenCanvas.height !== height) {
-            offscreenCanvas = document.createElement('canvas')
-            offscreenCanvas.width = width
-            offscreenCanvas.height = height
-            offscreenCtx = offscreenCanvas.getContext('2d')!
-            cachedDashedLinesKey = ''
-        }
-        return { canvas: offscreenCanvas, ctx: offscreenCtx! }
-    }
-
-    function buildDashedLinesKey(
-        paneWidth: number,
-        paneHeight: number,
-        displayMin: number,
-        displayMax: number,
-        dpr: number
-    ): string {
-        return `${paneWidth}|${paneHeight}|${displayMin.toFixed(4)}|${displayMax.toFixed(4)}|${dpr}`
-    }
-
-    function renderDashedLinesToOffscreen(
-        ctx: CanvasRenderingContext2D,
-        paneWidth: number,
-        paneHeight: number,
-        displayMin: number,
-        displayMax: number,
-        dpr: number
-    ): void {
-        const displayValueRange = displayMax - displayMin || 1
-        const y80 = alignToPhysicalPixelCenter(paneHeight - (80 - displayMin) / displayValueRange * paneHeight, dpr)
-        const y20 = alignToPhysicalPixelCenter(paneHeight - (20 - displayMin) / displayValueRange * paneHeight, dpr)
-
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-        ctx.save()
-        ctx.scale(dpr, dpr)
-
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
-        ctx.lineWidth = 1
-        ctx.setLineDash([4, 4])
-        ctx.beginPath()
-        ctx.moveTo(0, y80)
-        ctx.lineTo(paneWidth, y80)
-        ctx.moveTo(0, y20)
-        ctx.lineTo(paneWidth, y20)
-        ctx.stroke()
-
-        ctx.restore()
     }
 
     function buildFASTKCacheKey(
@@ -171,20 +119,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
 
             const paneWidth = context.paneWidth
             const paneHeight = pane.height
-            const dashedLinesKey = buildDashedLinesKey(paneWidth, paneHeight, displayMin, displayMax, dpr)
-
-            if (cachedDashedLinesKey !== dashedLinesKey) {
-                cachedDashedLinesKey = dashedLinesKey
-                const { ctx: offCtx } = getOffscreenCanvas(
-                    Math.ceil(paneWidth * dpr),
-                    Math.ceil(paneHeight * dpr)
-                )
-                renderDashedLinesToOffscreen(offCtx, paneWidth, paneHeight, displayMin, displayMax, dpr)
-            }
-
-            if (offscreenCanvas) {
-                ctx.drawImage(offscreenCanvas, 0, 0, paneWidth, paneHeight)
-            }
+            dashedLines.render(ctx, paneWidth, paneHeight, displayMin, displayMax, dpr)
 
             // 确定绘制范围
             const drawStart = Math.max(range.start, params.period - 1)
@@ -281,30 +216,12 @@ function drawFASTKLineWithCanvas2D(
 /**
  * 获取 FASTK 标题信息（供 paneTitle 使用）
  */
-function getFASTKTitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 9
-    const colors = resolveThemeColors('light')
-    const state = pluginHost.getSharedState<FASTKRenderState>(createFASTKStateKey(paneId))
-    if (!state) return null
-
-    const fastk = state.series[index]
-    if (fastk === undefined) return null
-
-    return {
-        name: 'FASTK',
-        params: [period],
-        values: [
-            { label: 'FASTK', value: fastk, color: colors.kdj.k },
-        ],
-    }
-}
+const getFASTKTitleInfo = createSingleLineTitleInfo({
+    createStateKey: createFASTKStateKey,
+    name: 'FASTK',
+    defaultPeriod: 9,
+    getColor: (colors) => colors.kdj.k,
+})
 
 @Indicator({
     name: 'fastk',

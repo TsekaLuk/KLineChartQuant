@@ -7,8 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, OBVSchedulerConfig } from '../../indicators/scheduler'
 import { calcOBVData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const OBV_COLOR = '#16a34a'
 
@@ -111,24 +110,7 @@ function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     }
 }
 
-function getOBVTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  _params: Record<string, number | boolean | string>,
-  host: PluginHost,
-  paneId: string,
-): TitleInfo | null {
-  if (index === null) return null
-  const state = host.getSharedState<OBVRenderState>(createOBVStateKey(paneId))
-  const value = state?.series[index]
-  if (value === undefined) return null
-
-  return {
-    name: 'OBV',
-    params: [],
-    values: [{ label: 'OBV', value, color: OBV_COLOR }],
-  }
-}
+const getOBVTitleInfo = createSingleLineTitleInfo({ createStateKey: createOBVStateKey, name: 'OBV', color: OBV_COLOR })
 
 @Indicator({
     name: 'obv',

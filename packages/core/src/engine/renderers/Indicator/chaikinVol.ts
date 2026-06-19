@@ -2,8 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { ChaikinVolRenderState } from '../../indicators/chaikinVolState'
 import { createChaikinVolStateKey, EMPTY_CHAIKIN_VOL_STATE } from '../../indicators/chaikinVolState'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
@@ -126,26 +125,7 @@ function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
-function getChaikinVolTitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    host: PluginHost,
-    paneId: string,
-): TitleInfo | null {
-    if (index === null) return null
-    const emaPeriod = (params.emaPeriod as number) ?? 10
-    const rocPeriod = (params.rocPeriod as number) ?? 10
-    const state = host.getSharedState<ChaikinVolRenderState>(createChaikinVolStateKey(paneId))
-    const value = state?.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'ChaikinVol',
-        params: [emaPeriod, rocPeriod],
-        values: [{ label: 'ChaikinVol', value, color: CHAIKIN_VOL_COLOR }],
-    }
-}
+const getChaikinVolTitleInfo = createSingleLineTitleInfo({ createStateKey: createChaikinVolStateKey, name: 'ChaikinVol', getParams: (p) => [(p.emaPeriod as number) ?? 10, (p.rocPeriod as number) ?? 10], color: CHAIKIN_VOL_COLOR })
 
 @Indicator({
     name: 'chaikinVol',

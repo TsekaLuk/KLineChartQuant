@@ -9,8 +9,9 @@
  */
 
 import type { Signal } from '../reactivity'
-import type { CustomMarkerEntity, MarkerEntity } from '../engine/marker/registry'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
 import type { PaneSpec } from '../engine/chartTypes'
+import type { InteractionSnapshot } from '../engine/chart'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -141,22 +142,7 @@ export interface IndicatorDefinition {
 // Interaction state
 // ---------------------------------------------------------------------------
 
-export interface InteractionSnapshot {
-    crosshairPos: { x: number; y: number } | null
-    crosshairIndex: number | null
-    crosshairPrice: number | null
-    hoveredIndex: number | null
-    activePaneId: string | null
-    tooltipPos: { x: number; y: number }
-    tooltipAnchorPlacement: 'right-bottom' | 'left-bottom'
-    hoveredMarkerData: MarkerEntity | null
-    hoveredCustomMarker: CustomMarkerEntity | null
-    isDragging: boolean
-    isResizingPaneBoundary: boolean
-    isHoveringPaneBoundary: boolean
-    hoveredPaneBoundaryId: string | null
-    isHoveringRightAxis: boolean
-}
+export type { InteractionSnapshot }
 
 // ---------------------------------------------------------------------------
 // Pane info (read-only pane metadata for DrawingChartAdapter)

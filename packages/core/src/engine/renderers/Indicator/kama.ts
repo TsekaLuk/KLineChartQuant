@@ -1,10 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { KAMARenderState } from '../../indicators/kamaState'
 import { createKAMAStateKey, EMPTY_KAMA_STATE } from '../../indicators/kamaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, KAMASchedulerConfig } from '../../indicators/scheduler'
 import { calcKAMAData } from '../../indicators/calculators'
@@ -122,28 +122,7 @@ function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPl
     }
 }
 
-const getKAMATitleInfo: GetTitleInfoFn = (
-    _data: KLineData[],
-    index: number | null,
-    _params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): TitleInfo | null => {
-    if (index === null) return null
-
-    const stateKey = createKAMAStateKey(paneId)
-    const state = pluginHost?.getSharedState<KAMARenderState>(stateKey)
-    if (!state || state.visibleMin > state.visibleMax) return null
-
-    const value = state.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'KAMA',
-        params: [state.params.period, state.params.fastPeriod, state.params.slowPeriod],
-        values: [{ label: 'KAMA', value, color: '#0ea5e9' }],
-    }
-}
+const getKAMATitleInfo = createSingleLineTitleInfo({ createStateKey: createKAMAStateKey, name: 'KAMA', getParams: (p) => [p.period as number, p.fastPeriod as number, p.slowPeriod as number], color: KAMA_COLOR })
 
 @Indicator({
     name: 'kama',

@@ -2,8 +2,7 @@ import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../..
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { CMFRenderState } from '../../indicators/cmfState'
 import { createCMFStateKey, EMPTY_CMF_STATE } from '../../indicators/cmfState'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { createFixedRangeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -125,25 +124,7 @@ function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     }
 }
 
-function getCMFTitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    host: PluginHost,
-    paneId: string,
-): TitleInfo | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 20
-    const state = host.getSharedState<CMFRenderState>(createCMFStateKey(paneId))
-    const value = state?.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'CMF',
-        params: [period],
-        values: [{ label: 'CMF', value, color: CMF_COLOR }],
-    }
-}
+const getCMFTitleInfo = createSingleLineTitleInfo({ createStateKey: createCMFStateKey, name: 'CMF', defaultPeriod: 20, color: CMF_COLOR })
 
 @Indicator({
     name: 'cmf',

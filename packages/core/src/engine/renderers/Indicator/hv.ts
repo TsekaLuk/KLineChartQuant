@@ -9,8 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, HVSchedulerConfig } from '../../indicators/scheduler'
 import { calcHVData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const HV_COLOR = '#7c3aed'
 
@@ -114,26 +113,7 @@ function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPlug
     }
 }
 
-function getHVTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  host: PluginHost,
-  paneId: string,
-): TitleInfo | null {
-  if (index === null) return null
-  const period = (params.period as number) ?? 20
-  const annualizationFactor = (params.annualizationFactor as number) ?? 252
-  const state = host.getSharedState<HVRenderState>(createHVStateKey(paneId))
-  const value = state?.series[index]
-  if (value === undefined) return null
-
-  return {
-    name: 'HV',
-    params: [period, annualizationFactor],
-    values: [{ label: 'HV', value, color: HV_COLOR }],
-  }
-}
+const getHVTitleInfo = createSingleLineTitleInfo({ createStateKey: createHVStateKey, name: 'HV', getParams: (p) => [(p.period as number) ?? 20, (p.annualizationFactor as number) ?? 252], color: HV_COLOR })
 
 @Indicator({
     name: 'hv',

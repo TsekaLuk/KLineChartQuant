@@ -10,7 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, WMSRSchedulerConfig } from '../../indicators/scheduler'
 import { createWmsrScaleRendererPlugin } from './scale/wmsr_scale'
 import { calcWMSRData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }
 
@@ -290,33 +290,12 @@ function drawWMSRLineWithCanvas2D(
     ctx.restore()
 }
 
-/**
- * 获取 WMSR 标题信息（供 paneTitle 使用）
- */
-function getWMSRTitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 14
-    const colors = resolveThemeColors('light')
-    const state = pluginHost.getSharedState<WMSRRenderState>(createWMSRStateKey(paneId))
-    if (!state) return null
-
-    const wmsr = state.series[index]
-    if (wmsr === undefined) return null
-
-    return {
-        name: 'WMSR',
-        params: [period],
-        values: [
-            { label: 'WMSR', value: wmsr, color: colors.wmsr.wmsr },
-        ],
-    }
-}
+const getWMSRTitleInfo = createSingleLineTitleInfo({
+    createStateKey: createWMSRStateKey,
+    name: 'WMSR',
+    defaultPeriod: 14,
+    getColor: (colors) => colors.wmsr.wmsr,
+})
 
 @Indicator({
     name: 'wmsr',

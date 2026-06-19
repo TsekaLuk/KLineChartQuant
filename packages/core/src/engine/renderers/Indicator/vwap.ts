@@ -7,8 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, VWAPSchedulerConfig } from '../../indicators/scheduler'
 import { calcVWAPData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const VWAP_COLOR = '#ec4899'
 
@@ -111,24 +110,7 @@ function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPl
     }
 }
 
-function getVWAPTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  _params: Record<string, number | boolean | string>,
-  host: PluginHost,
-  paneId: string,
-): TitleInfo | null {
-  if (index === null) return null
-  const state = host.getSharedState<VWAPRenderState>(createVWAPStateKey(paneId))
-  const value = state?.series[index]
-  if (value === undefined) return null
-
-  return {
-    name: 'VWAP',
-    params: [],
-    values: [{ label: 'VWAP', value, color: VWAP_COLOR }],
-  }
-}
+const getVWAPTitleInfo = createSingleLineTitleInfo({ createStateKey: createVWAPStateKey, name: 'VWAP', color: VWAP_COLOR })
 
 @Indicator({
     name: 'vwap',

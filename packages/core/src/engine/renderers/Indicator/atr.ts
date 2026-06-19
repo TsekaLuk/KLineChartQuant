@@ -10,7 +10,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ATRSchedulerConfig } from '../../indicators/scheduler'
 import { createAtrScaleRendererPlugin } from './scale/atr_scale'
 import { calcATRData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }
 
@@ -206,32 +206,7 @@ function drawWithCanvas2D(
     ctx.restore()
 }
 
-/**
- * 获取 ATR 标题信息（供 paneTitle 使用）
- */
-function getATRTitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 14
-    const state = pluginHost.getSharedState<ATRRenderState>(createATRStateKey(paneId))
-    if (!state) return null
-
-    const atr = state.series[index]
-    if (atr === undefined) return null
-
-    return {
-        name: 'ATR',
-        params: [period],
-        values: [
-            { label: 'ATR', value: atr, color: ATR_COLOR },
-        ],
-    }
-}
+const getATRTitleInfo = createSingleLineTitleInfo({ createStateKey: createATRStateKey, name: 'ATR', defaultPeriod: 14, color: ATR_COLOR })
 
 @Indicator({
     name: 'atr',

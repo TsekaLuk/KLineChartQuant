@@ -11,7 +11,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, MOMSchedulerConfig } from '../../indicators/scheduler'
 import { createMomScaleRendererPlugin } from './scale/mom_scale'
 import { calcMOMData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }
 
@@ -274,33 +274,12 @@ function drawMOMLineWithCanvas2D(
     ctx.restore()
 }
 
-/**
- * 获取 MOM 标题信息（供 paneTitle 使用）
- */
-function getMOMTitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 10
-    const colors = resolveThemeColors('light')
-    const state = pluginHost.getSharedState<MOMRenderState>(createMOMStateKey(paneId))
-    if (!state) return null
-
-    const mom = state.series[index]
-    if (mom === undefined) return null
-
-    return {
-        name: 'MOM',
-        params: [period],
-        values: [
-            { label: 'MOM', value: mom, color: colors.mom.mom },
-        ],
-    }
-}
+const getMOMTitleInfo = createSingleLineTitleInfo({
+    createStateKey: createMOMStateKey,
+    name: 'MOM',
+    defaultPeriod: 10,
+    getColor: (colors) => colors.mom.mom,
+})
 
 @Indicator({
     name: 'mom',

@@ -7,8 +7,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, PVTSchedulerConfig } from '../../indicators/scheduler'
 import { calcPVTData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const PVT_COLOR = '#a855f7'
 
@@ -111,24 +110,7 @@ function createPVTRendererPlugin(options: { paneId?: string } = {}): RendererPlu
     }
 }
 
-function getPVTTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  _params: Record<string, number | boolean | string>,
-  host: PluginHost,
-  paneId: string,
-): TitleInfo | null {
-  if (index === null) return null
-  const state = host.getSharedState<PVTRenderState>(createPVTStateKey(paneId))
-  const value = state?.series[index]
-  if (value === undefined) return null
-
-  return {
-    name: 'PVT',
-    params: [],
-    values: [{ label: 'PVT', value, color: PVT_COLOR }],
-  }
-}
+const getPVTTitleInfo = createSingleLineTitleInfo({ createStateKey: createPVTStateKey, name: 'PVT', color: PVT_COLOR })
 
 @Indicator({
     name: 'pvt',

@@ -1,10 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { TEMARenderState } from '../../indicators/temaState'
 import { createTEMAStateKey, EMPTY_TEMA_STATE } from '../../indicators/temaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, TEMASchedulerConfig } from '../../indicators/scheduler'
 import { calcTEMAData } from '../../indicators/calculators'
@@ -122,28 +122,7 @@ function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPl
     }
 }
 
-const getTEMATitleInfo: GetTitleInfoFn = (
-    _data: KLineData[],
-    index: number | null,
-    _params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): TitleInfo | null => {
-    if (index === null) return null
-
-    const stateKey = createTEMAStateKey(paneId)
-    const state = pluginHost?.getSharedState<TEMARenderState>(stateKey)
-    if (!state || state.visibleMin > state.visibleMax) return null
-
-    const value = state.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'TEMA',
-        params: [state.params.period],
-        values: [{ label: 'TEMA', value, color: '#d946ef' }],
-    }
-}
+const getTEMATitleInfo = createSingleLineTitleInfo({ createStateKey: createTEMAStateKey, name: 'TEMA', getParams: (p) => [p.period as number], color: TEMA_COLOR })
 
 @Indicator({
     name: 'tema',

@@ -1,10 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { DEMARenderState } from '../../indicators/demaState'
 import { createDEMAStateKey, EMPTY_DEMA_STATE } from '../../indicators/demaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, DEMASchedulerConfig } from '../../indicators/scheduler'
 import { calcDEMAData } from '../../indicators/calculators'
@@ -122,28 +122,7 @@ function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPl
     }
 }
 
-const getDEMATitleInfo: GetTitleInfoFn = (
-    _data: KLineData[],
-    index: number | null,
-    _params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): TitleInfo | null => {
-    if (index === null) return null
-
-    const stateKey = createDEMAStateKey(paneId)
-    const state = pluginHost?.getSharedState<DEMARenderState>(stateKey)
-    if (!state || state.visibleMin > state.visibleMax) return null
-
-    const value = state.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'DEMA',
-        params: [state.params.period],
-        values: [{ label: 'DEMA', value, color: '#6366f1' }],
-    }
-}
+const getDEMATitleInfo = createSingleLineTitleInfo({ createStateKey: createDEMAStateKey, name: 'DEMA', getParams: (p) => [p.period as number], color: DEMA_COLOR })
 
 @Indicator({
     name: 'dema',

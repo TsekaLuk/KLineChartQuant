@@ -3,8 +3,7 @@ import { RENDERER_PRIORITY } from '../../../plugin'
 import type { VMARenderState } from '../../indicators/vmaState'
 import { createVMAStateKey } from '../../indicators/vmaState'
 import { EMPTY_VMA_STATE } from '../../indicators/vmaState'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { createNonNegativeSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
@@ -113,25 +112,7 @@ function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPlu
     }
 }
 
-function getVMATitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    host: PluginHost,
-    paneId: string,
-): TitleInfo | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 5
-    const state = host.getSharedState<VMARenderState>(createVMAStateKey(paneId))
-    const value = state?.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'VMA',
-        params: [period],
-        values: [{ label: 'VMA', value, color: VMA_COLOR }],
-    }
-}
+const getVMATitleInfo = createSingleLineTitleInfo({ createStateKey: createVMAStateKey, name: 'VMA', defaultPeriod: 5, color: VMA_COLOR })
 
 @Indicator({
     name: 'vma',

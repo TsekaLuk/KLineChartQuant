@@ -1,10 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { WMARenderState } from '../../indicators/wmaState'
 import { createWMAStateKey, EMPTY_WMA_STATE } from '../../indicators/wmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, WMASchedulerConfig } from '../../indicators/scheduler'
 import { calcWMAData } from '../../indicators/calculators'
@@ -122,28 +122,7 @@ function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPlug
     }
 }
 
-const getWMATitleInfo: GetTitleInfoFn = (
-    _data: KLineData[],
-    index: number | null,
-    _params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): TitleInfo | null => {
-    if (index === null) return null
-
-    const stateKey = createWMAStateKey(paneId)
-    const state = pluginHost?.getSharedState<WMARenderState>(stateKey)
-    if (!state || state.visibleMin > state.visibleMax) return null
-
-    const value = state.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'WMA',
-        params: [state.params.period],
-        values: [{ label: 'WMA', value, color: '#10b981' }],
-    }
-}
+const getWMATitleInfo = createSingleLineTitleInfo({ createStateKey: createWMAStateKey, name: 'WMA', getParams: (p) => [p.period as number], color: WMA_COLOR })
 
 @Indicator({
     name: 'wma',

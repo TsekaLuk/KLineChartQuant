@@ -9,8 +9,7 @@ import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
 import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, ParkinsonSchedulerConfig } from '../../indicators/scheduler'
 import { calcParkinsonData } from '../../indicators/calculators'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const PARKINSON_COLOR = '#0891b2'
 
@@ -114,26 +113,7 @@ function createParkinsonRendererPlugin(options: { paneId?: string } = {}): Rende
     }
 }
 
-function getParkinsonTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  host: PluginHost,
-  paneId: string,
-): TitleInfo | null {
-  if (index === null) return null
-  const period = (params.period as number) ?? 20
-  const annualizationFactor = (params.annualizationFactor as number) ?? 252
-  const state = host.getSharedState<ParkinsonRenderState>(createParkinsonStateKey(paneId))
-  const value = state?.series[index]
-  if (value === undefined) return null
-
-  return {
-    name: 'Parkinson',
-    params: [period, annualizationFactor],
-    values: [{ label: 'Parkinson', value, color: PARKINSON_COLOR }],
-  }
-}
+const getParkinsonTitleInfo = createSingleLineTitleInfo({ createStateKey: createParkinsonStateKey, name: 'Parkinson', getParams: (p) => [(p.period as number) ?? 20, (p.annualizationFactor as number) ?? 252], color: PARKINSON_COLOR })
 
 @Indicator({
     name: 'parkinson',

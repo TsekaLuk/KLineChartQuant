@@ -1,10 +1,10 @@
 import type { RendererPluginWithHost, RenderContext, PluginHost } from '../../../plugin'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 import { RENDERER_PRIORITY } from '../../../plugin'
 import type { HMARenderState } from '../../indicators/hmaState'
 import { createHMAStateKey, EMPTY_HMA_STATE } from '../../indicators/hmaState'
 import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
-import { resolveStateKey, type TitleInfo, type TitleValueItem, type GetTitleInfoFn } from '../../indicators/indicatorMetadata'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, HMASchedulerConfig } from '../../indicators/scheduler'
 import { calcHMAData } from '../../indicators/calculators'
@@ -122,28 +122,7 @@ function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPlug
     }
 }
 
-const getHMATitleInfo: GetTitleInfoFn = (
-    _data: KLineData[],
-    index: number | null,
-    _params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): TitleInfo | null => {
-    if (index === null) return null
-
-    const stateKey = createHMAStateKey(paneId)
-    const state = pluginHost?.getSharedState<HMARenderState>(stateKey)
-    if (!state || state.visibleMin > state.visibleMax) return null
-
-    const value = state.series[index]
-    if (value === undefined) return null
-
-    return {
-        name: 'HMA',
-        params: [state.params.period],
-        values: [{ label: 'HMA', value, color: '#f43f5e' }],
-    }
-}
+const getHMATitleInfo = createSingleLineTitleInfo({ createStateKey: createHMAStateKey, name: 'HMA', getParams: (p) => [p.period as number], color: HMA_COLOR })
 
 @Indicator({
     name: 'hma',

@@ -9,7 +9,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorScheduler, CCISchedulerConfig } from '../../indicators/scheduler'
 import { createCciScaleRendererPlugin } from './scale/cci_scale'
 import { calcCCIData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 type LinePoint = { x: number; y: number }
 
@@ -240,30 +240,12 @@ function drawCCILineWithCanvas2D(
 /**
  * 获取 CCI 标题信息（供 paneTitle 使用）
  */
-function getCCITitleInfo(
-    _data: KLineData[],
-    index: number | null,
-    params: Record<string, number | boolean | string>,
-    pluginHost: PluginHost,
-    paneId: string,
-): { name: string; params: number[]; values: Array<{ label: string; value: number; color: string }> } | null {
-    if (index === null) return null
-    const period = (params.period as number) ?? 14
-    const colors = resolveThemeColors('light')
-    const state = pluginHost.getSharedState<CCIRenderState>(createCCIStateKey(paneId))
-    if (!state) return null
-
-    const cci = state.series[index]
-    if (cci === undefined) return null
-
-    return {
-        name: 'CCI',
-        params: [period],
-        values: [
-            { label: 'CCI', value: cci, color: colors.cci.cci },
-        ],
-    }
-}
+const getCCITitleInfo = createSingleLineTitleInfo({
+    createStateKey: createCCIStateKey,
+    name: 'CCI',
+    defaultPeriod: 14,
+    getColor: (colors) => colors.cci.cci,
+})
 
 @Indicator({
     name: 'cci',

@@ -9,30 +9,9 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import type { IndicatorPriceRangeComputer, IndicatorRenderStateComposer, GetTitleInfoFn, TitleInfo, TitleValueItem } from '../../indicators/indicatorMetadata'
 import type { ENESchedulerConfig, IndicatorScheduler } from '../../indicators/scheduler'
 import { calcENEData } from '../../indicators/calculators'
+import { getRgbaAlpha, toOpaqueRgba, compositeLineSurface } from './shared/webglBand'
 
 type LinePoint = { x: number; y: number }
-
-function getRgbaAlpha(color: string): number {
-    const match = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i)
-    if (!match) return 1
-    const alpha = Number(match[1])
-    return Number.isFinite(alpha) ? alpha : 1
-}
-
-function toOpaqueRgba(color: string): string {
-    return color.replace(/,\s*[\d.]+\s*\)$/i, ', 1)')
-}
-
-function compositeLineSurface(
-    context: RenderContext,
-    surface: NonNullable<RenderContext['lineWebGLSurface']>,
-    alpha = 1
-): void {
-    surface.compositeTo(context.ctx, {
-        alpha,
-        imageSmoothingEnabled: false,
-    })
-}
 
 function drawENEWithWebGL(
     context: RenderContext,

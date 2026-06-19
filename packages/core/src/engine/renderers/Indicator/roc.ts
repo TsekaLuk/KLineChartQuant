@@ -8,8 +8,7 @@ import { resolveStateKey } from '../../indicators/indicatorMetadata'
 import { createSparseVisibleStateComposer } from '../../indicators/visibleStateComposers'
 import type { IndicatorScheduler, ROCSchedulerConfig } from '../../indicators/scheduler'
 import { calcROCData } from '../../indicators/calculators'
-import type { KLineData } from '../../../types/price'
-import type { TitleInfo } from '../../indicators/indicatorMetadata'
+import { createSingleLineTitleInfo } from './shared/titleInfo'
 
 const ROC_COLOR = '#0ea5e9'
 
@@ -132,25 +131,7 @@ function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPlug
     }
 }
 
-function getROCTitleInfo(
-  _data: KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  pluginHost: PluginHost,
-  paneId: string,
-): TitleInfo | null {
-  if (index === null) return null
-  const period = (params.period as number) ?? 12
-  const state = pluginHost.getSharedState<ROCRenderState>(createROCStateKey(paneId))
-  const value = state?.series[index]
-  if (value === undefined) return null
-
-  return {
-    name: 'ROC',
-    params: [period],
-    values: [{ label: 'ROC', value, color: ROC_COLOR }],
-  }
-}
+const getROCTitleInfo = createSingleLineTitleInfo({ createStateKey: createROCStateKey, name: 'ROC', defaultPeriod: 12, color: ROC_COLOR })
 
 @Indicator({
     name: 'roc',

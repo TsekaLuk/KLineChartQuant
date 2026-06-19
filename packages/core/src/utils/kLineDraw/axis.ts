@@ -47,7 +47,7 @@ export interface PriceAxisOptions {
 }
 
 /** 右侧价格轴（固定，不随 translate/scroll 变化） */
-export function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
     const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         x,
@@ -306,7 +306,7 @@ export function drawCrosshairPriceLabel(ctx: CanvasRenderingContext2D, opts: Cro
 }
 
 /** 绘制"最新价水平虚线"（画在 plotCanvas 的 world 坐标系：需在 translate(-scrollLeft,0) 之后调用） */
-export function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: LastPriceLineOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
+function drawLastPriceDashedLine(ctx: CanvasRenderingContext2D, opts: LastPriceLineOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
     const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
     const {
         plotWidth,

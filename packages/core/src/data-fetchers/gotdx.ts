@@ -154,9 +154,9 @@ async function fetchGotdx(
     'daily', 'weekly', 'monthly', 'quarterly', 'yearly',
   ],
 })
-export class GotdxFetcher {
+class GotdxFetcher {
   static fetcher = fetchGotdx
 }
 
 /** @deprecated Use `GotdxFetcher.fetcher` directly or rely on routerDataFetcher. */
-export const gotdxDataFetcher = fetchGotdx
+const gotdxDataFetcher = fetchGotdx

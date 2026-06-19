@@ -5,7 +5,7 @@
  */
 
 /** 数字和文本的标准字体栈 */
-export const FONT_FAMILY = '"Trebuchet MS", Roboto, Ubuntu, sans-serif'
+const FONT_FAMILY = '"Trebuchet MS", Roboto, Ubuntu, sans-serif'
 
 /** 获取指定字号的字体字符串，用于 Canvas ctx.font */
 export function getFont(size: number, options?: { bold?: boolean }): string {

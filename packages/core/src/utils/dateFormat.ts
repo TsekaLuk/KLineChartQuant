@@ -130,7 +130,7 @@ export function formatMonthOrYear(timestamp: number): { text: string; isYear: bo
  * @example
  * monthKey(1736793600000) // 24301 (2025*12 + 0)
  */
-export function monthKey(timestamp: number): number {
+function monthKey(timestamp: number): number {
     const d = new Date(timestamp)
     return d.getFullYear() * 12 + d.getMonth()
 }
@@ -176,7 +176,7 @@ export function formatTimestamp(
  * @param ts - 时间戳（毫秒）
  * @returns 格式化后的日期字符串，例如 "2025-01-14"
  */
-export const formatShanghaiDate = formatDateToYYYYMMDD
+const formatShanghaiDate = formatDateToYYYYMMDD
 
 /**
  * formatDateToYYYYMMDD 的别名，用于十字线日期标签显示

@@ -279,7 +279,7 @@ export function calcMAData(data: KLineData[], period: number): (number | undefin
 export const DEFAULT_RSI_PERIOD1 = 6
 export const DEFAULT_RSI_PERIOD2 = 12
 export const DEFAULT_RSI_PERIOD3 = 24
-export const DEFAULT_RSI_PERIODS = [6, 12, 24] as const
+const DEFAULT_RSI_PERIODS = [6, 12, 24] as const
 
 /**
  * 计算 RSI 数据
@@ -351,7 +351,7 @@ export function calcRSIData(data: KLineData[], period: number): (number | undefi
 // CCI 顺势指标
 // ============================================================================
 
-export const DEFAULT_CCI_PERIOD = 14
+const DEFAULT_CCI_PERIOD = 14
 
 export function calcCCIData(data: KLineData[], period: number): (number | undefined)[] {
     const result: (number | undefined)[] = new Array(data.length)
@@ -397,8 +397,8 @@ export function calcCCIData(data: KLineData[], period: number): (number | undefi
 // STOCH 随机指标
 // ============================================================================
 
-export const DEFAULT_STOCH_N = 9
-export const DEFAULT_STOCH_M = 3
+const DEFAULT_STOCH_N = 9
+const DEFAULT_STOCH_M = 3
 
 export interface STOCHPoint {
     k: number
@@ -459,7 +459,7 @@ export function calcSTOCHData(data: KLineData[], n: number, m: number): STOCHPoi
 // MOM 动量指标
 // ============================================================================
 
-export const DEFAULT_MOM_PERIOD = 10
+const DEFAULT_MOM_PERIOD = 10
 
 export function calcMOMData(data: KLineData[], period: number): (number | undefined)[] {
     const result: (number | undefined)[] = new Array(data.length)
@@ -482,7 +482,7 @@ export function calcMOMData(data: KLineData[], period: number): (number | undefi
 // WMSR 威廉指标
 // ============================================================================
 
-export const DEFAULT_WMSR_PERIOD = 14
+const DEFAULT_WMSR_PERIOD = 14
 
 export function calcWMSRData(data: KLineData[], period: number): (number | undefined)[] {
     const result: (number | undefined)[] = new Array(data.length)
@@ -515,11 +515,11 @@ export function calcWMSRData(data: KLineData[], period: number): (number | undef
 // KST 确知指标
 // ============================================================================
 
-export const DEFAULT_KST_ROC1 = 10
-export const DEFAULT_KST_ROC2 = 15
-export const DEFAULT_KST_ROC3 = 20
-export const DEFAULT_KST_ROC4 = 30
-export const DEFAULT_KST_SIGNAL = 9
+const DEFAULT_KST_ROC1 = 10
+const DEFAULT_KST_ROC2 = 15
+const DEFAULT_KST_ROC3 = 20
+const DEFAULT_KST_ROC4 = 30
+const DEFAULT_KST_SIGNAL = 9
 
 export interface KSTPoint {
     kst: number
@@ -624,7 +624,7 @@ export function calcKSTData(
 // FASTK 快速随机指标
 // ============================================================================
 
-export const DEFAULT_FASTK_PERIOD = 9
+const DEFAULT_FASTK_PERIOD = 9
 
 export function calcFASTKData(data: KLineData[], period: number): (number | undefined)[] {
     const result: (number | undefined)[] = new Array(data.length)
@@ -672,9 +672,9 @@ export interface MACDPoint {
 /**
  * 默认 MACD 参数
  */
-export const DEFAULT_MACD_FAST_PERIOD = 12
-export const DEFAULT_MACD_SLOW_PERIOD = 26
-export const DEFAULT_MACD_SIGNAL_PERIOD = 9
+const DEFAULT_MACD_FAST_PERIOD = 12
+const DEFAULT_MACD_SLOW_PERIOD = 26
+const DEFAULT_MACD_SIGNAL_PERIOD = 9
 
 /**
  * 计算 EMA（指数移动平均）值
@@ -684,7 +684,7 @@ export const DEFAULT_MACD_SIGNAL_PERIOD = 9
  * @param period 周期
  * @returns EMA 值数组，第一个值使用第一个收盘价
  */
-export function calcEMA(data: KLineData[], period: number): number[] {
+function calcEMA(data: KLineData[], period: number): number[] {
     const result: number[] = new Array(data.length)
     const k = 2 / (period + 1)
 
@@ -708,7 +708,7 @@ export function calcEMA(data: KLineData[], period: number): number[] {
  * @param period 周期
  * @returns EMA 值数组
  */
-export function calcEMAFromArray(values: (number | undefined)[], period: number): (number | undefined)[] {
+function calcEMAFromArray(values: (number | undefined)[], period: number): (number | undefined)[] {
     const result: (number | undefined)[] = new Array(values.length)
     const k = 2 / (period + 1)
 
@@ -981,7 +981,7 @@ export function calcMACDDataSoA(
 // ATR — Wilder's Average True Range
 // ============================================================================
 
-export const DEFAULT_ATR_PERIOD = 14
+const DEFAULT_ATR_PERIOD = 14
 
 /**
  * 计算 Wilder ATR。
@@ -1050,16 +1050,6 @@ export function calcATRData(data: KLineData[], period: number): (number | undefi
     return result
 }
 
-/**
- * 从 SoA 布局计算 ATR（包装函数，对齐其他指标的 SoA 入口）
- */
-export function calcATRDataSoA(
-    layout: KLineSoALayout,
-    period: number,
-): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcATRData(data, period)
-}
 
 // ============================================================================
 // WMA — Weighted Moving Average (linear weights)
@@ -1067,7 +1057,7 @@ export function calcATRDataSoA(
 // 滞后 = (period-1)/3 (相比 SMA 更快响应)
 // ============================================================================
 
-export const DEFAULT_WMA_PERIOD = 9
+const DEFAULT_WMA_PERIOD = 9
 
 function _computeWMAOnNumbers(values: (number | undefined)[], period: number): (number | undefined)[] {
     const n = values.length
@@ -1101,10 +1091,7 @@ export function calcWMAData(data: KLineData[], period: number): (number | undefi
     return _computeWMAOnNumbers(closes, period)
 }
 
-export function calcWMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcWMAData(data, period)
-}
+
 
 // ============================================================================
 // EMA helper（DEMA / TEMA 复用，沿用 EXPMA 的 first-close seed 习惯）
@@ -1139,7 +1126,7 @@ function _computeEMASeries(values: (number | undefined)[], period: number): (num
 // 性质: 对线性输入零滞后（稳态），warmup ~ 2*(period-1)
 // ============================================================================
 
-export const DEFAULT_DEMA_PERIOD = 20
+const DEFAULT_DEMA_PERIOD = 20
 
 export function calcDEMAData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -1161,10 +1148,7 @@ export function calcDEMAData(data: KLineData[], period: number): (number | undef
     return result
 }
 
-export function calcDEMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcDEMAData(data, period)
-}
+
 
 // ============================================================================
 // TEMA — Triple Exponential Moving Average
@@ -1172,7 +1156,7 @@ export function calcDEMADataSoA(layout: KLineSoALayout, period: number): (number
 // 性质: 对二次多项式输入零滞后（稳态），warmup ~ 3*(period-1)
 // ============================================================================
 
-export const DEFAULT_TEMA_PERIOD = 20
+const DEFAULT_TEMA_PERIOD = 20
 
 export function calcTEMAData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -1196,10 +1180,7 @@ export function calcTEMAData(data: KLineData[], period: number): (number | undef
     return result
 }
 
-export function calcTEMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcTEMAData(data, period)
-}
+
 
 // ============================================================================
 // HMA — Hull Moving Average
@@ -1208,7 +1189,7 @@ export function calcTEMADataSoA(layout: KLineSoALayout, period: number): (number
 // warmup ≈ period - 1 + round(sqrt(period)) - 1
 // ============================================================================
 
-export const DEFAULT_HMA_PERIOD = 9
+const DEFAULT_HMA_PERIOD = 9
 
 export function calcHMAData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -1234,10 +1215,7 @@ export function calcHMAData(data: KLineData[], period: number): (number | undefi
     return _computeWMAOnNumbers(raw, sqrtPeriod)
 }
 
-export function calcHMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcHMAData(data, period)
-}
+
 
 // ============================================================================
 // KAMA — Kaufman's Adaptive Moving Average
@@ -1248,9 +1226,9 @@ export function calcHMADataSoA(layout: KLineSoALayout, period: number): (number 
 // 种子 KAMA(n-1) = close[n-1]（或 SMA(n)；这里采用 close 种子以保持与项目内 EMA 系列一致）
 // ============================================================================
 
-export const DEFAULT_KAMA_PERIOD = 10
-export const DEFAULT_KAMA_FAST_PERIOD = 2
-export const DEFAULT_KAMA_SLOW_PERIOD = 30
+const DEFAULT_KAMA_PERIOD = 10
+const DEFAULT_KAMA_FAST_PERIOD = 2
+const DEFAULT_KAMA_SLOW_PERIOD = 30
 
 export function calcKAMAData(
     data: KLineData[],
@@ -1296,15 +1274,7 @@ export function calcKAMAData(
     return result
 }
 
-export function calcKAMADataSoA(
-    layout: KLineSoALayout,
-    period: number,
-    fastPeriod: number,
-    slowPeriod: number,
-): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcKAMAData(data, period, fastPeriod, slowPeriod)
-}
+
 
 // ============================================================================
 // SAR — Parabolic Stop and Reverse
@@ -1319,8 +1289,8 @@ export interface SARPoint {
     trend: 'up' | 'down'
 }
 
-export const DEFAULT_SAR_STEP = 0.02
-export const DEFAULT_SAR_MAX_STEP = 0.2
+const DEFAULT_SAR_STEP = 0.02
+const DEFAULT_SAR_MAX_STEP = 0.2
 
 export function calcSARData(
     data: KLineData[],
@@ -1382,14 +1352,7 @@ export function calcSARData(
     return result
 }
 
-export function calcSARDataSoA(
-    layout: KLineSoALayout,
-    step: number,
-    maxStep: number,
-): (SARPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcSARData(data, step, maxStep)
-}
+
 
 // ============================================================================
 // SuperTrend — ATR-based trend-following stop/band
@@ -1400,8 +1363,8 @@ export interface SuperTrendPoint {
     trend: 'up' | 'down'
 }
 
-export const DEFAULT_SUPERTREND_ATR_PERIOD = 10
-export const DEFAULT_SUPERTREND_MULTIPLIER = 3
+const DEFAULT_SUPERTREND_ATR_PERIOD = 10
+const DEFAULT_SUPERTREND_MULTIPLIER = 3
 
 export function calcSuperTrendData(
     data: KLineData[],
@@ -1448,14 +1411,7 @@ export function calcSuperTrendData(
     return result
 }
 
-export function calcSuperTrendDataSoA(
-    layout: KLineSoALayout,
-    atrPeriod: number,
-    multiplier: number,
-): (SuperTrendPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcSuperTrendData(data, atrPeriod, multiplier)
-}
+
 
 // ============================================================================
 // Keltner Channel — EMA ± multiplier × ATR
@@ -1467,9 +1423,9 @@ export interface KeltnerPoint {
     lower: number
 }
 
-export const DEFAULT_KELTNER_EMA_PERIOD = 20
-export const DEFAULT_KELTNER_ATR_PERIOD = 10
-export const DEFAULT_KELTNER_MULTIPLIER = 2
+const DEFAULT_KELTNER_EMA_PERIOD = 20
+const DEFAULT_KELTNER_ATR_PERIOD = 10
+const DEFAULT_KELTNER_MULTIPLIER = 2
 
 export function calcKeltnerData(
     data: KLineData[],
@@ -1500,15 +1456,7 @@ export function calcKeltnerData(
     return result
 }
 
-export function calcKeltnerDataSoA(
-    layout: KLineSoALayout,
-    emaPeriod: number,
-    atrPeriod: number,
-    multiplier: number,
-): (KeltnerPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcKeltnerData(data, emaPeriod, atrPeriod, multiplier)
-}
+
 
 // ============================================================================
 // Donchian Channel — rolling max(high) / min(low) over period
@@ -1520,7 +1468,7 @@ export interface DonchianPoint {
     lower: number
 }
 
-export const DEFAULT_DONCHIAN_PERIOD = 20
+const DEFAULT_DONCHIAN_PERIOD = 20
 
 export function calcDonchianData(
     data: KLineData[],
@@ -1543,13 +1491,7 @@ export function calcDonchianData(
     return result
 }
 
-export function calcDonchianDataSoA(
-    layout: KLineSoALayout,
-    period: number,
-): (DonchianPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcDonchianData(data, period)
-}
+
 
 // ============================================================================
 // Ichimoku Kinko Hyo — 一目均衡表
@@ -1570,10 +1512,10 @@ export interface IchimokuPoint {
     chikou?: number
 }
 
-export const DEFAULT_ICHIMOKU_TENKAN = 9
-export const DEFAULT_ICHIMOKU_KIJUN = 26
-export const DEFAULT_ICHIMOKU_SPAN_B = 52
-export const DEFAULT_ICHIMOKU_DISPLACEMENT = 26
+const DEFAULT_ICHIMOKU_TENKAN = 9
+const DEFAULT_ICHIMOKU_KIJUN = 26
+const DEFAULT_ICHIMOKU_SPAN_B = 52
+const DEFAULT_ICHIMOKU_DISPLACEMENT = 26
 
 function _rollingMidline(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -1653,23 +1595,14 @@ export function calcIchimokuData(
     return result
 }
 
-export function calcIchimokuDataSoA(
-    layout: KLineSoALayout,
-    tenkanPeriod: number,
-    kijunPeriod: number,
-    spanBPeriod: number,
-    displacement: number,
-): (IchimokuPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcIchimokuData(data, tenkanPeriod, kijunPeriod, spanBPeriod, displacement)
-}
+
 
 // ============================================================================
 // ROC — Rate of Change
 // ROC(t) = (close[t] - close[t-period]) / close[t-period] * 100
 // ============================================================================
 
-export const DEFAULT_ROC_PERIOD = 12
+const DEFAULT_ROC_PERIOD = 12
 
 export function calcROCData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -1683,10 +1616,7 @@ export function calcROCData(data: KLineData[], period: number): (number | undefi
     return result
 }
 
-export function calcROCDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcROCData(data, period)
-}
+
 
 // ============================================================================
 // TRIX — Triple Exponential Smoothing Oscillator
@@ -1700,8 +1630,8 @@ export interface TRIXResult {
     signalSeries: (number | undefined)[]
 }
 
-export const DEFAULT_TRIX_PERIOD = 15
-export const DEFAULT_TRIX_SIGNAL_PERIOD = 9
+const DEFAULT_TRIX_PERIOD = 15
+const DEFAULT_TRIX_SIGNAL_PERIOD = 9
 
 export function calcTRIXData(
     data: KLineData[],
@@ -1735,14 +1665,7 @@ export function calcTRIXData(
     return { series, signalSeries }
 }
 
-export function calcTRIXDataSoA(
-    layout: KLineSoALayout,
-    period: number,
-    signalPeriod: number,
-): TRIXResult {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcTRIXData(data, period, signalPeriod)
-}
+
 
 // ============================================================================
 // HV — Historical Volatility (close-to-close log returns)
@@ -1750,8 +1673,8 @@ export function calcTRIXDataSoA(
 // 输出年化波动率（百分比形式 × 100）
 // ============================================================================
 
-export const DEFAULT_HV_PERIOD = 20
-export const DEFAULT_HV_ANNUALIZATION = 252
+const DEFAULT_HV_PERIOD = 20
+const DEFAULT_HV_ANNUALIZATION = 252
 
 export function calcHVData(
     data: KLineData[],
@@ -1787,22 +1710,15 @@ export function calcHVData(
     return result
 }
 
-export function calcHVDataSoA(
-    layout: KLineSoALayout,
-    period: number,
-    annualizationFactor: number,
-): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcHVData(data, period, annualizationFactor)
-}
+
 
 // ============================================================================
 // Parkinson Volatility — high-low range volatility
 // PV(t) = sqrt(  (1/(4*ln(2))) * mean(ln(high[i]/low[i])^2) * annualization  ) * 100
 // ============================================================================
 
-export const DEFAULT_PARKINSON_PERIOD = 20
-export const DEFAULT_PARKINSON_ANNUALIZATION = 252
+const DEFAULT_PARKINSON_PERIOD = 20
+const DEFAULT_PARKINSON_ANNUALIZATION = 252
 
 export function calcParkinsonData(
     data: KLineData[],
@@ -1837,22 +1753,15 @@ export function calcParkinsonData(
     return result
 }
 
-export function calcParkinsonDataSoA(
-    layout: KLineSoALayout,
-    period: number,
-    annualizationFactor: number,
-): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcParkinsonData(data, period, annualizationFactor)
-}
+
 
 // ============================================================================
 // Chaikin Volatility — EMA(high-low) 的 ROC
 // ChaikinVol(t) = (EMA(H-L, p)[t] - EMA(H-L, p)[t-rocPeriod]) / EMA(H-L, p)[t-rocPeriod] * 100
 // ============================================================================
 
-export const DEFAULT_CHAIKIN_VOL_EMA_PERIOD = 10
-export const DEFAULT_CHAIKIN_VOL_ROC_PERIOD = 10
+const DEFAULT_CHAIKIN_VOL_EMA_PERIOD = 10
+const DEFAULT_CHAIKIN_VOL_ROC_PERIOD = 10
 
 export function calcChaikinVolData(
     data: KLineData[],
@@ -1878,20 +1787,13 @@ export function calcChaikinVolData(
     return result
 }
 
-export function calcChaikinVolDataSoA(
-    layout: KLineSoALayout,
-    emaPeriod: number,
-    rocPeriod: number,
-): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcChaikinVolData(data, emaPeriod, rocPeriod)
-}
+
 
 // ============================================================================
 // VMA — Volume Moving Average (SMA of volume)
 // ============================================================================
 
-export const DEFAULT_VMA_PERIOD = 5
+const DEFAULT_VMA_PERIOD = 5
 
 export function calcVMAData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -1907,10 +1809,7 @@ export function calcVMAData(data: KLineData[], period: number): (number | undefi
     return result
 }
 
-export function calcVMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcVMAData(data, period)
-}
+
 
 // ============================================================================
 // OBV — On Balance Volume (cumulative)
@@ -1935,10 +1834,7 @@ export function calcOBVData(data: KLineData[]): (number | undefined)[] {
     return result
 }
 
-export function calcOBVDataSoA(layout: KLineSoALayout): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcOBVData(data)
-}
+
 
 // ============================================================================
 // PVT — Price Volume Trend (cumulative)
@@ -1963,10 +1859,7 @@ export function calcPVTData(data: KLineData[]): (number | undefined)[] {
     return result
 }
 
-export function calcPVTDataSoA(layout: KLineSoALayout): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcPVTData(data)
-}
+
 
 // ============================================================================
 // VWAP — Volume-Weighted Average Price
@@ -1976,7 +1869,7 @@ export function calcPVTDataSoA(layout: KLineSoALayout): (number | undefined)[] {
 // between consecutive bar timestamps exceeds this value (e.g., overnight)
 // ============================================================================
 
-export const DEFAULT_VWAP_SESSION_GAP_MS = 0
+const DEFAULT_VWAP_SESSION_GAP_MS = 0
 
 export function calcVWAPData(
     data: KLineData[],
@@ -2006,13 +1899,7 @@ export function calcVWAPData(
     return result
 }
 
-export function calcVWAPDataSoA(
-    layout: KLineSoALayout,
-    sessionResetGapMs: number,
-): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcVWAPData(data, sessionResetGapMs)
-}
+
 
 // ============================================================================
 // CMF — Chaikin Money Flow
@@ -2021,7 +1908,7 @@ export function calcVWAPDataSoA(
 // CMF(t) = sum(MFV[t-period+1..t]) / sum(Volume[t-period+1..t])  ∈ [-1, 1]
 // ============================================================================
 
-export const DEFAULT_CMF_PERIOD = 20
+const DEFAULT_CMF_PERIOD = 20
 
 export function calcCMFData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -2052,10 +1939,7 @@ export function calcCMFData(data: KLineData[], period: number): (number | undefi
     return result
 }
 
-export function calcCMFDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcCMFData(data, period)
-}
+
 
 // ============================================================================
 // MFI — Money Flow Index
@@ -2064,7 +1948,7 @@ export function calcCMFDataSoA(layout: KLineSoALayout, period: number): (number 
 // MFR = PMF / NMF; MFI = 100 - 100 / (1 + MFR)   ∈ [0, 100]
 // ============================================================================
 
-export const DEFAULT_MFI_PERIOD = 14
+const DEFAULT_MFI_PERIOD = 14
 
 export function calcMFIData(data: KLineData[], period: number): (number | undefined)[] {
     const n = data.length
@@ -2109,10 +1993,7 @@ export function calcMFIData(data: KLineData[], period: number): (number | undefi
     return result
 }
 
-export function calcMFIDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcMFIData(data, period)
-}
+
 
 // ============================================================================
 // Pivot Points — Classic floor-trader pivots from prior bar's HLC
@@ -2154,10 +2035,7 @@ export function calcPivotData(data: KLineData[]): (PivotPoint | undefined)[] {
     return result
 }
 
-export function calcPivotDataSoA(layout: KLineSoALayout): (PivotPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcPivotData(data)
-}
+
 
 // ============================================================================
 // Fibonacci Retracement — anchored to rolling-window high/low
@@ -2177,7 +2055,7 @@ export interface FibPoint {
     level786: number
 }
 
-export const DEFAULT_FIB_PERIOD = 50
+const DEFAULT_FIB_PERIOD = 50
 
 export function calcFibData(data: KLineData[], period: number): (FibPoint | undefined)[] {
     const n = data.length
@@ -2214,10 +2092,7 @@ export function calcFibData(data: KLineData[], period: number): (FibPoint | unde
     return result
 }
 
-export function calcFibDataSoA(layout: KLineSoALayout, period: number): (FibPoint | undefined)[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcFibData(data, period)
-}
+
 
 // ============================================================================
 // SMC Structure — Swing detection + BOS / CHOCH events
@@ -2253,8 +2128,8 @@ export interface StructureSnapshot {
     trend: 'up' | 'down' | 'range'
 }
 
-export const DEFAULT_STRUCTURE_LEFT = 2
-export const DEFAULT_STRUCTURE_RIGHT = 2
+const DEFAULT_STRUCTURE_LEFT = 2
+const DEFAULT_STRUCTURE_RIGHT = 2
 
 export function calcStructureData(
     data: KLineData[],
@@ -2364,15 +2239,7 @@ function isExtremum(
     return true
 }
 
-export function calcStructureDataSoA(
-    layout: KLineSoALayout,
-    leftWindow: number,
-    rightWindow: number,
-    breakoutSource: 'close' | 'wick',
-): StructureSnapshot {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcStructureData(data, leftWindow, rightWindow, breakoutSource)
-}
+
 
 // ============================================================================
 // SMC Zones — FVG (Fair Value Gap) + Order Blocks
@@ -2397,7 +2264,7 @@ export interface Zone {
     low: number
 }
 
-export const DEFAULT_ZONES_OB_LOOKBACK = 5
+const DEFAULT_ZONES_OB_LOOKBACK = 5
 
 export function calcZonesData(
     data: KLineData[],
@@ -2476,16 +2343,7 @@ export function calcZonesData(
     return zones
 }
 
-export function calcZonesDataSoA(
-    layout: KLineSoALayout,
-    obLookback: number,
-    structureLeftWindow: number,
-    structureRightWindow: number,
-    breakoutSource: 'close' | 'wick',
-): Zone[] {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcZonesData(data, obLookback, structureLeftWindow, structureRightWindow, breakoutSource)
-}
+
 
 // ============================================================================
 // Volume Profile — price-bin volume distribution
@@ -2508,9 +2366,9 @@ export interface VolumeProfileResult {
     totalVolume: number
 }
 
-export const DEFAULT_VP_BINS = 24
-export const DEFAULT_VP_LOOKBACK = 0
-export const DEFAULT_VP_VALUE_AREA = 0.7
+const DEFAULT_VP_BINS = 24
+const DEFAULT_VP_LOOKBACK = 0
+const DEFAULT_VP_VALUE_AREA = 0.7
 
 export function calcVolumeProfileData(
     data: KLineData[],
@@ -2601,12 +2459,4 @@ export function calcVolumeProfileData(
     return { bins: binsArr, poc, vah, val, totalVolume }
 }
 
-export function calcVolumeProfileDataSoA(
-    layout: KLineSoALayout,
-    bins: number,
-    lookback: number,
-    valueAreaPercent: number,
-): VolumeProfileResult {
-    const data = SharedKLineBuffer.toKLineData(layout)
-    return calcVolumeProfileData(data, bins, lookback, valueAreaPercent)
-}
+

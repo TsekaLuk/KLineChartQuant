@@ -5,7 +5,7 @@ import type { KLineData } from '../../types/price'
 import { drawTimeAxis, drawCrosshairTimeLabel, drawAxisTimeLabel } from '../../utils/kLineDraw/axis'
 
 /** 时间轴面板 ID（特殊标识，用于单独渲染） */
-export const TIME_AXIS_PANE_ID = Symbol('time-axis')
+const TIME_AXIS_PANE_ID = Symbol('time-axis')
 
 /**
  * 创建时间轴渲染器插件

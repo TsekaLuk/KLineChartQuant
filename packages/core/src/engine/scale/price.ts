@@ -2,7 +2,7 @@
 
 export type PriceRange = { maxPrice: number; minPrice: number }
 
-export function priceToY(
+function priceToY(
     price: number,
     maxPrice: number,
     minPrice: number,
@@ -22,7 +22,7 @@ export function priceToY(
  * - y 是相对于绘图区顶部的逻辑像素坐标（不含额外 translate）
  * - paddingTop/paddingBottom 需与 priceToY 使用一致
  */
-export function yToPrice(
+function yToPrice(
     y: number,
     maxPrice: number,
     minPrice: number,

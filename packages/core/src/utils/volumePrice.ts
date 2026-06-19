@@ -8,7 +8,7 @@ export { DEFAULT_VOLUME_PRICE_CONFIG }
  * 成交量前缀和计算器
  * 用于优化成交量移动平均的计算，避免重复遍历
  */
-export class VolumePrefixSum {
+class VolumePrefixSum {
   private prefixSum: number[] = []
   private dataLength: number = 0
 
@@ -93,7 +93,7 @@ function getPrefixSum(data: KLineData[]): VolumePrefixSum {
  * @param config - 量价关系计算配置
  * @returns 量价关系类型
  */
-export function analyzeVolumePriceRelation(
+function analyzeVolumePriceRelation(
   data: KLineData[],
   index: number,
   config: VolumePriceConfig

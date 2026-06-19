@@ -342,7 +342,7 @@ function drawVolumePriceMarkers(
 * @param gap - 三角形与K线的间距，默认为4
 * @param dpr - 设备像素比
 */
-export function drawVolumePriceMarker(
+function drawVolumePriceMarker(
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,

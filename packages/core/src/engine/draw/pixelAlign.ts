@@ -126,7 +126,7 @@ export function createHorizontalLineRect(
  * @param dpr - 设备像素比
  * @returns 对齐后的实体和影线信息
  */
-export function createAlignedKLine(
+function createAlignedKLine(
     rectX: number,
     rectY: number,
     kWidth: number,

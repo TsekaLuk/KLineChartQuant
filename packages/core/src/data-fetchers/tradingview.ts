@@ -66,9 +66,9 @@ async function fetchTradingview(
   version: '1.0.0',
   capabilities: ['daily', 'weekly', 'monthly', '5min', '15min', '30min', '60min'],
 })
-export class TradingviewFetcher {
+class TradingviewFetcher {
   static fetcher = fetchTradingview
 }
 
 /** @deprecated Use `TradingviewFetcher.fetcher` directly or rely on routerDataFetcher. */
-export const tradingviewDataFetcher = fetchTradingview
+const tradingviewDataFetcher = fetchTradingview

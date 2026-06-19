@@ -58,7 +58,7 @@ async function fetchBaoStock(
   version: '1.0.0',
   capabilities: ['daily', 'weekly', 'monthly', '5min', '15min', '30min', '60min'],
 })
-export class BaoStockFetcher {
+class BaoStockFetcher {
   static fetcher = fetchBaoStock
 }
 

@@ -55,7 +55,7 @@ async function fetchThousandMock(
   version: '1.0.0',
   capabilities: ['*'],
 })
-export class ThousandMockFetcher {
+class ThousandMockFetcher {
   static fetcher = fetchThousandMock
 }
 

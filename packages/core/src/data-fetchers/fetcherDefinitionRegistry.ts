@@ -30,11 +30,11 @@ export function getRegisteredFetcher(
   return definitions.get(name)
 }
 
-export function getRegisteredFetchers(): DataFetcherDefinition[] {
+function getRegisteredFetchers(): DataFetcherDefinition[] {
   return Array.from(definitions.values())
 }
 
-export function fetcherHasCapability(name: string, capability: string): boolean {
+function fetcherHasCapability(name: string, capability: string): boolean {
   return definitions.get(name)?.capabilities?.includes(capability) ?? false
 }
 

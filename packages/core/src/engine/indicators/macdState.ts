@@ -44,7 +44,7 @@ export interface MACDRenderState extends BaseIndicatorState {
  * MACD State 的命名空间 key
  * 格式: indicator:macd:{paneId}
  */
-export const MACD_STATE_KEY = 'indicator:macd'
+const MACD_STATE_KEY = 'indicator:macd'
 
 /**
  * 创建 MACD State Key

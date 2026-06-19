@@ -35,7 +35,7 @@ function getVolumeStateKey(host: PluginHost | null, paneId: string): string | nu
 /**
  * 创建副图成交量渲染器插件
  */
-export function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): RendererPluginWithHost {
+function createVolumeRendererPlugin(options: VolumeRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 

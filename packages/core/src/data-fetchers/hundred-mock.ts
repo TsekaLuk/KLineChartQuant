@@ -70,7 +70,7 @@ async function fetchHundredMock(
   version: '1.0.0',
   capabilities: ['*'],
 })
-export class HundredMockFetcher {
+class HundredMockFetcher {
   static fetcher = fetchHundredMock
 }
 

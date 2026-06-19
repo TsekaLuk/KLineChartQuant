@@ -12,9 +12,26 @@ function createMockChart(
     ],
     zoomToLevel: vi.fn(),
     setTheme: vi.fn(),
+    scrollToRight: vi.fn(),
+    zoomIn: vi.fn(),
+    zoomOut: vi.fn(),
     addIndicator: vi.fn(() => 'inst-1'),
     removeIndicator: vi.fn(() => true),
     updateIndicatorParams: vi.fn(() => true),
+    setSymbols: vi.fn(),
+    appendData: vi.fn(),
+    updateData: vi.fn(),
+    addComparisonSymbol: vi.fn(),
+    removeComparisonSymbol: vi.fn(),
+    setDrawingTool: vi.fn(),
+    getFullDrawings: vi.fn(() => []),
+    setDrawings: vi.fn(),
+    clearDrawings: vi.fn(),
+    removeDrawing: vi.fn(),
+    updateCustomMarkers: vi.fn(),
+    clearCustomMarkers: vi.fn(),
+    updateSettingsFacade: vi.fn(),
+    updateOptionsFacade: vi.fn(),
     getZoomLevelCount: vi.fn(() => 10),
     getData: vi.fn(() => []),
     ...overrides,
@@ -72,6 +89,62 @@ describe('executeTool', () => {
         input: { theme: 'dark' },
       })
       expect(chart.setTheme).toHaveBeenCalledWith('dark')
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('chart.scrollToRight', () => {
+    it('calls chart.scrollToRight', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'chart.scrollToRight',
+        input: {},
+      })
+      expect(chart.scrollToRight).toHaveBeenCalledOnce()
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('chart.zoomIn', () => {
+    it('calls chart.zoomIn without anchor', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'chart.zoomIn',
+        input: {},
+      })
+      expect(chart.zoomIn).toHaveBeenCalledWith(undefined)
+      expect(result.success).toBe(true)
+    })
+
+    it('calls chart.zoomIn with anchorX', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'chart.zoomIn',
+        input: { anchorX: 300 },
+      })
+      expect(chart.zoomIn).toHaveBeenCalledWith(300)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('chart.zoomOut', () => {
+    it('calls chart.zoomOut without anchor', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'chart.zoomOut',
+        input: {},
+      })
+      expect(chart.zoomOut).toHaveBeenCalledWith(undefined)
+      expect(result.success).toBe(true)
+    })
+
+    it('calls chart.zoomOut with anchorX', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'chart.zoomOut',
+        input: { anchorX: 150 },
+      })
+      expect(chart.zoomOut).toHaveBeenCalledWith(150)
       expect(result.success).toBe(true)
     })
   })
@@ -154,6 +227,287 @@ describe('executeTool', () => {
       })
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/ghost/)
+    })
+  })
+
+  describe('data.setSymbols', () => {
+    it('calls chart.setSymbols with symbol and defaults', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'data.setSymbols',
+        input: { symbol: 'AAPL' },
+      })
+      expect(chart.setSymbols).toHaveBeenCalledWith([
+        { symbol: 'AAPL', exchange: undefined, period: undefined, adjust: undefined, source: undefined, startDate: undefined, endDate: undefined },
+      ])
+      expect(result.success).toBe(true)
+    })
+
+    it('passes optional fields when provided', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'data.setSymbols',
+        input: { symbol: '600519', exchange: 'SSE', period: 'daily', adjust: 'qfq' },
+      })
+      expect(chart.setSymbols).toHaveBeenCalledWith([
+        { symbol: '600519', exchange: 'SSE', period: 'daily', adjust: 'qfq', source: undefined, startDate: undefined, endDate: undefined },
+      ])
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('data.appendData', () => {
+    it('calls chart.appendData with bar array', () => {
+      const chart = createMockChart()
+      const bars = [
+        { timestamp: 1000, open: 100, high: 101, low: 99, close: 100.5, volume: 10000 },
+      ]
+      const result = executeTool(chart, {
+        name: 'data.appendData',
+        input: { bars },
+      })
+      expect(chart.appendData).toHaveBeenCalledWith(bars)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('data.updateData', () => {
+    it('calls chart.updateData with bar array', () => {
+      const chart = createMockChart()
+      const bars = [
+        { open: 101, high: 102, low: 100, close: 101.5, volume: 12000 },
+      ]
+      const result = executeTool(chart, {
+        name: 'data.updateData',
+        input: { bars },
+      })
+      expect(chart.updateData).toHaveBeenCalledWith(bars)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('data.addComparisonSymbol', () => {
+    it('calls chart.addComparisonSymbol', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'data.addComparisonSymbol',
+        input: { symbol: 'MSFT' },
+      })
+      expect(chart.addComparisonSymbol).toHaveBeenCalledWith({
+        symbol: 'MSFT',
+        exchange: undefined,
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('passes exchange and source when given', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'data.addComparisonSymbol',
+        input: { symbol: 'SPY', exchange: 'NYSE', source: 'tradingview' },
+      })
+      expect(chart.addComparisonSymbol).toHaveBeenCalledWith({
+        symbol: 'SPY',
+        exchange: 'NYSE',
+        source: 'tradingview',
+      })
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('data.removeComparisonSymbol', () => {
+    it('calls chart.removeComparisonSymbol', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'data.removeComparisonSymbol',
+        input: { symbol: 'MSFT' },
+      })
+      expect(chart.removeComparisonSymbol).toHaveBeenCalledWith('MSFT')
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('drawing.setTool', () => {
+    it('calls chart.setDrawingTool with tool type', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'drawing.setTool',
+        input: { tool: 'trendline' },
+      })
+      expect(chart.setDrawingTool).toHaveBeenCalledWith('trendline')
+      expect(result.success).toBe(true)
+    })
+
+    it('passes null to deactivate tool', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'drawing.setTool',
+        input: { tool: null },
+      })
+      expect(chart.setDrawingTool).toHaveBeenCalledWith(null)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('drawing.add', () => {
+    it('calls getFullDrawings + setDrawings with a new drawing appended', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'drawing.add',
+        input: { kind: 'horizontal-line', anchors: [{ barIndex: 0, price: 150 }] },
+      })
+      expect(chart.getFullDrawings).toHaveBeenCalledOnce()
+      expect(chart.setDrawings).toHaveBeenCalledOnce()
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed.length).toBe(1)
+      expect(passed[0].kind).toBe('horizontal-line')
+      expect(passed[0].anchors).toHaveLength(1)
+      expect(passed[0].anchors[0].index).toBe(0)
+      expect(passed[0].anchors[0].price).toBe(150)
+      expect(result.success).toBe(true)
+      expect(result.data?.drawingId).toBeTypeOf('string')
+    })
+
+    it('appends to existing drawings', () => {
+      const existing = [{ id: 'existing-1', kind: 'trend-line' }]
+      const chart = createMockChart({ getFullDrawings: vi.fn(() => existing) })
+      const result = executeTool(chart, {
+        name: 'drawing.add',
+        input: { kind: 'vertical-line', anchors: [{ barIndex: 20, price: 100 }] },
+      })
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed.length).toBe(2)
+      expect(passed[0].id).toBe('existing-1')
+      expect(passed[1].kind).toBe('vertical-line')
+      expect(result.success).toBe(true)
+    })
+
+    it('passes style overrides when provided', () => {
+      const chart = createMockChart()
+      executeTool(chart, {
+        name: 'drawing.add',
+        input: {
+          kind: 'trend-line',
+          anchors: [
+            { barIndex: 0, price: 100 },
+            { barIndex: 10, price: 110 },
+          ],
+          style: { stroke: '#FF5722', strokeWidth: 3 },
+        },
+      })
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed[0].style.stroke).toBe('#FF5722')
+      expect(passed[0].style.strokeWidth).toBe(3)
+    })
+
+    it('provides default style when style omitted', () => {
+      const chart = createMockChart()
+      executeTool(chart, {
+        name: 'drawing.add',
+        input: { kind: 'ray', anchors: [{ barIndex: 5, price: 200 }] },
+      })
+      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      expect(passed[0].style.stroke).toBe('#2962ff')
+      expect(passed[0].style.strokeWidth).toBe(1)
+    })
+  })
+
+  describe('drawing.clear', () => {
+    it('calls chart.clearDrawings', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'drawing.clear',
+        input: {},
+      })
+      expect(chart.clearDrawings).toHaveBeenCalledOnce()
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('drawing.remove', () => {
+    it('calls chart.removeDrawing', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'drawing.remove',
+        input: { drawingId: 'draw-1' },
+      })
+      expect(chart.removeDrawing).toHaveBeenCalledWith('draw-1')
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('markers.update', () => {
+    it('calls chart.updateCustomMarkers with markers array', () => {
+      const chart = createMockChart()
+      const markers = [
+        { id: 'm1', date: '2024-01-15', shape: 'arrow_up', label: { text: 'High' } },
+      ]
+      const result = executeTool(chart, {
+        name: 'markers.update',
+        input: { markers },
+      })
+      expect(chart.updateCustomMarkers).toHaveBeenCalledWith(markers)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('markers.clear', () => {
+    it('calls chart.clearCustomMarkers', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'markers.clear',
+        input: {},
+      })
+      expect(chart.clearCustomMarkers).toHaveBeenCalledOnce()
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('settings.update', () => {
+    it('calls updateSettingsFacade when settings passed', () => {
+      const chart = createMockChart()
+      const settings = { showCrosshair: true }
+      const result = executeTool(chart, {
+        name: 'settings.update',
+        input: { settings },
+      })
+      expect(chart.updateSettingsFacade).toHaveBeenCalledWith(settings)
+      expect(chart.updateOptionsFacade).not.toHaveBeenCalled()
+      expect(result.success).toBe(true)
+    })
+
+    it('calls updateOptionsFacade when options passed', () => {
+      const chart = createMockChart()
+      const options = { kWidth: 8 }
+      const result = executeTool(chart, {
+        name: 'settings.update',
+        input: { options },
+      })
+      expect(chart.updateOptionsFacade).toHaveBeenCalledWith(options)
+      expect(chart.updateSettingsFacade).not.toHaveBeenCalled()
+      expect(result.success).toBe(true)
+    })
+
+    it('calls both when both passed', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'settings.update',
+        input: { settings: { a: 1 }, options: { b: 2 } },
+      })
+      expect(chart.updateSettingsFacade).toHaveBeenCalledWith({ a: 1 })
+      expect(chart.updateOptionsFacade).toHaveBeenCalledWith({ b: 2 })
+      expect(result.success).toBe(true)
+    })
+
+    it('succeeds with empty input', () => {
+      const chart = createMockChart()
+      const result = executeTool(chart, {
+        name: 'settings.update',
+        input: {},
+      })
+      expect(chart.updateSettingsFacade).not.toHaveBeenCalled()
+      expect(chart.updateOptionsFacade).not.toHaveBeenCalled()
+      expect(result.success).toBe(true)
     })
   })
 

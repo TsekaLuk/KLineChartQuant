@@ -94,7 +94,7 @@ function getMAStateKey(host: PluginHost | null): string | null {
     return resolveStateKey(meta.stateKey)
 }
 
-export function getMATitleInfo(
+function getMATitleInfo(
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

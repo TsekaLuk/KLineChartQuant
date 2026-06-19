@@ -15,7 +15,7 @@ const KELTNER_LOWER_COLOR = '#7c3aed'
 
 type Point = { x: number; y: number }
 
-export interface KeltnerRendererOptions { paneId?: string }
+interface KeltnerRendererOptions { paneId?: string }
 
 function getKeltnerStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -31,7 +31,7 @@ function getKeltnerStateKey(host: PluginHost | null, paneId: string): string | n
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): RendererPluginWithHost {
+function createKeltnerRendererPlugin(options: KeltnerRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -124,7 +124,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export function getKeltnerTitleInfo(
+function getKeltnerTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

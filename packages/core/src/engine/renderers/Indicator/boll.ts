@@ -110,7 +110,7 @@ function buildPriceCacheKey(
     return `${range.start}|${range.end}|${dataLength}|${lastTimestamp}|${period}`
 }
 
-export function getBOLLStateKey(host: PluginHost | null): string | null {
+function getBOLLStateKey(host: PluginHost | null): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
     if (!scheduler) {
         console.warn('[BOLLRenderer] Scheduler not available via service locator')
@@ -155,7 +155,7 @@ const composeBOLLRenderState: IndicatorRenderStateComposer = (bundle, range, tim
     }
 }
 
-export const getBOLLTitleInfo: GetTitleInfoFn = (
+const getBOLLTitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

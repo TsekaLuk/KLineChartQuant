@@ -19,7 +19,7 @@ const CHIKOU_COLOR = '#7c3aed'
 
 type Point = { x: number; y: number }
 
-export interface IchimokuRendererOptions {
+interface IchimokuRendererOptions {
     paneId?: string
 }
 
@@ -37,7 +37,7 @@ function getIchimokuStateKey(host: PluginHost | null, paneId: string): string | 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createIchimokuRendererPlugin(options: IchimokuRendererOptions = {}): RendererPluginWithHost {
+function createIchimokuRendererPlugin(options: IchimokuRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -194,7 +194,7 @@ function fillCloud(
     ctx.restore()
 }
 
-export function getIchimokuTitleInfo(
+function getIchimokuTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

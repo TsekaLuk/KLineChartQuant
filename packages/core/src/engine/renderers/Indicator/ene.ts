@@ -94,7 +94,7 @@ function drawENEWithWebGL(
  * 3. 配置变更通过外部 IndicatorScheduler 处理
  * 4. 纯绘制函数，无副作用
  */
-export function getENEStateKey(host: PluginHost | null): string | null {
+function getENEStateKey(host: PluginHost | null): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
     if (!scheduler) {
         console.warn('[ENERenderer] Scheduler not available via service locator')
@@ -289,7 +289,7 @@ export function createENERendererPlugin(): RendererPluginWithHost {
     }
 }
 
-export const getENETitleInfo: GetTitleInfoFn = (
+const getENETitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

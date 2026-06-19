@@ -15,7 +15,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface MOMRendererOptions {
+interface MOMRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -37,7 +37,7 @@ function getMOMStateKey(host: PluginHost | null, paneId: string): string | null 
 /**
  * 创建 MOM 渲染器插件
  */
-export function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPluginWithHost {
+function createMOMRendererPlugin(options: MOMRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -277,7 +277,7 @@ function drawMOMLineWithCanvas2D(
 /**
  * 获取 MOM 标题信息（供 paneTitle 使用）
  */
-export function getMOMTitleInfo(
+function getMOMTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

@@ -84,7 +84,7 @@ export function setCanvasProfilerEnabled(enabled: boolean): void {
 }
 
 /** 获取 Canvas Profiler 启用状态 */
-export function isCanvasProfilerEnabled(): boolean {
+function isCanvasProfilerEnabled(): boolean {
     return isProfilerEnabled
 }
 
@@ -183,7 +183,7 @@ function wrapSetter(proto: object, prop: string, bucket: MetricBucket): void {
     })
 }
 
-export function installCanvasProfiler(): void {
+function installCanvasProfiler(): void {
     if (typeof window === 'undefined') return
     if (window.__KMAP_CANVAS_PROFILER_INSTALLED__) return
 
@@ -243,7 +243,7 @@ export function installCanvasProfiler(): void {
 }
 
 /** 卸载 Canvas Profiler，恢复原始方法 */
-export function uninstallCanvasProfiler(): void {
+function uninstallCanvasProfiler(): void {
     if (typeof window === 'undefined') return
     if (!window.__KMAP_CANVAS_PROFILER_INSTALLED__) return
 

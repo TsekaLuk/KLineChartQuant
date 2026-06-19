@@ -28,7 +28,7 @@ function getMFIStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createMFIRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_MFI' } = options
     let pluginHost: PluginHost | null = null
 
@@ -130,7 +130,7 @@ export function createMFIRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
-export function getMFITitleInfo(
+function getMFITitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

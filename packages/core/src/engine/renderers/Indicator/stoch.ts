@@ -14,7 +14,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface STOCHRendererOptions {
+interface STOCHRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -36,7 +36,7 @@ function getSTOCHStateKey(host: PluginHost | null, paneId: string): string | nul
 /**
  * 创建 STOCH 渲染器插件
  */
-export function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): RendererPluginWithHost {
+function createSTOCHRendererPlugin(options: STOCHRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -319,7 +319,7 @@ function drawSTOCHLinesWithCanvas2D(
 /**
  * 获取 STOCH 标题信息（供 paneTitle 使用）
  */
-export function getSTOCHTitleInfo(
+function getSTOCHTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

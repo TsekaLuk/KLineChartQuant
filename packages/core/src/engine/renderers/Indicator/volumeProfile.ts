@@ -31,7 +31,7 @@ function getVolumeProfileStateKey(host: PluginHost | null, paneId: string): stri
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createVolumeProfileRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createVolumeProfileRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_VolumeProfile' } = options
     let pluginHost: PluginHost | null = null
 
@@ -118,7 +118,7 @@ const VP_POC_COLOR = '#8b5cf6'
 const VP_VAH_COLOR = '#6366f1'
 const VP_VAL_COLOR = '#818cf8'
 
-export function getVolumeProfileTitleInfo(
+function getVolumeProfileTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,

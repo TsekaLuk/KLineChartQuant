@@ -17,7 +17,7 @@ const SIGNAL_COLOR = '#f59e0b'
 
 type Point = { x: number; y: number }
 
-export interface TRIXRendererOptions { paneId?: string }
+interface TRIXRendererOptions { paneId?: string }
 
 function getTRIXStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -33,7 +33,7 @@ function getTRIXStateKey(host: PluginHost | null, paneId: string): string | null
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPluginWithHost {
+function createTRIXRendererPlugin(options: TRIXRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_TRIX' } = options
     let pluginHost: PluginHost | null = null
 
@@ -148,7 +148,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export function getTRIXTitleInfo(
+function getTRIXTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,

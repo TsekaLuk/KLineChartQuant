@@ -28,7 +28,7 @@ function getVWAPStateKey(host: PluginHost | null, paneId: string): string | null
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createVWAPRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_VWAP' } = options
     let pluginHost: PluginHost | null = null
 
@@ -111,7 +111,7 @@ export function createVWAPRendererPlugin(options: { paneId?: string } = {}): Ren
     }
 }
 
-export function getVWAPTitleInfo(
+function getVWAPTitleInfo(
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,

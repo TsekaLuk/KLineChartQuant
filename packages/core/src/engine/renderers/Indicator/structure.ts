@@ -27,7 +27,7 @@ function getStructureStateKey(host: PluginHost | null, paneId: string): string |
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createStructureRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createStructureRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_Structure' } = options
     let pluginHost: PluginHost | null = null
 
@@ -113,7 +113,7 @@ export function createStructureRendererPlugin(options: { paneId?: string } = {})
     }
 }
 
-export function getStructureTitleInfo(
+function getStructureTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,

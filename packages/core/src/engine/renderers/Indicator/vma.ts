@@ -29,7 +29,7 @@ function getVMAStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createVMARendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_VMA' } = options
     let pluginHost: PluginHost | null = null
 
@@ -113,7 +113,7 @@ export function createVMARendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
-export function getVMATitleInfo(
+function getVMATitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

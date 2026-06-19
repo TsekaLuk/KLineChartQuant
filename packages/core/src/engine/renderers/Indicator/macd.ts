@@ -15,7 +15,7 @@ import { createMacdScaleRendererPlugin } from './scale/macd_scale'
 
 type LinePoint = { x: number; y: number }
 
-export interface MACDConfig {
+interface MACDConfig {
   /** 快线周期（默认 12） */
   fastPeriod?: number
   /** 慢线周期（默认 26） */
@@ -30,7 +30,7 @@ export interface MACDConfig {
   showBAR?: boolean
 }
 
-export interface MACDRendererOptions {
+interface MACDRendererOptions {
   /** 目标 pane ID（默认 'sub'） */
   paneId?: string
   /** 初始配置 */
@@ -55,7 +55,7 @@ function getMACDStateKey(host: PluginHost | null, paneId: string): string | null
  * 创建 MACD 渲染器插件
  * 从 StateStore 读取 MACD 状态，不再内联计算
  */
-export function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPluginWithHost {
+function createMACDRendererPlugin(options: MACDRendererOptions = {}): RendererPluginWithHost {
   const { paneId = 'sub', config: initialConfig = {} } = options
 
   let pluginHost: PluginHost | null = null
@@ -417,27 +417,10 @@ function compositeMacdWebGL(ctx: CanvasRenderingContext2D, context: RenderContex
 }
 
 /**
- * 计算指定索引处的 MACD 值（供图例使用）
- * 使用 calculators.ts 中的计算函数
- */
-export function calcMACDAtIndex(
-  data: KLineData[],
-  index: number,
-  fastPeriod: number = 12,
-  slowPeriod: number = 26,
-  signalPeriod: number = 9
-): { dif: number; dea: number; macd: number } | null {
-  if (index < slowPeriod || index >= data.length) return null
-
-  const macdData = calcMACDData(data, fastPeriod, slowPeriod, signalPeriod)
-  return macdData[index] ?? null
-}
-
-/**
  * 获取 MACD 标题信息（供 paneTitle 使用）
  * 从 pluginHost 获取已计算好的数据，避免重复计算
  */
-export function getMACDTitleInfo(
+function getMACDTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

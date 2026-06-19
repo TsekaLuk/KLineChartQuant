@@ -15,7 +15,7 @@ const DONCHIAN_LOWER_COLOR = '#0891b2'
 
 type Point = { x: number; y: number }
 
-export interface DonchianRendererOptions { paneId?: string }
+interface DonchianRendererOptions { paneId?: string }
 
 function getDonchianStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -31,7 +31,7 @@ function getDonchianStateKey(host: PluginHost | null, paneId: string): string | 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createDonchianRendererPlugin(options: DonchianRendererOptions = {}): RendererPluginWithHost {
+function createDonchianRendererPlugin(options: DonchianRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -124,7 +124,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export function getDonchianTitleInfo(
+function getDonchianTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

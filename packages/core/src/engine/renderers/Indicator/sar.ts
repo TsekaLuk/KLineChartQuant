@@ -13,7 +13,7 @@ import { createValuePointVisibleStateComposer } from '../../indicators/visibleSt
 const DOT_RADIUS = 1.5
 const TAU = Math.PI * 2
 
-export interface SARRendererOptions {
+interface SARRendererOptions {
     paneId?: string
 }
 
@@ -31,7 +31,7 @@ function getSARStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPluginWithHost {
+function createSARRendererPlugin(options: SARRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -99,7 +99,7 @@ export function createSARRendererPlugin(options: SARRendererOptions = {}): Rende
     }
 }
 
-export function getSARTitleInfo(
+function getSARTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

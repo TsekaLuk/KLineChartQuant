@@ -13,7 +13,7 @@ const KAMA_COLOR = '#0ea5e9'
 
 type Point = { x: number; y: number }
 
-export interface KAMARendererOptions {
+interface KAMARendererOptions {
     paneId?: string
 }
 
@@ -31,7 +31,7 @@ function getKAMAStateKey(host: PluginHost | null, paneId: string): string | null
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPluginWithHost {
+function createKAMARendererPlugin(options: KAMARendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -122,7 +122,7 @@ export function createKAMARendererPlugin(options: KAMARendererOptions = {}): Ren
     }
 }
 
-export const getKAMATitleInfo: GetTitleInfoFn = (
+const getKAMATitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

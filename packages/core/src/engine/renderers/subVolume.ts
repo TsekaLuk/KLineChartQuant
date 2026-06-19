@@ -8,12 +8,12 @@ import { resolveStateKey } from '../indicators/indicatorMetadata'
 import type { IndicatorScheduler } from '../indicators/scheduler'
 import { createVolumeScaleRendererPlugin } from './Indicator/scale/volume_scale'
 
-export interface VolumeRendererOptions {
+interface VolumeRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
 
-export interface VolumeRenderState extends BaseIndicatorState {
+interface VolumeRenderState extends BaseIndicatorState {
     valueMin: number
     valueMax: number
 }

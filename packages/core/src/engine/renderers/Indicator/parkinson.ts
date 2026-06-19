@@ -30,7 +30,7 @@ function getParkinsonStateKey(host: PluginHost | null, paneId: string): string |
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createParkinsonRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createParkinsonRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_Parkinson' } = options
     let pluginHost: PluginHost | null = null
 
@@ -114,7 +114,7 @@ export function createParkinsonRendererPlugin(options: { paneId?: string } = {})
     }
 }
 
-export function getParkinsonTitleInfo(
+function getParkinsonTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,

@@ -14,7 +14,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface FASTKRendererOptions {
+interface FASTKRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -36,7 +36,7 @@ function getFASTKStateKey(host: PluginHost | null, paneId: string): string | nul
 /**
  * 创建 FASTK 渲染器插件
  */
-export function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): RendererPluginWithHost {
+function createFASTKRendererPlugin(options: FASTKRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -281,7 +281,7 @@ function drawFASTKLineWithCanvas2D(
 /**
  * 获取 FASTK 标题信息（供 paneTitle 使用）
  */
-export function getFASTKTitleInfo(
+function getFASTKTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

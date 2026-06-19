@@ -28,7 +28,7 @@ function getChaikinVolStateKey(host: PluginHost | null, paneId: string): string 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createChaikinVolRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_ChaikinVol' } = options
     let pluginHost: PluginHost | null = null
 
@@ -126,7 +126,7 @@ export function createChaikinVolRendererPlugin(options: { paneId?: string } = {}
     }
 }
 
-export function getChaikinVolTitleInfo(
+function getChaikinVolTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

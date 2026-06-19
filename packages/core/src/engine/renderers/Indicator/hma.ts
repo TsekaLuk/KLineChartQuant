@@ -13,7 +13,7 @@ const HMA_COLOR = '#f43f5e'
 
 type Point = { x: number; y: number }
 
-export interface HMARendererOptions {
+interface HMARendererOptions {
     paneId?: string
 }
 
@@ -31,7 +31,7 @@ function getHMAStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPluginWithHost {
+function createHMARendererPlugin(options: HMARendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -122,7 +122,7 @@ export function createHMARendererPlugin(options: HMARendererOptions = {}): Rende
     }
 }
 
-export const getHMATitleInfo: GetTitleInfoFn = (
+const getHMATitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

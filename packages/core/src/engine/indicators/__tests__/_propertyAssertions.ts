@@ -22,7 +22,7 @@ export function assertNonNegative(series: SparseSeries, label: string): void {
     }
 }
 
-export function assertBounded(
+function assertBounded(
     series: SparseSeries,
     min: number,
     max: number,
@@ -37,7 +37,7 @@ export function assertBounded(
     }
 }
 
-export function assertMonotonicByDirection(
+function assertMonotonicByDirection(
     series: SparseSeries,
     directions: readonly number[],
     label: string,

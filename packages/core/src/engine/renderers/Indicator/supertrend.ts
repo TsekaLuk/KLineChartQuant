@@ -10,7 +10,7 @@ import type { IndicatorScheduler, SuperTrendSchedulerConfig } from '../../indica
 import { calcSuperTrendData } from '../../indicators/calculators'
 import { createValuePointVisibleStateComposer } from '../../indicators/visibleStateComposers'
 
-export interface SuperTrendRendererOptions {
+interface SuperTrendRendererOptions {
     paneId?: string
 }
 
@@ -28,7 +28,7 @@ function getSuperTrendStateKey(host: PluginHost | null, paneId: string): string 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createSuperTrendRendererPlugin(options: SuperTrendRendererOptions = {}): RendererPluginWithHost {
+function createSuperTrendRendererPlugin(options: SuperTrendRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_SuperTrend' } = options
     let pluginHost: PluginHost | null = null
 
@@ -100,7 +100,7 @@ export function createSuperTrendRendererPlugin(options: SuperTrendRendererOption
     }
 }
 
-export function getSuperTrendTitleInfo(
+function getSuperTrendTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

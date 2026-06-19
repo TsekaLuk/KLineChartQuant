@@ -13,7 +13,7 @@ const WMA_COLOR = '#10b981'
 
 type Point = { x: number; y: number }
 
-export interface WMARendererOptions {
+interface WMARendererOptions {
     paneId?: string
 }
 
@@ -31,7 +31,7 @@ function getWMAStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPluginWithHost {
+function createWMARendererPlugin(options: WMARendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -122,7 +122,7 @@ export function createWMARendererPlugin(options: WMARendererOptions = {}): Rende
     }
 }
 
-export const getWMATitleInfo: GetTitleInfoFn = (
+const getWMATitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

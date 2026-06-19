@@ -13,7 +13,7 @@ const TEMA_COLOR = '#d946ef'
 
 type Point = { x: number; y: number }
 
-export interface TEMARendererOptions {
+interface TEMARendererOptions {
     paneId?: string
 }
 
@@ -31,7 +31,7 @@ function getTEMAStateKey(host: PluginHost | null, paneId: string): string | null
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPluginWithHost {
+function createTEMARendererPlugin(options: TEMARendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -122,7 +122,7 @@ export function createTEMARendererPlugin(options: TEMARendererOptions = {}): Ren
     }
 }
 
-export const getTEMATitleInfo: GetTitleInfoFn = (
+const getTEMATitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

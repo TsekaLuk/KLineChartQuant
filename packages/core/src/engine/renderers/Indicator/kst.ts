@@ -14,7 +14,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface KSTRendererOptions {
+interface KSTRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -36,7 +36,7 @@ function getKSTStateKey(host: PluginHost | null, paneId: string): string | null 
 /**
  * 创建 KST 渲染器插件
  */
-export function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPluginWithHost {
+function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -260,7 +260,7 @@ function drawKSTLinesWithCanvas2D(
 /**
  * 获取 KST 标题信息（供 paneTitle 使用）
  */
-export function getKSTTitleInfo(
+function getKSTTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

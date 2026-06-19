@@ -24,7 +24,7 @@ const ymdCache = new Map<number, string>()
  * @example
  * formatDateToYYYYMMDDNoDash(1736793600000) // "20250114"
  */
-export function formatDateToYYYYMMDDNoDash(timestamp: number): string {
+function formatDateToYYYYMMDDNoDash(timestamp: number): string {
     const d = new Date(timestamp)
     const year = d.getFullYear()
     const month = String(d.getMonth() + 1).padStart(2, '0')
@@ -39,7 +39,7 @@ export function formatDateToYYYYMMDDNoDash(timestamp: number): string {
  * @example
  * getCurrentDateYYYYMMDD() // "20250114"（根据实际日期）
  */
-export function getCurrentDateYYYYMMDD(): string {
+function getCurrentDateYYYYMMDD(): string {
     const d = new Date()
     const year = d.getFullYear()
     const month = String(d.getMonth() + 1).padStart(2, '0')

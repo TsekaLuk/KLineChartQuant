@@ -53,7 +53,7 @@ import { computed } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
-export interface KLineData {
+interface KLineData {
   timestamp: number
   open: number
   high: number

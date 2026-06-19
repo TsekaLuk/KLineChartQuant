@@ -16,7 +16,7 @@ type LinePoint = { x: number; y: number }
 
 const ATR_COLOR = '#d97706'
 
-export interface ATRRendererOptions {
+interface ATRRendererOptions {
     paneId?: string
 }
 
@@ -34,7 +34,7 @@ function getATRStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPluginWithHost {
+function createATRRendererPlugin(options: ATRRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_ATR' } = options
     let pluginHost: PluginHost | null = null
 
@@ -209,7 +209,7 @@ function drawWithCanvas2D(
 /**
  * 获取 ATR 标题信息（供 paneTitle 使用）
  */
-export function getATRTitleInfo(
+function getATRTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

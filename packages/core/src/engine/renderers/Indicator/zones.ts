@@ -23,7 +23,7 @@ function getZonesStateKey(host: PluginHost | null, paneId: string): string | nul
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createZonesRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -90,7 +90,7 @@ export function createZonesRendererPlugin(options: { paneId?: string } = {}): Re
     }
 }
 
-export const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+const getZonesTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
     if (index === null) return null
 
     const stateKey = createZonesStateKey(paneId)

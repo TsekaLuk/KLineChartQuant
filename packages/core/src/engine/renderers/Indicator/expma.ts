@@ -34,7 +34,7 @@ function buildEXPMACacheKey(
     ].join('|')
 }
 
-export function getEXPMAStateKey(host: PluginHost | null): string | null {
+function getEXPMAStateKey(host: PluginHost | null): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
     if (!scheduler) {
         console.warn('[EXPMARenderer] Scheduler not available via service locator')
@@ -215,7 +215,7 @@ export function createEXPMARendererPlugin(): RendererPluginWithHost {
     }
 }
 
-export const getEXPMATitleInfo: GetTitleInfoFn = (
+const getEXPMATitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

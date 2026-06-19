@@ -33,7 +33,7 @@ type ResolvedChartOptions = Omit<ChartOptions, 'kWidth' | 'kGap'> & {
   kGap: number
 }
 
-export type FrameContext = {
+type FrameContext = {
   vp: Viewport
   range: VisibleRange
   kLinePositions: KLinePositions

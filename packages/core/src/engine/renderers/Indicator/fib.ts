@@ -34,7 +34,7 @@ function getFibStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createFibRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -126,7 +126,7 @@ function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+const getFibTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
     if (index === null || index < 0) return null
 
     const stateKey = createFibStateKey(paneId)

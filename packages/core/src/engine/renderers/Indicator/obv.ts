@@ -28,7 +28,7 @@ function getOBVStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createOBVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_OBV' } = options
     let pluginHost: PluginHost | null = null
 
@@ -111,7 +111,7 @@ export function createOBVRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
-export function getOBVTitleInfo(
+function getOBVTitleInfo(
   _data: KLineData[],
   index: number | null,
   _params: Record<string, number | boolean | string>,

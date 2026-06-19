@@ -14,7 +14,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface WMSRRendererOptions {
+interface WMSRRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -36,7 +36,7 @@ function getWMSRStateKey(host: PluginHost | null, paneId: string): string | null
 /**
  * 创建 WMSR 渲染器插件
  */
-export function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPluginWithHost {
+function createWMSRRendererPlugin(options: WMSRRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -293,7 +293,7 @@ function drawWMSRLineWithCanvas2D(
 /**
  * 获取 WMSR 标题信息（供 paneTitle 使用）
  */
-export function getWMSRTitleInfo(
+function getWMSRTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

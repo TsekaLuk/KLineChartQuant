@@ -13,7 +13,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface CCIRendererOptions {
+interface CCIRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -35,7 +35,7 @@ function getCCIStateKey(host: PluginHost | null, paneId: string): string | null 
 /**
  * 创建 CCI 渲染器插件
  */
-export function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPluginWithHost {
+function createCCIRendererPlugin(options: CCIRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -240,7 +240,7 @@ function drawCCILineWithCanvas2D(
 /**
  * 获取 CCI 标题信息（供 paneTitle 使用）
  */
-export function getCCITitleInfo(
+function getCCITitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

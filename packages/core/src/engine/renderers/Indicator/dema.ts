@@ -13,7 +13,7 @@ const DEMA_COLOR = '#6366f1'
 
 type Point = { x: number; y: number }
 
-export interface DEMARendererOptions {
+interface DEMARendererOptions {
     paneId?: string
 }
 
@@ -31,7 +31,7 @@ function getDEMAStateKey(host: PluginHost | null, paneId: string): string | null
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPluginWithHost {
+function createDEMARendererPlugin(options: DEMARendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -122,7 +122,7 @@ export function createDEMARendererPlugin(options: DEMARendererOptions = {}): Ren
     }
 }
 
-export const getDEMATitleInfo: GetTitleInfoFn = (
+const getDEMATitleInfo: GetTitleInfoFn = (
     _data: KLineData[],
     index: number | null,
     _params: Record<string, number | boolean | string>,

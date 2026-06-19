@@ -14,7 +14,7 @@ import type { KLineData } from '../../../types/price'
 
 type LinePoint = { x: number; y: number }
 
-export interface RSIRendererOptions {
+interface RSIRendererOptions {
     /** 目标 pane ID（默认 'sub'） */
     paneId?: string
 }
@@ -36,7 +36,7 @@ function getRSIStateKey(host: PluginHost | null, paneId: string): string | null 
 /**
  * 创建 RSI 渲染器插件
  */
-export function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPluginWithHost {
+function createRSIRendererPlugin(options: RSIRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub' } = options
     let pluginHost: PluginHost | null = null
 
@@ -298,7 +298,7 @@ const { ctx, pane, range, scrollLeft, dpr, kLineCenters, lineWebGLSurface } = co
  * 获取 RSI 标题信息（供 paneTitle 使用）
  * 从 StateStore 读取已计算的 RSI 数据
  */
-export function drawRSILinesWithCanvas2D(
+function drawRSILinesWithCanvas2D(
     ctx: CanvasRenderingContext2D,
     scrollLeft: number,
     rsi1Points: LinePoint[],
@@ -351,7 +351,7 @@ export function drawRSILinesWithCanvas2D(
     ctx.restore()
 }
 
-export function getRSITitleInfo(
+function getRSITitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

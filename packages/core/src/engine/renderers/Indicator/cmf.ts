@@ -28,7 +28,7 @@ function getCMFStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createCMFRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_CMF' } = options
     let pluginHost: PluginHost | null = null
 
@@ -125,7 +125,7 @@ export function createCMFRendererPlugin(options: { paneId?: string } = {}): Rend
     }
 }
 
-export function getCMFTitleInfo(
+function getCMFTitleInfo(
     _data: KLineData[],
     index: number | null,
     params: Record<string, number | boolean | string>,

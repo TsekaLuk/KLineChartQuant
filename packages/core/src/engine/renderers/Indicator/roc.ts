@@ -15,7 +15,7 @@ const ROC_COLOR = '#0ea5e9'
 
 type LinePoint = { x: number; y: number }
 
-export interface ROCRendererOptions { paneId?: string }
+interface ROCRendererOptions { paneId?: string }
 
 function getROCStateKey(host: PluginHost | null, paneId: string): string | null {
     const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
@@ -31,7 +31,7 @@ function getROCStateKey(host: PluginHost | null, paneId: string): string | null 
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPluginWithHost {
+function createROCRendererPlugin(options: ROCRendererOptions = {}): RendererPluginWithHost {
     const { paneId = 'sub_ROC' } = options
     let pluginHost: PluginHost | null = null
 
@@ -132,7 +132,7 @@ export function createROCRendererPlugin(options: ROCRendererOptions = {}): Rende
     }
 }
 
-export function getROCTitleInfo(
+function getROCTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,

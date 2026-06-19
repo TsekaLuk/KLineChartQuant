@@ -106,7 +106,7 @@
 import { ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 
-export interface ParamConfig {
+interface ParamConfig {
   key: string
   label: string
   type: 'number'

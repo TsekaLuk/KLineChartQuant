@@ -30,7 +30,7 @@ function getHVStateKey(host: PluginHost | null, paneId: string): string | null {
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createHVRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'sub_HV' } = options
     let pluginHost: PluginHost | null = null
 
@@ -114,7 +114,7 @@ export function createHVRendererPlugin(options: { paneId?: string } = {}): Rende
     }
 }
 
-export function getHVTitleInfo(
+function getHVTitleInfo(
   _data: KLineData[],
   index: number | null,
   params: Record<string, number | boolean | string>,

@@ -28,7 +28,7 @@ function getPivotStateKey(host: PluginHost | null, paneId: string): string | nul
     return resolveStateKey(meta.stateKey, paneId)
 }
 
-export function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
+function createPivotRendererPlugin(options: { paneId?: string } = {}): RendererPluginWithHost {
     const { paneId = 'main' } = options
     let pluginHost: PluginHost | null = null
 
@@ -116,7 +116,7 @@ function drawStep(ctx: CanvasRenderingContext2D, pts: Point[], color: string): v
     ctx.stroke()
 }
 
-export const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
+const getPivotTitleInfo: GetTitleInfoFn = (_data, index, _params, host, paneId) => {
     if (index === null || index < 0) return null
 
     const stateKey = createPivotStateKey(paneId)

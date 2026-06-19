@@ -40,6 +40,49 @@ export const CHART_NAVIGATION_TOOLS: McpToolSchema[] = [
     },
     safety: 'mutates-state',
   },
+  {
+    name: 'chart.scrollToRight',
+    description:
+      'Scroll the chart to the rightmost position to show the latest ' +
+      'data. Use when the user says "go to latest", "show recent", ' +
+      '"scroll to end", or after navigating to historical data.',
+    inputSchema: { type: 'object', properties: {} },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'chart.zoomIn',
+    description:
+      'Zoom in one level, keeping the center (or a given anchor X) ' +
+      'stationary. Use when the user says "zoom in", "get closer", ' +
+      '"magnify", or wants to see fewer bars in more detail.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        anchorX: {
+          type: 'number',
+          description: 'Optional X coordinate to keep stationary.',
+        },
+      },
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'chart.zoomOut',
+    description:
+      'Zoom out one level, keeping the center (or a given anchor X) ' +
+      'stationary. Use when the user says "zoom out", "show more bars", ' +
+      '"widen the view".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        anchorX: {
+          type: 'number',
+          description: 'Optional X coordinate to keep stationary.',
+        },
+      },
+    },
+    safety: 'mutates-state',
+  },
 ]
 
 export const INDICATOR_TOOLS: McpToolSchema[] = [
@@ -102,6 +145,330 @@ export const INDICATOR_TOOLS: McpToolSchema[] = [
         },
       },
       required: ['instanceId', 'params'],
+    },
+    safety: 'mutates-state',
+  },
+]
+
+export const DATA_TOOLS: McpToolSchema[] = [
+  {
+    name: 'data.setSymbols',
+    description:
+      'Set the trading symbol (and optionally exchange, timeframe/period) ' +
+      'on the chart. Use when the user says "show me AAPL", "switch to ' +
+      'BTC/USDT", "go to daily chart", "change timeframe to 1 hour".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Ticker symbol, e.g. AAPL, BTC/USDT, 600519.' },
+        exchange: { type: 'string', description: 'Optional exchange name, e.g. NASDAQ, SSE, SZSE, HKEX, BINANCE.' },
+        period: {
+          type: 'string',
+          description:
+            'Timeframe / bar period. Common values: daily, 1min, 5min, 15min, 30min, 60min, weekly, monthly, quarterly, yearly.',
+        },
+        adjust: { type: 'string', description: 'Adjust type: qfq (forward), hfq (backward), none (raw).' },
+        source: { type: 'string', description: 'Data source identifier.' },
+        startDate: { type: 'string', description: 'Start date YYYY-MM-DD.' },
+        endDate: { type: 'string', description: 'End date YYYY-MM-DD.' },
+      },
+      required: ['symbol'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'data.appendData',
+    description:
+      'Append one or more new K-line bars to the end of the chart data. ' +
+      'Use when new price data arrives or simulating real-time bar feed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bars: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              timestamp: { type: 'number', description: 'Unix timestamp in milliseconds. Optional; omitted for intraday bars without a fixed close time.' },
+              open: { type: 'number', description: 'Opening price of the bar.' },
+              high: { type: 'number', description: 'Highest price during the bar period.' },
+              low: { type: 'number', description: 'Lowest price during the bar period.' },
+              close: { type: 'number', description: 'Closing / last price of the bar.' },
+              volume: { type: 'number', description: 'Trading volume in shares or contracts.' },
+            },
+            required: ['open', 'high', 'low', 'close', 'volume'],
+          },
+          description: 'Array of OHLCV K-line bars to append.',
+        },
+      },
+      required: ['bars'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'data.updateData',
+    description:
+      'Update existing K-line bars (e.g. to refresh the latest incomplete ' +
+      'bar). Bars are matched by timestamp. Use for real-time price updates.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bars: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              timestamp: { type: 'number', description: 'Unix timestamp in milliseconds. Used to match existing bars — bars without timestamp update the last visible bar.' },
+              open: { type: 'number', description: 'Opening price of the bar.' },
+              high: { type: 'number', description: 'Highest price during the bar period.' },
+              low: { type: 'number', description: 'Lowest price during the bar period.' },
+              close: { type: 'number', description: 'Closing / last price of the bar.' },
+              volume: { type: 'number', description: 'Trading volume in shares or contracts.' },
+            },
+            required: ['open', 'high', 'low', 'close', 'volume'],
+          },
+          description: 'Array of K-line bars to upsert.',
+        },
+      },
+      required: ['bars'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'data.addComparisonSymbol',
+    description:
+      'Add a comparison/overlay symbol to the chart (e.g. compare AAPL ' +
+      'against MSFT or SPY). Use when the user says "compare with", ' +
+      '"overlay symbol X". The symbol is rendered as an overlaid line ' +
+      'on the main pane.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Ticker symbol to compare, e.g. SPY, MSFT, 000001.' },
+        exchange: { type: 'string', description: 'Exchange name, e.g. NYSE, SSE, SZSE, HKEX, BINANCE. Matches the primary symbol\'s exchange if omitted.' },
+        source: {
+          type: 'string',
+          description:
+            'Data source identifier, e.g. gotdx, tradingview. Defaults to the primary symbol\'s source if omitted.',
+        },
+      },
+      required: ['symbol'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'data.removeComparisonSymbol',
+    description:
+      'Remove a previously added comparison/overlay symbol from the chart.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Symbol to remove from comparisons, e.g. SPY, MSFT.' },
+      },
+      required: ['symbol'],
+    },
+    safety: 'mutates-state',
+  },
+]
+
+export const DRAWING_TOOLS: McpToolSchema[] = [
+  {
+    name: 'drawing.setTool',
+    description:
+      'Activate a drawing tool by type. Once active, subsequent clicks on ' +
+      'the chart create drawings of that type. Pass null to deactivate and ' +
+      'return to cursor mode.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tool: {
+          type: 'string',
+          enum: ['trendline', 'horizontal', 'fib', 'rectangle', 'arrow', null],
+          description:
+            'Drawing tool type, or null to deactivate. ' +
+            'trendline=trend line, horizontal=horizontal line, fib=Fibo retracement, ' +
+            'rectangle=rectangle, arrow=arrow marker.',
+        },
+      },
+      required: ['tool'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'drawing.add',
+    description:
+      'Add a drawing/annotation at specific anchor points. Use when the ' +
+      'user says "draw a trend line from bar 10 to bar 50", "mark a ' +
+      'horizontal line at price 150", "add Fibonacci retracement", ' +
+      '"draw a vertical line here". Anchors are positioned by bar index ' +
+      '(0 = first visible bar) and price.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: [
+            'trend-line',
+            'ray',
+            'extended-line',
+            'horizontal-line',
+            'horizontal-ray',
+            'vertical-line',
+            'cross-line',
+            'info-line',
+            'parallel-channel',
+            'regression-channel',
+            'flat-line',
+            'disjoint-channel',
+          ],
+          description:
+            'Type of drawing. trend-line = segment between 2 points; ' +
+            'ray = line extending right; extended-line = line extending both ' +
+            'directions; horizontal-line = full-width horizontal; ' +
+            'vertical-line = full-height vertical; cross-line = both; ' +
+            'info-line = labeled segment; parallel-channel / flat-line / ' +
+            'disjoint-channel = 3-anchor channels; ' +
+            'regression-channel = linear regression with std-dev bands.',
+        },
+        anchors: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              barIndex: {
+                type: 'number',
+                description:
+                  'Bar index (0-based, relative to visible data range). ' +
+                  'e.g. 0 = first bar, use -1 for the last bar.',
+              },
+              price: { type: 'number', description: 'Price value for the anchor point.' },
+            },
+            required: ['barIndex', 'price'],
+          },
+          description:
+            'Anchor points defining the drawing. Single-anchor kinds ' +
+            '(horizontal-line, vertical-line, etc.) need 1 anchor; ' +
+            'dual-anchor kinds (trend-line, ray, etc.) need 2; ' +
+            'triple-anchor kinds (parallel-channel, flat-line, etc.) need 3.',
+        },
+        style: {
+          type: 'object',
+          properties: {
+            stroke: { type: 'string', description: 'Line color (hex, e.g. #FF5722).' },
+            strokeWidth: { type: 'number', description: 'Line width in pixels (default 1).' },
+            strokeStyle: {
+              type: 'string',
+              enum: ['solid', 'dashed', 'dotted'],
+              description: 'Line style (default solid).',
+            },
+          },
+          description: 'Optional visual style overrides.',
+        },
+      },
+      required: ['kind', 'anchors'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'drawing.clear',
+    description:
+      'Remove all drawings from the chart. Use when the user says "clear ' +
+      'all drawings", "remove all annotations", "clean up".',
+    inputSchema: { type: 'object', properties: {} },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'drawing.remove',
+    description: 'Remove a specific drawing by its id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        drawingId: { type: 'string', description: 'The drawing object id to remove.' },
+      },
+      required: ['drawingId'],
+    },
+    safety: 'mutates-state',
+  },
+]
+
+export const MARKER_TOOLS: McpToolSchema[] = [
+  {
+    name: 'markers.update',
+    description:
+      'Set custom markers on the chart. Replaces all existing markers ' +
+      'with the provided list. Use for annotations like "mark this high", ' +
+      '"flag this date", "label this point".',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        markers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Unique marker identifier.' },
+              date: { type: 'string', description: 'Date string: YYYY-MM-DD for daily, YYYY-MM-DD HH:mm for intraday.' },
+              shape: {
+                type: 'string',
+                enum: ['arrow_up', 'arrow_down', 'flag', 'circle', 'rectangle', 'diamond'],
+                description: 'Visual shape of the marker.',
+              },
+              groupKey: { type: 'string', description: 'Optional grouping key.' },
+              style: {
+                type: 'object',
+                additionalProperties: true,
+                description: 'Optional style overrides (fillColor, strokeColor, size, etc.).',
+              },
+              label: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string', description: 'Label text content.' },
+                  position: { type: 'string', enum: ['left', 'right', 'top', 'bottom', 'inside'], description: 'Label position relative to marker.' },
+                },
+                required: ['text'],
+                description: 'Optional text label.',
+              },
+            },
+            required: ['id', 'date', 'shape'],
+          },
+          description: 'Full list of custom markers to display.',
+        },
+      },
+      required: ['markers'],
+    },
+    safety: 'mutates-state',
+  },
+  {
+    name: 'markers.clear',
+    description:
+      'Remove all custom markers from the chart. Use when the user says ' +
+      '"clear markers", "remove all annotations".',
+    inputSchema: { type: 'object', properties: {} },
+    safety: 'mutates-state',
+  },
+]
+
+export const SETTINGS_TOOLS: McpToolSchema[] = [
+  {
+    name: 'settings.update',
+    description:
+      'Update chart settings and options. Accepts arbitrary key-value ' +
+      'pairs for chart behavior (settings) and appearance (options). ' +
+      'Use for fine-grained configuration changes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        settings: {
+          type: 'object',
+          additionalProperties: true,
+          description: 'Chart settings key-value pairs (behaviour).',
+        },
+        options: {
+          type: 'object',
+          additionalProperties: true,
+          description: 'Chart options key-value pairs (appearance).',
+        },
+      },
     },
     safety: 'mutates-state',
   },
@@ -217,6 +584,10 @@ export const REPLAY_TOOLS: McpToolSchema[] = [
 export const ALL_TOOLS: ReadonlyArray<McpToolSchema> = [
   ...CHART_NAVIGATION_TOOLS,
   ...INDICATOR_TOOLS,
+  ...DATA_TOOLS,
+  ...DRAWING_TOOLS,
+  ...MARKER_TOOLS,
+  ...SETTINGS_TOOLS,
   ...ALERT_TOOLS,
   ...REPLAY_TOOLS,
 ]
@@ -224,6 +595,10 @@ export const ALL_TOOLS: ReadonlyArray<McpToolSchema> = [
 export const TOOL_GROUPS = {
   navigation: CHART_NAVIGATION_TOOLS,
   indicators: INDICATOR_TOOLS,
+  data: DATA_TOOLS,
+  drawing: DRAWING_TOOLS,
+  markers: MARKER_TOOLS,
+  settings: SETTINGS_TOOLS,
   alerts: ALERT_TOOLS,
   replay: REPLAY_TOOLS,
 } as const

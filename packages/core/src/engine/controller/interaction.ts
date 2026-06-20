@@ -1,6 +1,7 @@
 // 交互控制中心
 
 import type { Chart } from '../chart'
+import type { KLineData } from '../../types/price'
 import type { MarkerEntity, CustomMarkerEntity } from '../marker/registry'
 import { MarkerInteractionState } from './markerInteraction'
 import { PinchTracker } from './pinchTracker'
@@ -99,6 +100,8 @@ export class InteractionController {
 
     /** 当前帧的 K 线起始 x 坐标数组 */
     private kLinePositions: number[] | null = null
+    /** 当前帧的 K 线中心 x 坐标数组（物理像素对齐） */
+    private kLineCenters: number[] | null = null
     /** 当前帧的可见 K 线索引范围 */
     private visibleRange: { start: number; end: number } | null = null
 
@@ -226,6 +229,13 @@ export class InteractionController {
             return
         }
 
+        // 分时模式下禁止拖拽平移
+        if (!this.chart.activeMode.allowPan) {
+            this.clearHover()
+            this.chart.scheduleDraw()
+            return
+        }
+
         const pane = this.getPaneByY(mouseY)
         this.isDragging = true
         this.touchStartTime = Date.now()
@@ -329,6 +339,7 @@ export class InteractionController {
     /** 处理滚动事件 */
     onScroll(options: { scheduleDraw?: boolean } = {}) {
         this.kLinePositions = null
+        this.kLineCenters = null
         this.visibleRange = null
         this.clearHover()
         if (options.scheduleDraw !== false) {
@@ -428,13 +439,16 @@ export class InteractionController {
      * @param positions K 线起始 x 坐标数组
      * @param visibleRange 可见 K 线索引范围
      * @param kWidthPx K 线宽度（物理像素）
+     * @param centers K 线中心 x 坐标数组（物理像素对齐后）
      */
     setKLinePositions(
         positions: number[] | null,
         visibleRange: { start: number; end: number } | null,
-        kWidthPx?: number
+        kWidthPx?: number,
+        centers?: number[] | null
     ) {
         this.kLinePositions = positions
+        this.kLineCenters = centers ?? null
         this.visibleRange = visibleRange
         if (kWidthPx !== undefined) {
             this.kWidthPx = kWidthPx
@@ -690,7 +704,7 @@ export class InteractionController {
         }
 
         const idx = localIdx + this.visibleRange.start
-        const data = this.chart.getData()
+        const data = this.chart.getRenderData()
 
         const pane = this.getPaneByY(mouseY)
         this.activePaneId = pane?.id || null
@@ -698,11 +712,8 @@ export class InteractionController {
         if (idx >= 0 && idx < (data?.length ?? 0)) {
             this.crosshairIndex = idx
 
-            const kLineStartX = this.kLinePositions[localIdx]!
-            // 与影线位置算法一致: leftPx + (widthPx - 1) / 2
-            const leftPx = Math.round(kLineStartX * dpr)
-            const wickXPx = leftPx + (this.kWidthPx - 1) / 2
-            const snappedX = wickXPx / dpr - scrollLeft
+            const centerX = this.kLineCenters?.[localIdx] ?? this.kLinePositions[localIdx]! + (this.kWidthPx! / dpr) / 2
+            const snappedX = centerX - scrollLeft
 
             this.crosshairPos = {
                 x: Math.min(Math.max(snappedX, 0), plotWidth),
@@ -715,13 +726,32 @@ export class InteractionController {
             } else {
                 this.crosshairPrice = null
             }
+
+            if (this.chart.currentPeriod === 'timeshare') {
+                this.hoveredIndex = idx
+                const tooltipResult = computeTooltipPosition({
+                    mouseX,
+                    mouseY,
+                    viewWidth,
+                    viewHeight,
+                    plotWidth,
+                    plotHeight,
+                    tooltipSize: this.tooltipSize,
+                    useAnchorPositioning: this.useTooltipAnchorPositioning,
+                })
+                if (tooltipResult.anchorPlacement) {
+                    this.tooltipAnchorPlacement = tooltipResult.anchorPlacement
+                }
+                this.tooltipPos = tooltipResult.pos
+                return
+            }
         } else {
             this.crosshairIndex = null
             this.crosshairPos = null
             this.crosshairPrice = null
         }
 
-        const k = typeof this.crosshairIndex === 'number' ? data[this.crosshairIndex] : undefined
+        const k = typeof this.crosshairIndex === 'number' ? data[this.crosshairIndex] as KLineData : undefined
         if (!k || !pane || !pane.capabilities.candleHitTest) {
             this.hoveredIndex = null
             return
@@ -795,6 +825,7 @@ export class InteractionController {
         this.activePaneId = null
         this.markerState.reset()
         this.kLinePositions = null
+        this.kLineCenters = null
         this.visibleRange = null
         this.lastHoverRenderKey = ''
         this.kWidthPx = null

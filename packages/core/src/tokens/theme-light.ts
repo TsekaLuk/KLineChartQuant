@@ -42,6 +42,7 @@ export const lightTheme: Theme = {
 
         volumeUp: '#0F8B5C66', // 40% alpha — paired with candleUp
         volumeDown: '#C2363B66',
+        volumeNeutral: '#00000066',
 
         axisText: '#5A5A5A',
         axisLine: '#D0D0D0',
@@ -82,6 +83,13 @@ export const lightTheme: Theme = {
         // #0369A1 → 4.59:1.
         mtfOverlay: '#0369A1',
 
+        timeSharePriceLine: '#4A90D9',
+        timeShareAvgLine: '#F5A623',
+        timeShareAreaUp: 'rgba(15, 139, 92, 0.15)',
+        timeShareAreaDown: 'rgba(213, 19, 26, 0.15)',
+        timeSharePreClose: '#888888',
+        timeShareVolume: '#4A90D9',
+
         palette: {
             // Okabe-Ito-derived qualitative scale, AA on #FAFAFA
             i1: '#0072B2', // strong blue
@@ -105,7 +113,7 @@ export const lightTheme: Theme = {
             weak: 'hsl(210, 7%, 65%)',
             white: 'rgba(255, 255, 255, 0.92)',
         },
-price: {
+        price: {
             lastPrice: 'rgba(230, 100, 115, 0.95)',
         },
         tagBg: {

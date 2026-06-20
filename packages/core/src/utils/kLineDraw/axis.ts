@@ -1,7 +1,7 @@
 import type { KLineData } from '../../types/price'
 import { priceToY, yToPrice } from '../priceToY'
 import { alignToPhysicalPixelCenter, roundToPhysicalPixel } from '../../engine/draw/pixelAlign'
-import { formatYMDShanghai, formatMonthOrYear, formatDay, findMonthBoundaries, findDayBoundaries } from '../../utils/dateFormat'
+import { formatYMDShanghai, formatTimeLabel, formatMonthOrYear, formatDay, findMonthBoundaries, findDayBoundaries } from '../../utils/dateFormat'
 import { resolveThemeColors } from '../../tokens'
 import type { ColorPresetSettings } from '../../tokens'
 import { getFont, setCanvasFont } from '../../engine/theme/fonts'
@@ -24,92 +24,6 @@ function measureTextWidth(ctx: CanvasRenderingContext2D, text: string): number {
     return width
 }
 
-export interface PriceAxisOptions {
-    x: number
-    y: number
-    width: number
-    height: number
-    priceRange: { maxPrice: number; minPrice: number }
-    yPaddingPx?: number
-    dpr: number
-    ticks?: number
-    bgColor?: string
-    textColor?: string
-    lineColor?: string
-    fontSize?: number
-    paddingX?: number
-    /** 是否绘制左侧边界竖线（默认 true） */
-    drawLeftBorder?: boolean
-    /** 是否绘制刻度短线（默认 true） */
-    drawTickLines?: boolean
-    /** 价格偏移量（用于价格轴平移时同步显示） */
-    priceOffset?: number
-}
-
-/** 右侧价格轴（固定，不随 translate/scroll 变化） */
-function drawPriceAxis(ctx: CanvasRenderingContext2D, opts: PriceAxisOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
-    const colors = resolveThemeColors(theme, isAsiaMarket, colorPresetSettings)
-    const {
-        x,
-        y,
-        width,
-        height,
-        priceRange,
-        yPaddingPx = 0,
-        dpr,
-        ticks = 10,
-        bgColor = colors.tagBg.transparent,
-        textColor = colors.text.secondary,
-        lineColor = colors.border.dark,
-        fontSize = 16,
-        drawLeftBorder = true,
-        drawTickLines = true,
-        priceOffset = 0,
-    } = opts
-
-    const wantPad = yPaddingPx
-    const pad = Math.max(0, Math.min(wantPad, Math.floor(height / 2) - 1))
-
-    const { maxPrice, minPrice } = priceRange
-    const range = maxPrice - minPrice
-    const step = range === 0 ? 0 : range / (Math.max(2, ticks) - 1)
-
-    ctx.fillStyle = bgColor
-    ctx.fillRect(x, y, width, height)
-
-    if (drawLeftBorder) {
-        ctx.strokeStyle = lineColor
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(alignToPhysicalPixelCenter(x, dpr), y)
-        ctx.lineTo(alignToPhysicalPixelCenter(x, dpr), y + height)
-        ctx.stroke()
-    }
-
-    setCanvasFont(ctx, getFont(fontSize))
-    ctx.textBaseline = 'middle'
-    ctx.textAlign = 'center'
-    ctx.strokeStyle = lineColor
-    ctx.fillStyle = textColor
-
-    const centerX = x + width / 2
-
-    for (let i = 0; i < Math.max(2, ticks); i++) {
-        const p = range === 0 ? maxPrice : maxPrice - step * i
-        const yy = Math.round(priceToY(p, maxPrice, minPrice, height, pad, pad) + y)
-
-        if (drawTickLines) {
-            ctx.beginPath()
-            const lineY = alignToPhysicalPixelCenter(yy, dpr)
-            ctx.moveTo(x, lineY)
-            ctx.lineTo(x + 4, lineY)
-            ctx.stroke()
-        }
-
-        const displayPrice = p + priceOffset
-        ctx.fillText(displayPrice.toFixed(2), roundToPhysicalPixel(centerX, dpr), alignToPhysicalPixelCenter(yy, dpr))
-    }
-}
 
 export interface TimeAxisOptions {
     x: number
@@ -135,6 +49,10 @@ export interface TimeAxisOptions {
     drawBottomBorder?: boolean
     /** K线级别，如 'daily'、'5min'、'15min' */
     period: string
+    /** K 线中心点 x 坐标（逻辑像素），由 calcKLinePositions 预计算 */
+    kLineCenters: number[]
+    /** 数据索引可见范围 { start, end } */
+    visibleRange: { start: number; end: number }
 }
 
 export interface LastPriceLineOptions {
@@ -197,6 +115,8 @@ export interface CrosshairTimeLabelOptions {
     fontSize?: number
     paddingX?: number
     paddingY?: number
+    /** 周期类型，分时图显示 HH:mm 格式 */
+    period?: string
 }
 
 export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: CrosshairTimeLabelOptions, theme: 'light' | 'dark' = 'light', isAsiaMarket?: boolean, colorPresetSettings?: ColorPresetSettings) {
@@ -211,9 +131,10 @@ export function drawCrosshairTimeLabel(ctx: CanvasRenderingContext2D, opts: Cros
         dpr,
         fontSize = 16,
         paddingX = 8,
+        period,
     } = opts
 
-    const text = formatYMDShanghai(timestamp)
+    const text = period === 'timeshare' ? formatTimeLabel(timestamp) : formatYMDShanghai(timestamp)
 
     ctx.save()
     setCanvasFont(ctx, getFont(fontSize))
@@ -356,11 +277,11 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         height,
         data,
         scrollLeft,
-        kWidth,
-        kGap,
         startIndex,
         endIndex,
         dpr,
+        kLineCenters,
+        visibleRange,
         bgColor = colors.tagBg.transparent,
         textColor = colors.text.secondary,
         lineColor = colors.border.dark,
@@ -369,16 +290,6 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         drawTopBorder = true,
         drawBottomBorder = true,
     } = opts
-
-    const physKWidth = Math.round(kWidth * dpr)
-    const alignedPhysKWidth = physKWidth % 2 === 0 ? physKWidth + 1 : physKWidth
-    const physKGap = Math.round(kGap * dpr)
-    const unitPx = alignedPhysKWidth + physKGap
-    const startXPx = physKGap
-
-    const unit = unitPx / dpr
-    const startX = startXPx / dpr
-    const alignedKWidth = alignedPhysKWidth / dpr
 
     ctx.fillStyle = bgColor
     ctx.fillRect(x, y, width, height)
@@ -408,13 +319,34 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
     const regularFont = getFont(fontSize)
     const boldFont = getFont(fontSize, { bold: true })
 
-    const isMinuteData = opts.period.includes('min')
-    const showOnlyYear = !isMinuteData && opts.period !== 'daily'
-    const boundaries = isMinuteData ? findDayBoundaries(data) : findMonthBoundaries(data)
+    const isTimeShare = opts.period === 'timeshare'
+    const isMinuteData = !isTimeShare && opts.period.includes('min')
+    const showOnlyYear = !isMinuteData && !isTimeShare && opts.period !== 'daily'
+
+    let boundaries: number[]
+    let labelFn: (ts: number) => { text: string; isYear: boolean }
+
+    if (isTimeShare) {
+      const visibleCount = endIndex - startIndex
+      const maxLabels = Math.max(2, Math.min(8, Math.floor(visibleCount / 2) || 1))
+      const step = Math.max(1, Math.floor(visibleCount / maxLabels))
+      boundaries = []
+      for (let i = 0; i <= maxLabels; i++) {
+        const idx = startIndex + Math.min(i * step, Math.max(0, visibleCount - 1))
+        boundaries.push(idx)
+      }
+      labelFn = (ts) => ({ text: formatTimeLabel(ts), isYear: false })
+    } else if (isMinuteData) {
+      boundaries = findDayBoundaries(data)
+      labelFn = formatDay
+    } else {
+      boundaries = findMonthBoundaries(data)
+      labelFn = formatMonthOrYear
+    }
+
     const visibleBoundaries = boundaries.filter((idx: number) => idx >= startIndex && idx < endIndex)
 
     let lastBold: boolean | null = null
-    const labelFn = isMinuteData ? formatDay : formatMonthOrYear
 
     for (const idx of visibleBoundaries) {
         const k = data[idx]
@@ -423,8 +355,9 @@ export function drawTimeAxis(ctx: CanvasRenderingContext2D, opts: TimeAxisOption
         const { text, isYear } = labelFn(k.timestamp)
         if (showOnlyYear && !isYear) continue
 
-        const worldX = startX + idx * unit + alignedKWidth / 2
-        const screenX = worldX - scrollLeft
+        const centerX = kLineCenters[idx - visibleRange.start]
+        if (centerX === undefined) continue
+        const screenX = centerX - scrollLeft
 
         const minX = paddingX
         const maxX = Math.max(paddingX, width - paddingX)

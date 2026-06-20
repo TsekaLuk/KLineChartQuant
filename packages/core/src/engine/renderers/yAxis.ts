@@ -25,7 +25,14 @@ export function createYAxisRendererPlugin(options: {
     priority: RENDERER_PRIORITY.SYSTEM_YAXIS,
 
     draw(context: RenderContext) {
-      const { ctx, pane, dpr, yAxisCtx, data } = context
+      const { ctx, pane, dpr, yAxisCtx, data, period } = context
+
+      // 分时模式始终显示右轴，不受设置约束
+      if (period !== 'timeshare') {
+        const rightType = context.settings?.rightAxisType as string | undefined
+        if (rightType === 'none') return
+      }
+
       const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
       const scaleType = pane.yAxis.getScaleType()
 
@@ -80,6 +87,7 @@ export function createYAxisRendererPlugin(options: {
       // 绘制来自 yAxisLabels 的标签（最新价格、极值点、绘图锚点等）
       if (context.yAxisLabels && pane.role === 'price') {
         for (const label of context.yAxisLabels) {
+          if (label.price == null || !Number.isFinite(label.price)) continue
           const isLastPrice = label.type === 'lastPrice'
           drawAxisPriceLabel(targetCtx, {
             x: 0,

@@ -40,6 +40,7 @@ export const darkTheme: Theme = {
 
         volumeUp: '#22D69B66',
         volumeDown: '#FF646466',
+        volumeNeutral: '#FFFFFF66',
 
         axisText: '#9AA0A6',
         axisLine: '#2A2F36',
@@ -75,6 +76,13 @@ export const darkTheme: Theme = {
         avwapLine: '#A78BFA',
         avwapBand: '#A78BFA33',
         mtfOverlay: '#38BDF8',
+
+        timeSharePriceLine: '#60A5FA',
+        timeShareAvgLine: '#FBBF24',
+        timeShareAreaUp: 'rgba(34, 214, 155, 0.20)',
+        timeShareAreaDown: 'rgba(255, 100, 100, 0.20)',
+        timeSharePreClose: '#9CA3AF',
+        timeShareVolume: '#60A5FA',
 
         palette: {
             // Same hue ordering as light theme; values tuned for dark BG.

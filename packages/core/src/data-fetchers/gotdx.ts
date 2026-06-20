@@ -1,6 +1,6 @@
-import type { KLineData } from '../controllers/types'
+import type { KLineData, TimeShareData } from '../controllers/types'
 import { DataFetcher } from './fetcherDefinitionRegistry'
-import type { FetchConfig } from './types'
+import type { FetchConfig, TimeShareFetchConfig } from './types'
 
 const PERIOD_TO_CATEGORY: Record<string, number> = {
   '1min': 8,
@@ -30,6 +30,46 @@ const EXCHANGE_EX_CATEGORY: Record<string, number> = {
 }
 
 const BASE_URL = 'http://127.0.0.1:8080'
+
+function getShanghaiDateYYYYMMDD(): number {
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  const parts = formatter.formatToParts(new Date())
+  let y = '', m = '', d = ''
+  for (const p of parts) {
+    if (p.type === 'year') y = p.value
+    else if (p.type === 'month') m = p.value
+    else if (p.type === 'day') d = p.value
+  }
+  return +y * 10000 + +m * 100 + +d
+}
+
+async function fetchGotdxHistoryTick(
+  _source: string,
+  config: TimeShareFetchConfig,
+): Promise<ReadonlyArray<TimeShareData>> {
+  const body = {
+    date: config.date ?? getShanghaiDateYYYYMMDD(),
+    market: config.symbol.startsWith('6') || config.symbol.startsWith('9') ? 1 : 0,
+    code: config.symbol,
+  }
+  const res = await fetch(`${BASE_URL}/api/stock/history-tick`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`[gotdx] history-tick failed: ${res.status} ${res.statusText}`)
+  const list: Array<{ timestamp: string; Price: number; Avg: number; Vol: number }> = await res.json()
+  return list.map((item) => ({
+    timestamp: new Date(item.timestamp).getTime(),
+    price: item.Price,
+    average: item.Avg,
+    volume: item.Vol,
+    amount: item.Price * item.Vol,
+  }))
+}
 
 interface SecurityBar {
   Last: number
@@ -156,7 +196,5 @@ async function fetchGotdx(
 })
 class GotdxFetcher {
   static fetcher = fetchGotdx
+  static timeShareFetcher = fetchGotdxHistoryTick
 }
-
-/** @deprecated Use `GotdxFetcher.fetcher` directly or rely on routerDataFetcher. */
-const gotdxDataFetcher = fetchGotdx

@@ -4,8 +4,8 @@
       :symbol="currentSymbol"
       :k-line-level="kLineLevel"
       :k-line-adjust="kLineAdjust"
-      :symbol-loading="symbolLoading"
-      :symbol-error="symbolError"
+      :symbol-loading="symbolStatus === 'loading'"
+      :symbol-error="symbolStatus === 'error'"
       :overlay-symbols="overlaySymbols"
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
@@ -48,14 +48,21 @@
         </div>
         <div ref="tooltipLayerRef" class="tooltip-layer"></div>
         <div
+          v-if="computedLeftAxisWidth > 0"
+          class="left-axis-host"
+          ref="leftAxisLayerRef"
+          :style="leftAxisHostStyle"
+        ></div>
+        <div
           class="chart-container"
-          :style="{ cursor: containerCursor }"
+          :style="chartContainerStyle"
           ref="containerRef"
           @scroll.passive="onScroll"
           @pointerdown="onPointerDown"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
           @pointerleave="onPointerLeave"
+          @dblclick="onDoubleClick"
         >
           <div class="scroll-content" :style="{ width: totalWidth + 'px' }">
             <div class="canvas-layer" ref="canvasLayerRef">
@@ -216,6 +223,8 @@ const props = withDefaults(
     maxKWidth?: number
     /** 右侧价格轴宽度 */
     rightAxisWidth?: number
+    /** 左侧价格轴宽度（默认 0，不显示） */
+    leftAxisWidth?: number
     /** 底部时间轴高度 */
     bottomAxisHeight?: number
     /** 价格标签额外宽度（用于显示涨跌幅，默认 60px） */
@@ -268,19 +277,20 @@ const emit = defineEmits<{
 }>()
 
 // ── Symbol / Comparison State ──
-const kLineLevel = ref(props.semanticConfig?.data?.period ?? 'daily')
+const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
 const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const isIntraday = computed(() => kLineLevel.value.includes('min'))
 const currentSymbol = ref('选择商品')
 const currentSymbolItem = ref<SymbolItem | null>(null)
-const symbolLoading = ref(false)
-const symbolError = ref(false)
+const symbolStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const symbolTimeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
 const overlaySymbols = ref<string[]>([])
 const overlaySymbolItems = ref<SymbolItem[]>([])
 
 function onKLineLevelChange(level: string) {
   kLineLevel.value = level as typeof kLineLevel.value
   emit('kLineLevelChange', level)
+  controller.value?.setCurrentPeriod(level)
   syncSymbolsToController()
 }
 
@@ -291,7 +301,8 @@ function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
 }
 
 function onSymbolChange(item: SymbolItem) {
-  symbolError.value = false
+  if (symbolTimeoutId.value) clearTimeout(symbolTimeoutId.value)
+  symbolStatus.value = 'loading'
   currentSymbol.value = item.code
   currentSymbolItem.value = item
   syncSymbolsToController()
@@ -351,6 +362,7 @@ const chartWrapperRef = ref<HTMLDivElement | null>(null)
 const tooltipLayerRef = ref<HTMLDivElement | null>(null)
 const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
+const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
 
 // ── Controller & Composable Wiring ──
@@ -675,6 +687,29 @@ function onPointerLeave(e: PointerEvent) {
   controller.value?.handlePointerEvent(e)
 }
 
+function onDoubleClick(e: MouseEvent) {
+  if (kLineLevel.value !== 'daily' || !controller.value) return
+
+  const container = containerRef.value
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  const mouseX = e.clientX - rect.left
+
+  const index = controller.value.getLogicalIndexAtX(mouseX)
+  if (index == null) return
+
+  const timestamp = controller.value.getTimestampAtLogicalIndex(index)
+  if (timestamp == null) return
+
+  const d = new Date(timestamp)
+  const shD = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+  const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
+
+  kLineLevel.value = 'timeshare'
+  controller.value.switchToTimeShareForDate(yyyymmdd)
+  emit('kLineLevelChange', 'timeshare')
+}
+
 function onRightAxisPointerDown(e: PointerEvent) {
   controller.value?.handlePointerEvent(e)
 }
@@ -698,6 +733,26 @@ function onScroll() {
 
 // ── Width / Zoom / Expose ──
 const axisHostWidth = computed(() => props.rightAxisWidth + props.priceLabelWidth)
+
+const computedLeftAxisWidth = computed(() => props.leftAxisWidth ?? 0)
+
+const leftAxisHostStyle = computed(() => {
+  const width = computedLeftAxisWidth.value
+  if (width <= 0) return { display: 'none' }
+  if (kLineLevel.value === 'timeshare') return { width: `${width}px` }
+  const leftType = chartSettings.value?.leftAxisType
+  if (!leftType || leftType === 'none') return { width: `${width}px`, display: 'none' }
+  return { width: `${width}px` }
+})
+
+const chartContainerStyle = computed(() => {
+  const base: Record<string, string> = { cursor: containerCursor.value }
+  if (leftAxisHostStyle.value.display === 'none') {
+    base.borderRadius = '3px 0 0 3px'
+    base.borderLeft = '1px solid var(--chart-border)'
+  }
+  return base
+})
 
 const totalWidth = computed(() => {
   void dataVersion.value
@@ -728,6 +783,8 @@ defineExpose({
 
 // ── Lifecycle Setup ──
 
+let cleanupChartCallbacks: (() => void) | null = null
+
 function setupWheelHandler(): (e: WheelEvent) => void {
   const onWheelHandler = (e: WheelEvent) => {
     e.preventDefault()
@@ -741,17 +798,20 @@ function initChart(
   canvasLayer: HTMLDivElement,
   rightAxisLayer: HTMLDivElement,
   xAxisCanvas: HTMLCanvasElement,
+  leftAxisLayer?: HTMLDivElement,
 ): Promise<ChartController> {
   const ctrl = createChartController({
     container,
     data: [],
     canvasLayer,
     rightAxisLayer,
+    leftAxisLayer,
     xAxisCanvas,
     initialZoomLevel: props.initialZoomLevel,
     zoomLevels: props.zoomLevels,
     yPaddingPx: props.yPaddingPx,
     rightAxisWidth: props.rightAxisWidth,
+    leftAxisWidth: props.leftAxisWidth,
     bottomAxisHeight: props.bottomAxisHeight,
     priceLabelWidth: props.priceLabelWidth,
     minKWidth: props.minKWidth,
@@ -761,7 +821,7 @@ function initChart(
   return ctrl
 }
 
-function setupChartCallbacks(ctrl: ChartController): void {
+function setupChartCallbacks(ctrl: ChartController): () => void {
   const unsubscribePaneLayout = ctrl.paneLayout.subscribe(() => {
     invalidateContainerRectCache()
     const borderTop = containerRef.value
@@ -810,11 +870,28 @@ function setupChartCallbacks(ctrl: ChartController): void {
     const data = ctrl.data.peek()
     dataLength.value = data.length
     dataVersion.value++
-    symbolError.value = data.length === 0
+    if (data.length > 0 && (symbolStatus.value === 'loading' || symbolStatus.value === 'error')) {
+      if (symbolTimeoutId.value) {
+        clearTimeout(symbolTimeoutId.value)
+        symbolTimeoutId.value = null
+      }
+      symbolStatus.value = 'ready'
+    }
   })
 
   const unsubscribeDataLoading = ctrl.dataLoading.subscribe(() => {
-    symbolLoading.value = ctrl.dataLoading.peek()
+    const loading = ctrl.dataLoading.peek()
+    if (loading) {
+      symbolStatus.value = 'loading'
+      if (symbolTimeoutId.value) clearTimeout(symbolTimeoutId.value)
+      symbolTimeoutId.value = setTimeout(() => {
+        if (symbolStatus.value === 'loading') {
+          symbolStatus.value = 'error'
+        }
+        symbolTimeoutId.value = null
+      }, 10000)
+      return
+    }
   })
 
   const unsubscribeTheme = ctrl.theme.subscribe(() => {
@@ -857,19 +934,23 @@ function setupChartCallbacks(ctrl: ChartController): void {
     }))
   })
 
-  onUnmounted(() => {
-    unsubscribeViewport()
-    unsubscribeData()
-    unsubscribeDataLoading()
-    unsubscribePaneRatios()
-    unsubscribePaneLayout()
-    unsubscribeTheme()
-    unsubscribeIndicators()
-    unsubscribeComparisonColors()
-    unsubscribeComparisonLoading()
-    unsubscribeSymbols()
-  })
-}
+  return () => {
+      if (symbolTimeoutId.value) {
+        clearTimeout(symbolTimeoutId.value)
+        symbolTimeoutId.value = null
+      }
+      unsubscribeViewport()
+      unsubscribeData()
+      unsubscribeDataLoading()
+      unsubscribePaneRatios()
+      unsubscribePaneLayout()
+      unsubscribeTheme()
+      unsubscribeIndicators()
+      unsubscribeComparisonColors()
+      unsubscribeComparisonLoading()
+      unsubscribeSymbols()
+    }
+  }
 
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
@@ -931,12 +1012,13 @@ onMounted(async () => {
   const canvasLayer = container.querySelector<HTMLDivElement>('.canvas-layer')
   const xAxisCanvas = container.querySelector<HTMLCanvasElement>('.x-axis-canvas')
   const rightAxisLayer = chartMain.querySelector<HTMLDivElement>('.right-axis-host')
-  const ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!)
+  const leftAxisLayer = chartMain.querySelector<HTMLDivElement>('.left-axis-host') ?? undefined
+  const ctrl = await initChart(container, canvasLayer!, rightAxisLayer!, xAxisCanvas!, leftAxisLayer)
   if (!containerRef.value || !chartMainRef.value) return // 组件已卸载
   controller.value = ctrl
 
   // 3) 信号回调
-  setupChartCallbacks(ctrl)
+  cleanupChartCallbacks = setupChartCallbacks(ctrl)
 
   // 3.5) 在任何 draw 之前注册主图指标（BOLL/MA 等）
   //      initIndicatorsFromConfig 是同步的，读 props.semanticConfig 即可注册，
@@ -958,6 +1040,8 @@ onMounted(async () => {
 
 // ── onUnmounted & Watchers ──
 onUnmounted(() => {
+  cleanupChartCallbacks?.()
+  cleanupChartCallbacks = null
   const ctrl = controller.value
   if (ctrl) {
     controller.value = null
@@ -1098,7 +1182,8 @@ watch(
   -ms-overflow-style: none;
   border: 1px solid var(--chart-border);
   border-right: 0;
-  border-radius: 3px 0 0 3px;
+  border-left: 0;
+  border-radius: 0;
   box-sizing: border-box;
   background: var(--chart-bg);
 
@@ -1123,6 +1208,24 @@ watch(
   border: 1px solid var(--chart-border);
   border-top-right-radius: 3px;
   border-bottom-right-radius: 3px;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+.left-axis-host {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100%;
+  min-height: inherit;
+  box-sizing: border-box;
+  background: var(--chart-bg);
+  overflow: visible;
+  border: 1px solid var(--chart-border);
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
 
   -webkit-touch-callout: none;
   -webkit-user-select: none;

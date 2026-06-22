@@ -21,8 +21,8 @@ services:
   # KLineChart 前端
   klinechart:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: devops/Dockerfile
     container_name: klinechart-demo
     ports:
       - "${PORT:-3000}:80"

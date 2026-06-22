@@ -27,7 +27,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 RUN apk add --no-cache gettext
 
-COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY devops/nginx.conf.template /etc/nginx/templates/default.conf.template
 
 COPY --from=builder /app/dist-demo /usr/share/nginx/html
 

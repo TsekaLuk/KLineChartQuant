@@ -1,11 +1,11 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '../../utils/kLineDraw/axis'
-import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
 import { resolveThemeColors } from '../../tokens'
+import { getFont, setCanvasFont } from '../theme/fonts'
+import { roundToPhysicalPixel } from '../draw/pixelAlign'
 
 import type { KLineData } from '../../types/price'
-import type { ScaleType } from '../utils/tickPosition'
 
 /**
  * 创建 Y 轴渲染器插件
@@ -42,32 +42,28 @@ export function createYAxisRendererPlugin(options: {
 
       const isPercent = scaleType === 'percent' && pane.role === 'price'
 
-      if (pane.capabilities.showPriceAxisTicks) {
-        const tickValueMin = isPercent ? pane.yAxis.getDisplayPercentRange().minPct : displayRange.minPrice
-        const tickValueMax = isPercent ? pane.yAxis.getDisplayPercentRange().maxPct : displayRange.maxPrice
-        const formatLabel = isPercent
+      if (pane.capabilities.showPriceAxisTicks && context.yAxisTicks) {
+        targetCtx.clearRect(0, 0, axisWidth, pane.height)
+
+        const font = getFont(12)
+        setCanvasFont(targetCtx, font)
+        targetCtx.textBaseline = 'middle'
+        targetCtx.textAlign = 'center'
+        targetCtx.fillStyle = tokenColors.text.secondary
+
+        const format = isPercent
           ? (v: number) => {
               const sign = v >= 0 ? '+' : ''
               return sign + v.toFixed(2) + '%'
             }
-          : undefined
+          : (v: number) => v.toFixed(2)
 
-        drawScaleTicks({
-          tickColor: tokenColors.text.secondary,
-          ctx: targetCtx,
-          dpr,
-          axisWidth,
-          height: pane.height,
-          paddingTop: pane.yAxis.getPaddingTop(),
-          paddingBottom: pane.yAxis.getPaddingBottom(),
-          valueMin: tickValueMin,
-          valueMax: tickValueMax,
-          isMain: true,
-          decimals: 2,
-          hideEdgeTicks: false,
-          scaleType: isPercent ? 'percent' : scaleType,
-          formatLabel,
-        })
+        const textX = roundToPhysicalPixel(axisWidth / 2, dpr)
+
+        for (const tick of context.yAxisTicks) {
+          const displayValue = isPercent ? pane.yAxis.toPercent(tick.value) : tick.value
+          targetCtx.fillText(format(displayValue), textX, tick.y)
+        }
       }
 
       // 绘制价格范围带（先于标签，使标签覆盖在范围带之上）

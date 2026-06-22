@@ -61,8 +61,7 @@ export const DEFAULT_SETTINGS = [
   {
     key: 'leftAxisType', label: '左轴类型', type: 'select', default: 'none', group: 'main', options: [
       { value: 'none', label: '不显示' },
-      { value: 'linear', label: '常规轴' },
-      { value: 'log', label: '对数轴' },
+      { value: 'percent', label: '百分比轴' },
     ]
   },
   { key: 'disableMainPaneVerticalScroll', label: '主图纵轴刻度自适应调整', type: 'boolean', default: true, group: 'main' },

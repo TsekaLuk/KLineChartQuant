@@ -4,7 +4,7 @@ import type { KLineData } from '../../types/price'
 import { createHorizontalLineRect, createVerticalLineRect } from '../draw/pixelAlign'
 import { findMonthBoundaries } from '../../utils/dateFormat'
 import { resolveThemeColors } from '../../tokens'
-import { calculateTickPositions, calculateValueTickPositions, type ScaleType } from '../utils/tickPosition'
+
 
 /**
  * 创建网格线渲染器插件
@@ -34,41 +34,12 @@ export function createGridLinesRendererPlugin(): RendererPlugin {
             const plotWidth = ctx.canvas.width / dpr
             const startX = scrollLeft
             const endX = scrollLeft + plotWidth
-            const pt = pane.yAxis.getPaddingTop()
-            const pb = pane.yAxis.getPaddingBottom()
-
-            // 水平网格线：与 Y 轴刻度对齐
-            const scaleType = pane.yAxis.getScaleType()
-            let yPositions: number[]
-
-            if ((scaleType === 'log' || scaleType === 'percent') && pane.role === 'price') {
-                const displayRange = pane.yAxis.getDisplayRange(pane.priceRange)
-                const valueMin = scaleType === 'percent' ? pane.yAxis.getDisplayPercentRange().minPct : displayRange.minPrice
-                const valueMax = scaleType === 'percent' ? pane.yAxis.getDisplayPercentRange().maxPct : displayRange.maxPrice
-                const tickValues = calculateValueTickPositions({
-                    height: pane.height,
-                    paddingTop: pt,
-                    paddingBottom: pb,
-                    isMain: true,
-                    valueMin,
-                    valueMax,
-                    scaleType,
-                })
-                yPositions = tickValues.map(t => t.y)
-            } else {
-                // 线性模式：均匀分布
-                const tickPositions = calculateTickPositions({
-                    height: pane.height,
-                    paddingTop: pt,
-                    paddingBottom: pb,
-                    isMain: pane.role === 'price',
-                })
-                yPositions = tickPositions.map(t => t.y)
-            }
-
-            for (const y of yPositions) {
-                const h = createHorizontalLineRect(startX, endX, y, dpr)
-                if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
+            // 水平网格线：从预计算的 yAxisTicks 取 Y 位置，确保与轴刻度对齐
+            if (context.yAxisTicks) {
+                for (const tick of context.yAxisTicks) {
+                    const h = createHorizontalLineRect(startX, endX, tick.y, dpr)
+                    if (h) ctx.fillRect(h.x, h.y, h.width, h.height)
+                }
             }
 
             const boundaries = findMonthBoundaries(klineData)

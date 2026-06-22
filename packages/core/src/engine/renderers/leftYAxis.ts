@@ -1,9 +1,10 @@
 import type { RendererPlugin, RenderContext } from '../../plugin'
 import { RENDERER_PRIORITY, GLOBAL_PANE_ID } from '../../plugin'
-import { drawScaleTicks } from '../renderers/Indicator/scale/indicator_scale'
 import { drawCrosshairPriceLabel } from '../../utils/kLineDraw/axis'
 import { resolveThemeColors } from '../../tokens'
-import type { ScaleType } from '../utils/tickPosition'
+import { getFont, setCanvasFont } from '../theme/fonts'
+import { roundToPhysicalPixel } from '../draw/pixelAlign'
+import { priceAtYForScaleType, type ScaleType } from '../utils/tickPosition'
 
 export function createLeftYAxisRendererPlugin(options: {
   axisWidth: number
@@ -32,29 +33,44 @@ export function createLeftYAxisRendererPlugin(options: {
       }
 
       const tokenColors = resolveThemeColors(context.theme, context.isAsiaMarket, context.colorPresetSettings)
-      const displayRange = pane.yAxis.getDisplayRange()
-      const { minPrice, maxPrice } = displayRange
 
       if (!pane.capabilities.showPriceAxisTicks) return
 
       const scaleType: ScaleType = period === 'timeshare' ? 'linear' : ((context.settings?.leftAxisType as ScaleType) ?? 'linear')
+      const paneScaleType = pane.yAxis.getScaleType()
 
-      drawScaleTicks({
-        tickColor: tokenColors.text.secondary,
-        ctx: leftAxisCtx,
-        dpr,
-        axisWidth,
-        height: pane.height,
-        paddingTop: pane.yAxis.getPaddingTop(),
-        paddingBottom: pane.yAxis.getPaddingBottom(),
-        valueMin: minPrice,
-        valueMax: maxPrice,
-        isMain: true,
-        decimals: 2,
-        hideEdgeTicks: false,
-        scaleType,
-        textAlign: 'center',
-      })
+      if (!context.yAxisTicks) return
+
+      leftAxisCtx.clearRect(0, 0, axisWidth, pane.height)
+
+      const font = getFont(12)
+      setCanvasFont(leftAxisCtx, font)
+      leftAxisCtx.textBaseline = 'middle'
+      leftAxisCtx.textAlign = 'center'
+      leftAxisCtx.fillStyle = tokenColors.text.secondary
+
+      const textX = roundToPhysicalPixel(axisWidth / 2, dpr)
+
+      const needsOwnValues = scaleType !== paneScaleType
+      const crosshairPriceRange = pane.yAxis.getDisplayRange()
+
+      for (const tick of context.yAxisTicks) {
+        let displayValue: number
+        if (needsOwnValues) {
+          if (scaleType === 'percent') {
+            displayValue = pane.yAxis.toPercent(tick.value)
+          } else {
+            const { minPrice, maxPrice } = crosshairPriceRange
+            displayValue = priceAtYForScaleType(
+              tick.y, minPrice, maxPrice, scaleType,
+              pane.height, pane.yAxis.getPaddingTop(), pane.yAxis.getPaddingBottom(),
+            )
+          }
+        } else {
+          displayValue = tick.value
+        }
+        leftAxisCtx.fillText(displayValue.toFixed(2), textX, tick.y)
+      }
 
       const crosshair = options.getCrosshair?.()
       if (!crosshair || crosshair.activePaneId !== pane.id || crosshair.price === null) return
@@ -65,7 +81,7 @@ export function createLeftYAxisRendererPlugin(options: {
         width: axisWidth,
         height: pane.height,
         crosshairY: crosshair.y,
-        priceRange: displayRange,
+        priceRange: crosshairPriceRange,
         yPaddingPx: options.yPaddingPx,
         dpr,
         fontSize: 12,

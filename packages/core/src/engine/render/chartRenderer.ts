@@ -2,7 +2,8 @@ import type { KLineData } from '../../types/price'
 import type { ChartSettings } from '../../config/chartSettings'
 import type { SymbolSpec } from '../../controllers/types'
 import { getVisibleRange } from '../viewport/viewport'
-import type { RendererPlugin, RendererPluginWithHost, PluginHostImpl, RenderContext, YAxisLabel, XAxisLabel, YAxisRange, XAxisRange } from '../../plugin'
+import type { RendererPlugin, RendererPluginWithHost, PluginHostImpl, RenderContext, YAxisLabel, XAxisLabel, YAxisRange, XAxisRange, YAxisTick } from '../../plugin'
+import { calculateTickCount } from '../utils/tickCount'
 import { RendererPluginManager, wrapPaneInfo } from '../../plugin'
 import type { ChartDom, PaneSpec, ChartOptions, KLinePositions, Viewport, ViewportState } from '../chartTypes'
 import { PaneRenderer } from '../paneRenderer'
@@ -502,6 +503,23 @@ export class ChartRenderer {
         theme: this.deps.getTheme(),
         isAsiaMarket: this.settings.isAsiaMarket as boolean,
         colorPresetSettings: this.settings.colorPresetSettings,
+      }
+
+      {
+        const pt = pane.yAxis.getPaddingTop()
+        const pb = pane.yAxis.getPaddingBottom()
+        const yStart = pt
+        const yEnd = Math.max(pt, pane.height - pb)
+        const viewH = Math.max(0, yEnd - yStart)
+        const tickCount = Math.max(2, calculateTickCount(pane.height, pane.role === 'price'))
+        const yAxisTicks: YAxisTick[] = []
+        for (let i = 0; i < tickCount; i++) {
+          const t = tickCount <= 1 ? 0 : i / (tickCount - 1)
+          const y = yStart + t * viewH
+          const value = pane.yAxis.yToPrice(y)
+          yAxisTicks.push({ y, value })
+        }
+        context.yAxisTicks = yAxisTicks
       }
 
       if (shouldUpdateMain || shouldUpdateOverlay) {

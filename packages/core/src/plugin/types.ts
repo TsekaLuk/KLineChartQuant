@@ -262,6 +262,14 @@ export interface XAxisRange {
   opacity: number
 }
 
+/** Y轴刻度（位置+值），由 RenderContext 构建时预计算，所有 Y 轴渲染器共用 */
+export interface YAxisTick {
+  /** Y像素位置（相对 pane 顶部，逻辑像素） */
+  y: number
+  /** 该Y位置通过 pane.yAxis.yToPrice 反算的价格值 */
+  value: number
+}
+
 /** 渲染上下文 */
 /** MarkerManager 接口（用于 RenderContext） */
 export interface MarkerManagerLike {
@@ -328,6 +336,8 @@ export interface RenderContext {
   isAsiaMarket?: boolean
   /** 用户颜色预设覆盖项 */
   colorPresetSettings?: import('../tokens').ColorPresetSettings
+  /** 预计算的 Y 轴刻度列表（统一像素均匀分布 → yToPrice 反算），所有 Y 轴渲染器共用 */
+  yAxisTicks?: YAxisTick[]
 }
 
 export type DrawingAnchor = {

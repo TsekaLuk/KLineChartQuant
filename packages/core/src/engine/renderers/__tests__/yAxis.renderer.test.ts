@@ -1,23 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createYAxisRendererPlugin } from '@/core/renderers/yAxis'
-import type { RenderContext, PaneInfo } from '@/plugin'
-
-vi.mock('@/core/renderers/Indicator/scale/indicator_scale', async () => {
-  const actual = await vi.importActual<typeof import('@/core/renderers/Indicator/scale/indicator_scale')>(
-    '@/core/renderers/Indicator/scale/indicator_scale',
-  )
-  return {
-    ...actual,
-    drawScaleTicks: vi.fn(),
-  }
-})
+import type { RenderContext, PaneInfo, YAxisTick } from '@/plugin'
 
 vi.mock('@/utils/kLineDraw/axis', () => ({
   drawCrosshairPriceLabel: vi.fn(),
   drawAxisPriceLabel: vi.fn(),
 }))
 
-import { drawScaleTicks } from '@/core/renderers/Indicator/scale/indicator_scale'
 import { drawCrosshairPriceLabel, drawAxisPriceLabel } from '@/utils/kLineDraw/axis'
 
 function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
@@ -53,12 +42,27 @@ function createPane(overrides: Partial<PaneInfo> = {}): PaneInfo {
   }
 }
 
+const mockYAxisTicks: YAxisTick[] = [
+  { y: 10, value: 120 },
+  { y: 55, value: 110 },
+  { y: 100, value: 100 },
+  { y: 145, value: 90 },
+  { y: 190, value: 80 },
+]
+
+function createCtx() {
+  return {
+    canvas: { width: 80, height: 200 },
+    clearRect: vi.fn(),
+    fillText: vi.fn(),
+    measureText: vi.fn(() => ({ width: 10 })),
+    save: vi.fn(),
+    restore: vi.fn(),
+  } as unknown as CanvasRenderingContext2D
+}
+
 function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
-  const ctx = {} as CanvasRenderingContext2D
-  Object.defineProperty(ctx, 'canvas', {
-    value: { width: 80, height: 200 },
-    configurable: true,
-  })
+  const ctx = createCtx()
 
   return {
     ctx,
@@ -78,6 +82,7 @@ function createContext(overrides: Partial<RenderContext> = {}): RenderContext {
     xAxisLabels: [],
     period: 'daily',
     theme: 'light',
+    yAxisTicks: mockYAxisTicks,
     ...overrides,
   }
 }
@@ -93,7 +98,9 @@ describe('yAxis renderer', () => {
 
     plugin.draw(context)
 
-    expect(drawScaleTicks).toHaveBeenCalledTimes(1)
+    const targetCtx = context.yAxisCtx!
+    expect(targetCtx.clearRect).toHaveBeenCalled()
+    expect(targetCtx.fillText).toHaveBeenCalled()
   })
 
   it('does not draw ticks when pane capability showPriceAxisTicks is false', () => {
@@ -111,21 +118,19 @@ describe('yAxis renderer', () => {
 
     plugin.draw(context)
 
-    expect(drawScaleTicks).toHaveBeenCalledTimes(0)
+    const targetCtx = context.yAxisCtx!
+    expect(targetCtx.fillText).toHaveBeenCalledTimes(0)
   })
 
   it('uses ctx when yAxisCtx is not provided', () => {
     const plugin = createYAxisRendererPlugin({ axisWidth: 80, yPaddingPx: 0 })
-    const fallbackCtx = {} as CanvasRenderingContext2D
+    const fallbackCtx = createCtx()
     const context = createContext({ ctx: fallbackCtx, yAxisCtx: undefined })
 
     plugin.draw(context)
 
-    expect(drawScaleTicks).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ctx: fallbackCtx,
-      }),
-    )
+    expect(fallbackCtx.clearRect).toHaveBeenCalled()
+    expect(fallbackCtx.fillText).toHaveBeenCalled()
   })
 
   it('draws last price label via drawAxisPriceLabel for main pane when yAxisLabels contains lastPrice', () => {
@@ -162,7 +167,6 @@ describe('yAxis renderer', () => {
 
     plugin.draw(context)
 
-    // Last price now flows through drawAxisPriceLabel; only the crosshair label uses drawCrosshairPriceLabel
     expect(drawCrosshairPriceLabel).toHaveBeenCalledTimes(1)
   })
 

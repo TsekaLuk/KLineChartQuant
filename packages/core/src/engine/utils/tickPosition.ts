@@ -206,6 +206,40 @@ function generatePixelUniformPercentTicks(options: {
     return positions
 }
 
+/**
+ * 计算均匀像素 Y 位置的值（统一像素反算）
+ * 所有刻度类型都先确定像素均匀 Y 位置，再通过 yToPrice 反算该位置的值
+ */
+export interface UniformPixelTick {
+  y: number
+  value: number
+}
+
+/**
+ * 在给定 Y 像素位置，按指定刻度类型反算价格/值
+ */
+export function priceAtYForScaleType(
+  y: number,
+  valueMin: number,
+  valueMax: number,
+  scaleType: ScaleType,
+  height: number,
+  paddingTop: number,
+  paddingBottom: number,
+): number {
+  const viewH = Math.max(1, height - paddingTop - paddingBottom)
+  const ratio = 1 - (y - paddingTop) / viewH
+
+  if (scaleType === 'log') {
+    if (valueMin <= 0 || valueMax <= 0) return valueMin + ratio * (valueMax - valueMin)
+    const logMin = Math.log(valueMin)
+    const logMax = Math.log(valueMax)
+    return Math.exp(logMin + ratio * (logMax - logMin))
+  }
+
+  return valueMin + ratio * (valueMax - valueMin)
+}
+
 // calculateValueTickPositions 缓存
 let _cvtpCacheKey = ''
 let _cvtpCacheResult: TickPositionWithValue[] = []

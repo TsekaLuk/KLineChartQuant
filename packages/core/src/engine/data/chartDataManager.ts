@@ -18,8 +18,7 @@ export interface DataDependencies {
   getEffectiveDpr: () => number
   getLogicalScrollLeft: () => number
   getCachedScrollLeft: () => number
-  setCachedScrollLeft: (v: number) => void
-  setPendingScrollLeft: (v: number) => void
+  setScrollLeft: (v: number) => void
   getDom: () => ChartDom
   getObservedSize: () => { width: number; height: number }
   getViewport: () => Viewport | null
@@ -101,8 +100,9 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       this._dataSignal.set([...buf.data.peek() as unknown[]])
       this._loadingSignal.set(buf.loading.peek())
       const unsubData = buf.data.subscribe(() => {
+        const prevDataLength = this._dataSignal.peek().length
         this._dataSignal.set([...buf.data.peek() as unknown[]])
-        this.onBufferDataChanged(key)
+        this.onBufferDataChanged(key, prevDataLength)
       })
       const unsubLoading = buf.loading.subscribe(() => {
         this._loadingSignal.set(buf.loading.peek())
@@ -162,45 +162,30 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
 
   // ── Buffer data change handler ──
 
-  private onBufferDataChanged(key: string): void {
+  private onBufferDataChanged(key: string, prevDataLength?: number): void {
     const buf = this._buffers.get(key)
     if (!buf) return
 
     if (buf instanceof DataBuffer) {
-      this.onKLineBufferChanged(key, buf)
+      this.onKLineBufferChanged(key, buf, prevDataLength)
     } else if (buf instanceof TimeShareBuffer) {
       this.onTimeShareBufferChanged(key, buf)
     }
   }
 
-  private onKLineBufferChanged(key: string, buf: DataBuffer): void {
+  private onKLineBufferChanged(key: string, buf: DataBuffer, prevDataLength?: number): void {
     if (!key.startsWith('main:')) return
 
-    const prevLength = this.getActiveKLineLength()
     const bufferData = buf.getRawData() as KLineData[]
     const prependedCount = this.pendingPrependedCount
     this.pendingPrependedCount = 0
 
-    if (this.deps.getCachedScrollLeft() < this.getLeftLoadBufferWidth()) {
-      const desiredScrollLeft = this.getLeftLoadBufferWidth()
-      this.deps.setCachedScrollLeft(desiredScrollLeft)
-      this.deps.setPendingScrollLeft(desiredScrollLeft)
+    if (prependedCount === 0 && this.deps.getCachedScrollLeft() < this.getLeftLoadBufferWidth()) {
+      this.deps.setScrollLeft(this.getLeftLoadBufferWidth())
     }
 
-    if (prevLength === 0 && bufferData.length > 0) {
-      const dpr = this.deps.getEffectiveDpr()
-      const opt = this.deps.getOption()
-      const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-      const lastKLineEndPx = (startXPx + bufferData.length * unitPx) / dpr
-      const container = this.deps.getDom().container
-      if (container) {
-        const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
-        const contentWidth = this.getContentWidth()
-        const maxScroll = Math.max(0, contentWidth - container.clientWidth)
-        const scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-        this.deps.setCachedScrollLeft(scrollLeft)
-        this.deps.setPendingScrollLeft(scrollLeft)
-      }
+    if ((prevDataLength ?? this._dataSignal.peek().length) === 0 && bufferData.length > 0) {
+      this.scrollToRight()
     }
 
     this.deps.resetInteraction()
@@ -285,7 +270,7 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     return 24
   }
 
-  private static readonly TRAILING_DRAWING_SLOTS = 24
+
 
   private clearIncrementalLoadHintTimer(): void {
     if (this.incrementalLoadHintTimer !== null) {
@@ -312,7 +297,6 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const hint = ownerDoc.createElement('div')
     hint.className = 'klc-incremental-load-hint'
     hint.style.position = 'absolute'
-    hint.style.left = '0'
     hint.style.top = '0'
     hint.style.height = '0px'
     hint.style.width = '0px'
@@ -336,7 +320,8 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const width = this.getLeftLoadBufferWidth() + (startXPx + count * unitPx) / dpr
+    hint.style.left = `${this.getLeftLoadBufferWidth()}px`
+    const width = (startXPx + count * unitPx) / dpr
     hint.style.width = `${Math.max(0, width)}px`
     hint.style.height = `${Math.max(
       0,
@@ -867,11 +852,8 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
       const opt = this.deps.getOption()
       const { unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
       const compensation = (count * unitPx) / dpr
-      const container = this.deps.getDom().container
-      if (container) {
-        container.scrollLeft += compensation
-        this.deps.setCachedScrollLeft(container.scrollLeft)
-      }
+      const nextScrollLeft = this.deps.getCachedScrollLeft() + compensation
+      this.deps.setScrollLeft(nextScrollLeft)
     }
 
     buf.setSymbol(spec)
@@ -893,23 +875,29 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const viewWidth = this.deps.getViewport()?.plotWidth ?? 0
     const dpr = this.deps.getEffectiveDpr()
     const { startXPx, unitPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
-    const dataPlotWidth = (startXPx + (dataLength + ChartDataManager.TRAILING_DRAWING_SLOTS) * unitPx) / dpr
+    const dataPlotWidth = (startXPx + dataLength * unitPx) / dpr
     return this.getLeftLoadBufferWidth() + Math.max(dataPlotWidth, viewWidth)
   }
 
   scrollToRight(): void {
     const buf = this.getActiveDataBuffer()
     const dataLength = buf ? buf.getRawData().length : 0
-    const container = this.deps.getDom().container
-    if (!container || dataLength === 0) return
+    if (dataLength === 0) return
     const dpr = this.deps.getEffectiveDpr()
     const opt = this.deps.getOption()
     const { unitPx, startXPx } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
     const lastKLineEndPx = (startXPx + dataLength * unitPx) / dpr
-    const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - container.clientWidth)
-    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth)
-    container.scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
-    this.deps.setCachedScrollLeft(container.scrollLeft)
+    const viewport = this.deps.getViewport()
+    const clientWidth = viewport?.viewWidth
+      ?? (this.deps.getObservedSize().width > 0 ? this.deps.getObservedSize().width : undefined)
+      ?? Math.round(this.deps.getDom().container?.clientWidth ?? 0)
+    if (clientWidth <= 0) return
+    const target = this.getLeftLoadBufferWidth() + Math.max(0, lastKLineEndPx - clientWidth)
+    const contentWidth = this.getContentWidth()
+    const maxScroll = Math.max(0, contentWidth - clientWidth)
+    const scrollLeft = Math.round(Math.min(target, maxScroll) * dpr) / dpr
+    this.deps.setScrollLeft(scrollLeft)
+    this.deps.scheduleDraw()
   }
 
   // ── Comparison price range ──

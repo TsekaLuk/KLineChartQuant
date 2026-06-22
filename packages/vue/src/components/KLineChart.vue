@@ -64,7 +64,7 @@
           @pointerleave="onPointerLeave"
           @dblclick="onDoubleClick"
         >
-          <div class="scroll-content" :style="{ width: totalWidth + 'px' }">
+          <div class="scroll-content">
             <div class="canvas-layer" ref="canvasLayerRef">
               <canvas class="x-axis-canvas" ref="xAxisCanvasRef"></canvas>
 
@@ -430,7 +430,6 @@ const {
   rangeSelection,
   customStartDate,
   customEndDate,
-  containerScrollLeft,
   isRangeSelectActive,
   rangeSelectionReady,
   rangeSelectionBounds,
@@ -447,8 +446,6 @@ const {
   onEdgePointerDown,
   onEdgePointerMove,
   onEdgePointerUp,
-  onScroll: onRangeScroll,
-  syncScrollLeft: syncRangeScrollLeft,
 } = useRangeSelection({
   controller,
   activeToolId,
@@ -727,7 +724,6 @@ function onRightAxisPointerLeave(e: PointerEvent) {
 }
 
 function onScroll() {
-  onRangeScroll()
   controller.value?.handleScrollEvent()
 }
 
@@ -752,15 +748,6 @@ const chartContainerStyle = computed(() => {
     base.borderLeft = '1px solid var(--chart-border)'
   }
   return base
-})
-
-const totalWidth = computed(() => {
-  void dataVersion.value
-  void viewWidth.value
-  void kWidth.value
-  void kGap.value
-  void viewportDpr.value
-  return controller.value?.getContentWidth() ?? 0
 })
 
 function applyZoomToLevel(targetLevel: number, anchorX?: number) {
@@ -858,12 +845,6 @@ function setupChartCallbacks(ctrl: ChartController): () => void {
       kWidth.value = vp.kWidth
       kGap.value = vp.kGap
     }
-
-    nextTick(() => {
-      requestAnimationFrame(() => {
-        syncRangeScrollLeft()
-      })
-    })
   })
 
   const unsubscribeData = ctrl.data.subscribe(() => {

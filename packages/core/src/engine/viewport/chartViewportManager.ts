@@ -95,16 +95,6 @@ export class ChartViewportManager {
     this._pendingScrollLeft = v
   }
 
-  /** 仅设置缓存 scrollLeft（由 DataManager 内部使用） */
-  setCachedScrollLeft(v: number): void {
-    this.cachedScrollLeft = v
-  }
-
-  /** 仅设置待写入 scrollLeft（由 DataManager 内部使用） */
-  setPendingScrollLeft(v: number): void {
-    this._pendingScrollLeft = v
-  }
-
   /** 在 RAF 回调中应用待写入的 scrollLeft */
   applyPendingScrollLeft(container: HTMLElement): void {
     if (this._pendingScrollLeft !== null) {
@@ -297,6 +287,11 @@ export class ChartViewportManager {
     const cssHeight = Math.max(1, Math.round(entry.contentRect.height))
     this.observedSize.width = cssWidth
     this.observedSize.height = cssHeight
+
+    if (this.cachedScrollLeft === 0 && cssWidth > 0) {
+      this.cachedScrollLeft = cssWidth
+      this._pendingScrollLeft = cssWidth
+    }
 
     const pixelSize = entry.devicePixelContentBoxSize?.[0]
     const cssSize = entry.contentBoxSize?.[0]

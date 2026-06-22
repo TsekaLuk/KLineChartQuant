@@ -308,6 +308,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     const mounted = hasExistingDom
         ? {
             container: opts.container as HTMLDivElement,
+            scrollContent: (opts.container as HTMLDivElement).querySelector<HTMLDivElement>('.scroll-content') ?? undefined,
             canvasLayer: opts.canvasLayer as HTMLDivElement,
             rightAxisLayer: opts.rightAxisLayer as HTMLDivElement,
             leftAxisLayer: opts.leftAxisLayer as HTMLDivElement | undefined,
@@ -684,6 +685,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         return chart.getContentWidth()
     }
 
+    function getLeftLoadBufferWidth(): number {
+        if (disposed) return 0
+        return chart.getLeftLoadBufferWidth()
+    }
+
     function scrollToRight(): void {
         if (disposed) return
         chart.scrollToRight()
@@ -931,6 +937,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         setTooltipAnchorPositioning,
         getIndicatorTitle,
         getContentWidth,
+        getLeftLoadBufferWidth,
         scrollToRight,
         setDrawingTool,
         clearDrawings,

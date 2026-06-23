@@ -30,8 +30,8 @@ function calcSparseExtremes(series: (number | undefined)[], range: { start: numb
     for (let i = range.start; i < end; i++) {
         const v = series[i]
         if (v !== undefined) {
-            min = Math.min(min, v)
-            max = Math.max(max, v)
+            if (v < min) min = v
+            if (v > max) max = v
         }
     }
     return { min, max }
@@ -98,15 +98,16 @@ function calcRecordExtremes(
 ): { min: number; max: number } {
     let min = Infinity
     let max = -Infinity
-    for (const key of Object.keys(series)) {
-        const arr = series[Number(key)]
+    const keys = Object.keys(series)
+    for (let k = 0; k < keys.length; k++) {
+        const arr = series[Number(keys[k]!)]
         if (!arr) continue
         const end = Math.min(range.end, arr.length)
         for (let i = range.start; i < end; i++) {
             const v = arr[i]
             if (v !== undefined) {
-                min = Math.min(min, v)
-                max = Math.max(max, v)
+                if (v < min) min = v
+                if (v > max) max = v
             }
         }
     }
@@ -245,6 +246,150 @@ function getPointArraySeriesBundle<T extends object>(
     return (bundle as unknown as Record<string, { series: (T | undefined)[]; params: unknown }>)[bundleKey]!
 }
 
+function calc1<T extends object>(
+    series: (T | undefined)[],
+    f0: keyof T,
+    end: number,
+    start: number,
+    min: number,
+    max: number,
+): { min: number; max: number } {
+    for (let i = start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            const v = p[f0] as number | undefined
+            if (v !== undefined) {
+                if (v < min) min = v
+                if (v > max) max = v
+            }
+        }
+    }
+    return { min, max }
+}
+
+function calc2<T extends object>(
+    series: (T | undefined)[],
+    f0: keyof T,
+    f1: keyof T,
+    end: number,
+    start: number,
+    min: number,
+    max: number,
+): { min: number; max: number } {
+    for (let i = start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            const v0 = p[f0] as number | undefined
+            if (v0 !== undefined) {
+                if (v0 < min) min = v0
+                if (v0 > max) max = v0
+            }
+            const v1 = p[f1] as number | undefined
+            if (v1 !== undefined) {
+                if (v1 < min) min = v1
+                if (v1 > max) max = v1
+            }
+        }
+    }
+    return { min, max }
+}
+
+function calc3<T extends object>(
+    series: (T | undefined)[],
+    f0: keyof T,
+    f1: keyof T,
+    f2: keyof T,
+    end: number,
+    start: number,
+    min: number,
+    max: number,
+): { min: number; max: number } {
+    for (let i = start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            const v0 = p[f0] as number | undefined
+            if (v0 !== undefined) {
+                if (v0 < min) min = v0
+                if (v0 > max) max = v0
+            }
+            const v1 = p[f1] as number | undefined
+            if (v1 !== undefined) {
+                if (v1 < min) min = v1
+                if (v1 > max) max = v1
+            }
+            const v2 = p[f2] as number | undefined
+            if (v2 !== undefined) {
+                if (v2 < min) min = v2
+                if (v2 > max) max = v2
+            }
+        }
+    }
+    return { min, max }
+}
+
+function calc4<T extends object>(
+    series: (T | undefined)[],
+    f0: keyof T,
+    f1: keyof T,
+    f2: keyof T,
+    f3: keyof T,
+    end: number,
+    start: number,
+    min: number,
+    max: number,
+): { min: number; max: number } {
+    for (let i = start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            const v0 = p[f0] as number | undefined
+            if (v0 !== undefined) {
+                if (v0 < min) min = v0
+                if (v0 > max) max = v0
+            }
+            const v1 = p[f1] as number | undefined
+            if (v1 !== undefined) {
+                if (v1 < min) min = v1
+                if (v1 > max) max = v1
+            }
+            const v2 = p[f2] as number | undefined
+            if (v2 !== undefined) {
+                if (v2 < min) min = v2
+                if (v2 > max) max = v2
+            }
+            const v3 = p[f3] as number | undefined
+            if (v3 !== undefined) {
+                if (v3 < min) min = v3
+                if (v3 > max) max = v3
+            }
+        }
+    }
+    return { min, max }
+}
+
+function calcN<T extends object>(
+    series: (T | undefined)[],
+    fields: readonly (keyof T)[],
+    end: number,
+    start: number,
+    min: number,
+    max: number,
+): { min: number; max: number } {
+    const fieldLen = fields.length
+    for (let i = start; i < end; i++) {
+        const p = series[i]
+        if (p) {
+            for (let j = 0; j < fieldLen; j++) {
+                const v = p[fields[j]!] as number | undefined
+                if (v !== undefined) {
+                    if (v < min) min = v
+                    if (v > max) max = v
+                }
+            }
+        }
+    }
+    return { min, max }
+}
+
 function calcPointArrayExtremes<T extends object>(
     series: (T | undefined)[],
     fields: readonly (keyof T)[],
@@ -256,19 +401,18 @@ function calcPointArrayExtremes<T extends object>(
     let min = Infinity
     let max = -Infinity
     const end = Math.min(range.end, series.length)
-    for (let i = range.start; i < end; i++) {
-        const p = series[i]
-        if (p) {
-            for (const field of fields) {
-                const v = p[field]
-                if (typeof v === 'number' && Number.isFinite(v)) {
-                    min = Math.min(min, v)
-                    max = Math.max(max, v)
-                }
-            }
-        }
+    switch (fields.length) {
+        case 1:
+            return calc1(series, fields[0]!, end, range.start, min, max)
+        case 2:
+            return calc2(series, fields[0]!, fields[1]!, end, range.start, min, max)
+        case 3:
+            return calc3(series, fields[0]!, fields[1]!, fields[2]!, end, range.start, min, max)
+        case 4:
+            return calc4(series, fields[0]!, fields[1]!, fields[2]!, fields[3]!, end, range.start, min, max)
+        default:
+            return calcN(series, fields, end, range.start, min, max)
     }
-    return { min, max }
 }
 
 function computeMAFamilyBounds(
@@ -421,9 +565,31 @@ export function createMACDVisibleStateComposer(
             }
         }
 
-        const extremes = calcPointArrayExtremes(source.series, ['dif', 'dea', 'macd'], visibleRange)
-        const padding = Number.isFinite(extremes.max) && Number.isFinite(extremes.min)
-            ? Math.max(Math.abs(extremes.max), Math.abs(extremes.min)) * 0.1
+        let min = Infinity
+        let max = -Infinity
+        const macdEnd = Math.min(visibleRange.end, source.series.length)
+        for (let i = visibleRange.start; i < macdEnd; i++) {
+            const p = source.series[i]
+            if (p) {
+                const v0 = p.dif
+                if (v0 !== undefined) {
+                    if (v0 < min) min = v0
+                    if (v0 > max) max = v0
+                }
+                const v1 = p.dea
+                if (v1 !== undefined) {
+                    if (v1 < min) min = v1
+                    if (v1 > max) max = v1
+                }
+                const v2 = p.macd
+                if (v2 !== undefined) {
+                    if (v2 < min) min = v2
+                    if (v2 > max) max = v2
+                }
+            }
+        }
+        const padding = max !== -Infinity && min !== Infinity
+            ? Math.max(Math.abs(max), Math.abs(min)) * 0.1
             : 0
 
         const latestIndex = visibleRange.end - 1
@@ -435,10 +601,10 @@ export function createMACDVisibleStateComposer(
             timestamp,
             series: source.series,
             params: source.params,
-            valueMin: Number.isFinite(extremes.min) ? extremes.min - padding : emptyState.valueMin,
-            valueMax: Number.isFinite(extremes.max) ? extremes.max + padding : emptyState.valueMax,
-            visibleMin: extremes.min,
-            visibleMax: extremes.max,
+            valueMin: min !== Infinity ? min - padding : emptyState.valueMin,
+            valueMax: max !== -Infinity ? max + padding : emptyState.valueMax,
+            visibleMin: min,
+            visibleMax: max,
             latestValues: latestPoint ? {
                 dif: latestPoint.dif,
                 dea: latestPoint.dea,
@@ -618,12 +784,19 @@ export function createBandVisibleStateComposer<T extends object>(
             }
         }
 
-        const minExtremes = calcPointArrayExtremes(source.series, [minField], visibleRange)
-        const maxExtremes = calcPointArrayExtremes(source.series, [maxField], visibleRange)
-        const extremes = {
-            min: minExtremes.min,
-            max: maxExtremes.max,
+        let min = Infinity
+        let max = -Infinity
+        const bandEnd = Math.min(visibleRange.end, source.series.length)
+        for (let i = visibleRange.start; i < bandEnd; i++) {
+            const p = source.series[i]
+            if (p) {
+                const vMin = p[minField] as number | undefined
+                if (vMin !== undefined && vMin < min) min = vMin
+                const vMax = p[maxField] as number | undefined
+                if (vMax !== undefined && vMax > max) max = vMax
+            }
         }
+        const extremes = { min, max }
         const bounds = computeMAFamilyBounds(
             Number.isFinite(extremes.min) && Number.isFinite(extremes.max) ? extremes : null,
             emptyState,

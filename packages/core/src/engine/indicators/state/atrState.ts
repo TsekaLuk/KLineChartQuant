@@ -1,4 +1,4 @@
-import type { BaseIndicatorState } from '../../plugin'
+import type { BaseIndicatorState } from '../../../plugin'
 import { createIndicatorStateKey } from '../../../plugin/stateKeys'
 
 export interface ATRRenderState extends BaseIndicatorState {

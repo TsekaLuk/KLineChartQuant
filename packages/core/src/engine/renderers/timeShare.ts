@@ -51,7 +51,7 @@ export function createTimeShareRendererPlugin(): RendererPluginWithHost {
         xPositions.push(x)
         yPrices.push(pane.yAxis.priceToY(item.price))
         yAvgs.push(pane.yAxis.priceToY(item.average))
-        volumes.push(item.volume)
+        volumes.push(item.volume ?? 0)
         maxVolume = Math.max(maxVolume, item.volume)
       }
 
@@ -86,8 +86,8 @@ function drawPreCloseLine(
   color: string,
 ): void {
   if (xPositions.length < 2) return
-  const firstX = xPositions[0]
-  const lastX = xPositions[xPositions.length - 1]
+  const firstX = xPositions[0]!
+  const lastX = xPositions[xPositions.length - 1]!
 
   ctx.save()
   ctx.strokeStyle = color
@@ -198,10 +198,10 @@ function drawSegmentLine(
   ctx.lineCap = 'round'
 
   ctx.beginPath()
-  ctx.moveTo(xPositions[0], yPositions[0])
+  ctx.moveTo(xPositions[0]!, yPositions[0]!)
 
   for (let i = 1; i < xPositions.length; i++) {
-    ctx.lineTo(xPositions[i], yPositions[i])
+    ctx.lineTo(xPositions[i]!, yPositions[i]!)
   }
 
   ctx.stroke()
@@ -228,7 +228,7 @@ function drawVolumeBars(
   const snappedBottom = Math.round(paneHeight * dpr) / dpr
 
   for (let i = 0; i < barRects.length; i++) {
-    const volume = volumes[i]
+    const volume = volumes[i]!
     if (volume <= 0) continue
 
     const barHeight = (volume / maxVolume) * volumeAreaHeight
@@ -239,14 +239,14 @@ function drawVolumeBars(
 
     let barColor: string
     if (i > 0) {
-      const price = data[idx].price
-      const prevPrice = data[idx - 1].price
+      const price = data[idx]!.price
+      const prevPrice = data[idx - 1]!.price
       if (price > prevPrice) barColor = upColor
       else if (price < prevPrice) barColor = downColor
       else barColor = neutralColor
     } else {
-      if (data[idx].price > preClose) barColor = upColor
-      else if (data[idx].price < preClose) barColor = downColor
+      if (data[idx]!.price > preClose) barColor = upColor
+      else if (data[idx]!.price < preClose) barColor = downColor
       else barColor = neutralColor
     }
 

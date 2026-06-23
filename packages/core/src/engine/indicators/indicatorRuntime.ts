@@ -52,7 +52,7 @@ export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => 
         for (const p of DEFAULT_MA_PERIODS) {
             if ((c as any)['ma' + p]) r[p] = calcMAData(data, p)
         }
-        return { series: r, enabledPeriods: Object.keys(r).map(Number) }
+        return r
     },
     calcRSIData: (data, c) => {
         const p = [c.period1, c.period2, c.period3]
@@ -61,7 +61,7 @@ export const CALCULATOR_MAP: Record<string, (data: KLineData[], config: any) => 
         for (let i = 0; i < 3; i++) {
             if (s[i]) r[p[i]] = calcRSIData(data, p[i])
         }
-        return { series: r, enabledPeriods: Object.keys(r).map(Number) }
+        return r
     },
     calcTRIXData: (data, c) => calcTRIXData(data, c.period, c.signalPeriod),
     calcBOLLData: (data, c) => calcBOLLData(data, c.period, c.multiplier),

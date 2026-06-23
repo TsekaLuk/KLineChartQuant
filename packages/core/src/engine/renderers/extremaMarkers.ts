@@ -154,6 +154,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
                 max,
                 dpr,
                 paneWidth,
+                scrollLeft,
                 ctx
             )
             if (maxMarker) markers.push(maxMarker)
@@ -164,6 +165,7 @@ export function createExtremaMarkersRendererPlugin(): RendererPlugin {
                 min,
                 dpr,
                 paneWidth,
+                scrollLeft,
                 ctx
             )
             if (minMarker) markers.push(minMarker)
@@ -186,14 +188,14 @@ function createMarkerData(
     price: number,
     dpr: number,
     paneWidth: number,
+    scrollLeft: number,
     ctx: CanvasRenderingContext2D
 ): MarkerData | null {
     const text = price.toFixed(2)
     const textWidth = measureTextWidth(ctx, text)
 
-    const visibleX = x
-    const rightEdge = visibleX + LINE_LENGTH + PADDING + textWidth
-    const drawLeft = rightEdge > paneWidth
+    const screenX = x - scrollLeft
+    const drawLeft = screenX >= paneWidth / 2
 
     let lineStartX = x
     let lineEndX = drawLeft ? x - LINE_LENGTH : x + LINE_LENGTH

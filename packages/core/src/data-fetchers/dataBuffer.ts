@@ -11,7 +11,7 @@ const MS_PER_DAY = 86_400_000
 const FETCH_MAX_RETRIES = 2
 
 const PERIOD_INITIAL_DAYS: Record<string, number> = {
-  '1min': 5,
+  '1min': 3,
   '5min': 30,
   '15min': 60,
   '30min': 90,

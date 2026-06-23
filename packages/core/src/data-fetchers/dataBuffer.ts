@@ -8,9 +8,25 @@ export interface DataWindow {
 }
 
 const MS_PER_DAY = 86_400_000
-const INITIAL_LOAD_DAYS = 365
-const INCREMENTAL_LOAD_DAYS = 90
 const FETCH_MAX_RETRIES = 2
+
+const PERIOD_INITIAL_DAYS: Record<string, number> = {
+  '1min': 5,
+  '5min': 30,
+  '15min': 60,
+  '30min': 90,
+  '60min': 180,
+  daily: 365,
+  weekly: 365,
+  monthly: 365,
+  quarterly: 365,
+  yearly: 365,
+  timeshare: 1,
+}
+
+export function getPeriodDays(period?: string): number {
+  return PERIOD_INITIAL_DAYS[period ?? 'daily'] ?? 365
+}
 
 function formatDate(ts: number): string {
     const d = new Date(ts)
@@ -110,15 +126,16 @@ export class DataBuffer implements DataBufferLike {
         this.fetchRange(requestStartTs, incrementalEnd)
     }
 
-    private loadInitial(): void {
-        if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+	private loadInitial(): void {
+		if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
 
-        const now = Date.now()
-        const startDate = now - INITIAL_LOAD_DAYS * MS_PER_DAY
-        const endDate = now
+		const now = Date.now()
+		const days = getPeriodDays(this._currentSpec.period)
+		const startDate = now - days * MS_PER_DAY
+		const endDate = now
 
-        this.fetchRange(startDate, endDate)
-    }
+		this.fetchRange(startDate, endDate)
+	}
 
     private loadInitialRange(startTs: number, endTs: number): void {
         if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return

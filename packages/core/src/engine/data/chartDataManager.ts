@@ -1,7 +1,7 @@
 import type { KLineData, TimeShareData } from '../../types/price'
 import type { SymbolSpec, DataFetcher, CustomDataSource } from '../../controllers/types'
 import { createSignal, type Signal } from '../../reactivity/signal'
-import { DataBuffer } from '../../data-fetchers/dataBuffer'
+import { DataBuffer, getPeriodDays } from '../../data-fetchers/dataBuffer'
 import { TimeShareBuffer } from '../../data-fetchers/timeShareBuffer'
 import type { DataBufferLike } from '../../data-fetchers/dataBufferTypes'
 import type { TimeShareFetcherFn } from '../../data-fetchers/types'
@@ -537,10 +537,12 @@ private _symbolsSignal = createSignal<ReadonlyArray<SymbolSpec>>([])
     const range = this.computeRawVisibleRange() ?? this.lastRawVisibleRange
 
     const MS_PER_DAY = 86_400_000
+    const spec = buf.currentSpec
+    const gapDays = getPeriodDays(spec?.period)
     let firstVisibleTs: number | undefined
 
     if (range.start < 0 && this._dataFetcher) {
-      const earlierThanEarliest = window.earliestTs - 365 * MS_PER_DAY
+      const earlierThanEarliest = window.earliestTs - gapDays * MS_PER_DAY
       buf.ensureRange(earlierThanEarliest, window.earliestTs)
       firstVisibleTs = data[0]?.timestamp
     } else if (range.start < data.length) {

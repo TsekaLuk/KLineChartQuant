@@ -158,8 +158,8 @@ export class Pane {
 
     this.yAxis.setRange(this.priceRange)
 
-    // 百分比模式：设置基准价为 visibleRange 第一根 K 线的收盘价
-    if (this.yAxis.getScaleType() === 'percent' && this.role === 'price' && data.length > 0 && range.start < data.length) {
+    // 百分比轴（左/右）需要基准价；始终为 price pane 设置，由 leftYAxis/yAxis 按需调用 toPercent
+    if (this.role === 'price' && data.length > 0 && range.start < data.length) {
       const baseIdx = Math.max(0, range.start)
       this.yAxis.setBasePrice(data[baseIdx]?.close ?? null)
     } else {

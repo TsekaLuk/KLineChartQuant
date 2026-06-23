@@ -54,6 +54,13 @@ export function createLeftYAxisRendererPlugin(options: {
       const needsOwnValues = scaleType !== paneScaleType
       const crosshairPriceRange = pane.yAxis.getDisplayRange()
 
+      const formatTick = scaleType === 'percent'
+        ? (v: number) => {
+            const sign = v >= 0 ? '+' : ''
+            return sign + v.toFixed(2) + '%'
+          }
+        : (v: number) => v.toFixed(2)
+
       for (const tick of context.yAxisTicks) {
         let displayValue: number
         if (needsOwnValues) {
@@ -69,11 +76,26 @@ export function createLeftYAxisRendererPlugin(options: {
         } else {
           displayValue = tick.value
         }
-        leftAxisCtx.fillText(displayValue.toFixed(2), textX, tick.y)
+        leftAxisCtx.fillText(formatTick(displayValue), textX, tick.y)
       }
 
       const crosshair = options.getCrosshair?.()
       if (!crosshair || crosshair.activePaneId !== pane.id || crosshair.price === null) return
+
+      const isCrosshairPercent = scaleType === 'percent'
+      const crosshairPrice = isCrosshairPercent ? pane.yAxis.toPercent(crosshair.price) : crosshair.price
+      const crosshairLabelRange: { minPrice: number; maxPrice: number } = isCrosshairPercent
+        ? (() => {
+            const p = pane.yAxis.getDisplayPercentRange()
+            return { minPrice: p.minPct, maxPrice: p.maxPct }
+          })()
+        : crosshairPriceRange
+      const formatCrosshairPrice = isCrosshairPercent
+        ? (v: number) => {
+            const sign = v >= 0 ? '+' : ''
+            return sign + v.toFixed(2) + '%'
+          }
+        : undefined
 
       drawCrosshairPriceLabel(leftAxisCtx, {
         x: 0,
@@ -81,12 +103,13 @@ export function createLeftYAxisRendererPlugin(options: {
         width: axisWidth,
         height: pane.height,
         crosshairY: crosshair.y,
-        priceRange: crosshairPriceRange,
+        priceRange: crosshairLabelRange,
         yPaddingPx: options.yPaddingPx,
         dpr,
         fontSize: 12,
         priceOffset: 0,
-        price: crosshair.price,
+        price: crosshairPrice,
+        formatPrice: formatCrosshairPrice,
       }, context.theme, context.isAsiaMarket, context.colorPresetSettings)
     },
   }

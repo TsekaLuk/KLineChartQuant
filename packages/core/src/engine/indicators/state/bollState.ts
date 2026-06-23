@@ -2,6 +2,9 @@ import type { BaseIndicatorState } from '../../../plugin'
 import { createIndicatorStateKey } from '../../../plugin/stateKeys'
 import type { BOLLPoint } from './calculators'
 
+export const DEFAULT_BOLL_PERIOD = 20
+export const DEFAULT_BOLL_MULTIPLIER = 2
+
 /**
  * BOLL 渲染器状态（共享给渲染器和图例）
  * 包含全量 BOLL 数组、计算参数、以及视口极值
@@ -39,8 +42,8 @@ export const EMPTY_BOLL_STATE: BOLLRenderState = {
     timestamp: 0,
     series: [],
     params: {
-        period: 20,
-        multiplier: 2,
+        period: DEFAULT_BOLL_PERIOD,
+        multiplier: DEFAULT_BOLL_MULTIPLIER,
         showUpper: true,
         showMiddle: true,
         showLower: true,

@@ -1,6 +1,10 @@
 import type { BaseIndicatorState } from '../../../plugin'
 import { createIndicatorStateKey } from '../../../plugin/stateKeys'
 
+export const DEFAULT_RSI_PERIOD1 = 6
+export const DEFAULT_RSI_PERIOD2 = 12
+export const DEFAULT_RSI_PERIOD3 = 24
+
 /**
  * RSI 渲染器状态（共享给渲染器、图例和 scale 渲染器）
  * 包含全量 RSI 数组、计算参数、固定 Y 轴范围以及视口极值
@@ -51,9 +55,9 @@ export const EMPTY_RSI_STATE: RSIRenderState = {
     series: {},
     enabledPeriods: [],
     params: {
-        period1: 6,
-        period2: 12,
-        period3: 24,
+        period1: DEFAULT_RSI_PERIOD1,
+        period2: DEFAULT_RSI_PERIOD2,
+        period3: DEFAULT_RSI_PERIOD3,
         showRSI1: true,
         showRSI2: true,
         showRSI3: true,

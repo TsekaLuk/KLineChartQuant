@@ -2,6 +2,9 @@ import type { BaseIndicatorState } from '../../../plugin'
 import { createIndicatorStateKey } from '../../../plugin/stateKeys'
 import type { ENEPoint } from './calculators'
 
+export const DEFAULT_ENE_PERIOD = 10
+export const DEFAULT_ENE_DEVIATION = 11
+
 /**
  * ENE 渲染器状态（共享给渲染器和图例）
  * 包含全量 ENE 数组、计算参数、以及视口极值
@@ -35,8 +38,8 @@ export const EMPTY_ENE_STATE: ENERenderState = {
     timestamp: 0,
     series: [],
     params: {
-        period: 10,
-        deviation: 11,
+        period: DEFAULT_ENE_PERIOD,
+        deviation: DEFAULT_ENE_DEVIATION,
     },
     visibleMin: Infinity,
     visibleMax: -Infinity,

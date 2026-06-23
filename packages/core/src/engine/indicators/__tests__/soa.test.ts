@@ -9,30 +9,64 @@ import {
 } from '../soa'
 import {
   calcBOLLData,
-  calcBOLLDataSoA,
   calcEXPMAData,
-  calcEXPMADataSoA,
   calcENEData,
-  calcENEDataSoA,
   calcMAData,
-  calcMADataSoA,
   calcRSIData,
-  calcRSIDataSoA,
   calcCCIData,
-  calcCCIDataSoA,
   calcSTOCHData,
-  calcSTOCHDataSoA,
   calcMOMData,
-  calcMOMDataSoA,
   calcWMSRData,
-  calcWMSRDataSoA,
   calcKSTData,
-  calcKSTDataSoA,
   calcFASTKData,
-  calcFASTKDataSoA,
   calcMACDData,
-  calcMACDDataSoA,
 } from '../calculators'
+import type {
+  BOLLPoint,
+  EXPMAPoint,
+  ENEPoint,
+  STOCHPoint,
+  KSTPoint,
+  MACDPoint,
+} from '../calculators'
+
+// SoA wrapper functions (test-only — convert SoA → AoS before computing)
+function calcBOLLDataSoA(layout: KLineSoALayout, period: number, multiplier: number): BOLLPoint[] {
+  return calcBOLLData(SharedKLineBuffer.toKLineData(layout), period, multiplier)
+}
+function calcEXPMADataSoA(layout: KLineSoALayout, fastPeriod: number, slowPeriod: number): EXPMAPoint[] {
+  return calcEXPMAData(SharedKLineBuffer.toKLineData(layout), fastPeriod, slowPeriod)
+}
+function calcENEDataSoA(layout: KLineSoALayout, period: number, deviation: number): ENEPoint[] {
+  return calcENEData(SharedKLineBuffer.toKLineData(layout), period, deviation)
+}
+function calcMADataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+  return calcMAData(SharedKLineBuffer.toKLineData(layout), period)
+}
+function calcRSIDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+  return calcRSIData(SharedKLineBuffer.toKLineData(layout), period)
+}
+function calcCCIDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+  return calcCCIData(SharedKLineBuffer.toKLineData(layout), period)
+}
+function calcSTOCHDataSoA(layout: KLineSoALayout, n: number, m: number): STOCHPoint[] {
+  return calcSTOCHData(SharedKLineBuffer.toKLineData(layout), n, m)
+}
+function calcMOMDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+  return calcMOMData(SharedKLineBuffer.toKLineData(layout), period)
+}
+function calcWMSRDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+  return calcWMSRData(SharedKLineBuffer.toKLineData(layout), period)
+}
+function calcKSTDataSoA(layout: KLineSoALayout, roc1: number, roc2: number, roc3: number, roc4: number, signalPeriod: number): KSTPoint[] {
+  return calcKSTData(SharedKLineBuffer.toKLineData(layout), roc1, roc2, roc3, roc4, signalPeriod)
+}
+function calcFASTKDataSoA(layout: KLineSoALayout, period: number): (number | undefined)[] {
+  return calcFASTKData(SharedKLineBuffer.toKLineData(layout), period)
+}
+function calcMACDDataSoA(layout: KLineSoALayout, fastPeriod: number, slowPeriod: number, signalPeriod: number): MACDPoint[] {
+  return calcMACDData(SharedKLineBuffer.toKLineData(layout), fastPeriod, slowPeriod, signalPeriod)
+}
 
 /**
  * 生成测试用的 K线数据

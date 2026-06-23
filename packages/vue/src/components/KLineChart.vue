@@ -10,12 +10,14 @@
       :overlay-symbol-items="overlaySymbolItems"
       :comparison-colors="comparisonColorsMap"
       :comparison-loading="comparisonLoading"
+      :show-back-button="kLineLevel === 'timeshare'"
       @add-overlay-symbol="onAddOverlaySymbol"
       @remove-overlay-symbol="onRemoveOverlaySymbol"
       @k-line-level-change="onKLineLevelChange"
       @k-line-adjust-change="onKLineAdjustChange"
       @toggle-indicator="onToggleIndicator"
       @symbol-change="onSymbolChange"
+      @back="onBackFromTimeShare"
     />
     <div
       class="chart-stage"
@@ -278,6 +280,7 @@ const emit = defineEmits<{
 
 // ── Symbol / Comparison State ──
 const kLineLevel = ref<string>(props.semanticConfig?.data?.period ?? 'daily')
+const previousKLineLevel = ref<string>('daily')
 const kLineAdjust = ref(props.semanticConfig?.data?.adjust ?? 'none')
 const isIntraday = computed(() => kLineLevel.value.includes('min'))
 const currentSymbol = ref('选择商品')
@@ -288,10 +291,20 @@ const overlaySymbols = ref<string[]>([])
 const overlaySymbolItems = ref<SymbolItem[]>([])
 
 function onKLineLevelChange(level: string) {
+  if (level === 'timeshare') {
+    previousKLineLevel.value = kLineLevel.value as string
+  }
   kLineLevel.value = level as typeof kLineLevel.value
   emit('kLineLevelChange', level)
   controller.value?.setCurrentPeriod(level)
   syncSymbolsToController()
+}
+
+function onBackFromTimeShare() {
+  const prevLevel = previousKLineLevel.value
+  if (prevLevel && prevLevel !== 'timeshare') {
+    onKLineLevelChange(prevLevel)
+  }
 }
 
 function onKLineAdjustChange(adjust: 'qfq' | 'hfq' | 'splits' | 'none') {
@@ -702,6 +715,7 @@ function onDoubleClick(e: MouseEvent) {
   const shD = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
   const yyyymmdd = shD.getFullYear() * 10000 + (shD.getMonth() + 1) * 100 + shD.getDate()
 
+  previousKLineLevel.value = 'daily'
   kLineLevel.value = 'timeshare'
   controller.value.switchToTimeShareForDate(yyyymmdd)
   emit('kLineLevelChange', 'timeshare')

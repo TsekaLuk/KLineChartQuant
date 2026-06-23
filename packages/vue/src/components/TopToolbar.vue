@@ -42,6 +42,16 @@
       <span class="indicator-button__icon" aria-hidden="true">fx</span>
       <span class="indicator-button__text">指标</span>
     </button>
+    <button
+      v-if="showBackButton"
+      type="button"
+      class="back-button"
+      title="返回"
+      aria-label="返回"
+      @click="emit('back')"
+    >
+      ← 返回
+    </button>
   </div>
 </template>
 
@@ -101,6 +111,7 @@ const props = defineProps<{
   overlaySymbolItems?: SymbolItem[]
   comparisonColors?: Map<string, string>
   comparisonLoading?: boolean
+  showBackButton?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -110,6 +121,7 @@ const emit = defineEmits<{
   (e: 'kLineAdjustChange', adjust: KLineAdjustment): void
   (e: 'toggleIndicator'): void
   (e: 'symbolChange', symbol: SymbolItem): void
+  (e: 'back'): void
 }>()
 
 const MOCK_SYMBOLS: SymbolItem[] = [
@@ -216,12 +228,43 @@ function onSymbolSelectorChange(item: SymbolItem) {
   white-space: nowrap;
 }
 
+.back-button {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 0 12px;
+  margin-left: auto;
+  border: 1px solid var(--klc-color-border-button);
+  border-radius: 4px;
+  background: var(--klc-color-background);
+  color: var(--klc-color-foreground);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.back-button:hover {
+  border-color: var(--klc-color-axis-text);
+  background: var(--klc-color-grid-minor);
+}
+
 @media (max-width: 768px), (max-height: 640px) {
   .indicator-button__text {
     display: none;
   }
   .indicator-button {
     height: 26px;
+  }
+  .back-button {
+    height: 26px;
+    font-size: 12px;
   }
 }
 </style>

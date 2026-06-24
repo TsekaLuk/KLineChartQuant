@@ -333,9 +333,9 @@ export function useRangeSelection(options: {
     const startTs = data[bounds.start]!.timestamp
     const endTs = data[bounds.end]!.timestamp
     const mainStockCode = controller.value?.symbols.peek()?.[0]?.symbol ?? 'unknown'
-    const batchCodes = batchStockCodes.value
+    const batchCodes = batchStockCodes.value.filter((c) => c !== mainStockCode)
     const total = 1 + batchCodes.length
-    const prefix = batchCodes.length > 0 ? `batch${total}` : mainStockCode
+    const prefix = batchStockCodes.value.length > 0 ? `batch${batchStockCodes.value.length + 1}` : mainStockCode
 
     const allItems: KLineData[] = []
 

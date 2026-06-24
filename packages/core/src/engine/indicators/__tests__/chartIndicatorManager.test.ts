@@ -18,6 +18,7 @@ function createMockDeps() {
     rendererMap,
     getOption: () => ({
       rightAxisWidth: 60,
+      leftAxisWidth: 60,
       priceLabelWidth: 60,
       yPaddingPx: 4,
       paneGap: 1,

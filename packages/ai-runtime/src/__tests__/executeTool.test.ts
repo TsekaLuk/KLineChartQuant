@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { ChartController } from '@363045841yyt/klinechart-core'
+import type { ChartController, Signal } from '@363045841yyt/klinechart-core'
 import { executeTool } from '../executeTool'
+
+function stubSignal<T>(val: T): Signal<T> {
+  return { peek: () => val, subscribe: () => () => {} } as unknown as Signal<T>
+}
 
 function createMockChart(
   overrides?: Partial<ChartController>,
@@ -10,6 +14,20 @@ function createMockChart(
       { id: 'MA', label: 'MA', role: 'main' as const, params: [] },
       { id: 'RSI', label: 'RSI', role: 'sub' as const, params: [] },
     ],
+    viewport: stubSignal({} as any),
+    data: stubSignal([]),
+    dataLoading: stubSignal(false),
+    symbols: stubSignal([]),
+    theme: stubSignal('light'),
+    indicators: stubSignal([]),
+    subPanes: stubSignal([]),
+    drawingTool: stubSignal(null),
+    drawings: stubSignal([]),
+    paneRatios: stubSignal({}),
+    paneLayout: stubSignal([]),
+    interactionState: stubSignal({} as any),
+    comparisonColors: stubSignal(new Map()),
+    comparisonLoading: stubSignal(false),
     zoomToLevel: vi.fn(),
     setTheme: vi.fn(),
     scrollToRight: vi.fn(),
@@ -23,9 +41,25 @@ function createMockChart(
     updateData: vi.fn(),
     addComparisonSymbol: vi.fn(),
     removeComparisonSymbol: vi.fn(),
+    setComparisonData: vi.fn(),
+    setCurrentSymbol: vi.fn(),
+    setCurrentPeriod: vi.fn(),
+    switchToTimeShareForDate: vi.fn(),
+    applyCustomData: vi.fn(),
+    setDataFetcher: vi.fn(),
+    ensureDataRange: vi.fn(),
     setDrawingTool: vi.fn(),
     getFullDrawings: vi.fn(() => []),
     setDrawings: vi.fn(),
+    setSelectedDrawingId: vi.fn(),
+    getViewport: vi.fn(() => null),
+    getKWidthKGap: vi.fn(() => ({ kWidth: 8, kGap: 2 })),
+    getCurrentDpr: vi.fn(() => 1),
+    getLogicalIndexAtX: vi.fn(() => null),
+    getTimestampAtLogicalIndex: vi.fn(() => null),
+    priceToY: vi.fn(() => 0),
+    yToPrice: vi.fn(() => 0),
+    getPaneInfo: vi.fn(() => undefined),
     clearDrawings: vi.fn(),
     removeDrawing: vi.fn(),
     updateCustomMarkers: vi.fn(),
@@ -34,6 +68,22 @@ function createMockChart(
     updateOptionsFacade: vi.fn(),
     getZoomLevelCount: vi.fn(() => 10),
     getData: vi.fn(() => []),
+    handlePointerEvent: vi.fn(() => false),
+    handleWheelEvent: vi.fn(),
+    handleScrollEvent: vi.fn(),
+    handlePinchZoom: vi.fn(),
+    updateRendererConfig: vi.fn(),
+    resizeSubPane: vi.fn(() => true),
+    createSubPane: vi.fn(() => true),
+    clearSubPanes: vi.fn(),
+    replaceSubPaneIndicator: vi.fn(() => true),
+    updatePaneLayout: vi.fn(),
+    setTooltipSize: vi.fn(),
+    setTooltipAnchorPositioning: vi.fn(),
+    getIndicatorTitle: vi.fn(() => undefined),
+    getContentWidth: vi.fn(() => 0),
+    getLeftLoadBufferWidth: vi.fn(() => 0),
+    dispose: vi.fn(),
     ...overrides,
   } as unknown as ChartController
 }
@@ -356,16 +406,16 @@ describe('executeTool', () => {
         name: 'drawing.add',
         input: { kind: 'horizontal-line', anchors: [{ barIndex: 0, price: 150 }] },
       })
-      expect(chart.getFullDrawings).toHaveBeenCalledOnce()
-      expect(chart.setDrawings).toHaveBeenCalledOnce()
-      const passed = chart.setDrawings.mock.calls[0][0] as any[]
-      expect(passed.length).toBe(1)
-      expect(passed[0].kind).toBe('horizontal-line')
-      expect(passed[0].anchors).toHaveLength(1)
-      expect(passed[0].anchors[0].index).toBe(0)
-      expect(passed[0].anchors[0].price).toBe(150)
-      expect(result.success).toBe(true)
-      expect(result.data?.drawingId).toBeTypeOf('string')
+    expect(chart.getFullDrawings).toHaveBeenCalledOnce()
+    expect(chart.setDrawings).toHaveBeenCalledOnce()
+    const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
+    expect(passed.length).toBe(1)
+    expect(passed[0].kind).toBe('horizontal-line')
+    expect(passed[0].anchors).toHaveLength(1)
+    expect(passed[0].anchors[0].index).toBe(0)
+    expect(passed[0].anchors[0].price).toBe(150)
+    expect(result.success).toBe(true)
+    expect((result.data as Record<string, unknown>)?.drawingId).toBeTypeOf('string')
     })
 
     it('appends to existing drawings', () => {
@@ -375,7 +425,7 @@ describe('executeTool', () => {
         name: 'drawing.add',
         input: { kind: 'vertical-line', anchors: [{ barIndex: 20, price: 100 }] },
       })
-      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
       expect(passed.length).toBe(2)
       expect(passed[0].id).toBe('existing-1')
       expect(passed[1].kind).toBe('vertical-line')
@@ -395,7 +445,7 @@ describe('executeTool', () => {
           style: { stroke: '#FF5722', strokeWidth: 3 },
         },
       })
-      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
       expect(passed[0].style.stroke).toBe('#FF5722')
       expect(passed[0].style.strokeWidth).toBe(3)
     })
@@ -406,7 +456,7 @@ describe('executeTool', () => {
         name: 'drawing.add',
         input: { kind: 'ray', anchors: [{ barIndex: 5, price: 200 }] },
       })
-      const passed = chart.setDrawings.mock.calls[0][0] as any[]
+      const passed = (chart.setDrawings as any).mock.calls[0][0] as any[]
       expect(passed[0].style.stroke).toBe('#2962ff')
       expect(passed[0].style.strokeWidth).toBe(1)
     })

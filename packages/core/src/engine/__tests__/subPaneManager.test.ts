@@ -6,7 +6,12 @@ import type { IndicatorScheduler } from '../indicators/scheduler'
 function createMockScheduler(): Partial<IndicatorScheduler> {
   return {
     getIndicatorMetadata: vi.fn((_id: string) => ({
-      rendererFactory: vi.fn(() => ({ name: 'custom_rsi_rsi_0' })),
+      name: _id,
+      displayName: 'Test',
+      category: 'sub' as const,
+      stateKey: _id,
+      defaultPaneId: 'sub',
+      rendererFactory: vi.fn(() => ({ name: 'custom_rsi_rsi_0', paneId: 'sub', priority: 0, draw: vi.fn() })),
       updateConfig: vi.fn(),
       scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
     })),
@@ -88,8 +93,13 @@ describe('SubPaneManager', () => {
     it('should update scheduler config via definition.updateConfig', () => {
       const updateConfigSpy = vi.fn()
       const customScheduler: Partial<IndicatorScheduler> = {
-        getIndicatorMetadata: vi.fn(() => ({
-          rendererFactory: vi.fn(() => ({ name: 'custom_rsi_rsi_0' })),
+        getIndicatorMetadata: vi.fn((_id: string) => ({
+          name: _id,
+          displayName: 'Test',
+          category: 'sub' as const,
+          stateKey: _id,
+          defaultPaneId: 'sub',
+          rendererFactory: vi.fn(() => ({ name: 'custom_rsi_rsi_0', paneId: 'sub', priority: 0, draw: vi.fn() })),
           updateConfig: updateConfigSpy,
           scale: { indicatorKey: 'test', label: 'Test', decimals: 2 },
         })),

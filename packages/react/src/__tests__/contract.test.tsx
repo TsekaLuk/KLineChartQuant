@@ -35,7 +35,7 @@ describe('@363045841yyt/klinechart-react —public API surface', () => {
         expect(typeof ReactAdapter.useChart).toBe('function')
         expect(typeof ReactAdapter.useIndicators).toBe('function')
         expect(ReactAdapter.KLineChart).not.toBeNull()
-        expect(typeof ReactAdapter.KLineChart.render).toBe('function')
+        expect(typeof ReactAdapter.KLineChart).toBe('function')
     })
 })
 
@@ -109,7 +109,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
         __setChartFactory((opts: ChartMountOptions) => {
             const handle = createMockChartController(opts.data)
             lastHandle = handle
-            return handle.controller
+            return Promise.resolve(handle.controller)
         })
     })
 
@@ -175,6 +175,10 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
             handle.setViewport({
                 zoomLevel: 7,
                 kWidth: 2,
+                kGap: 2,
+                plotWidth: 800,
+                plotHeight: 600,
+                dpr: 1,
                 visibleFrom: 0,
                 visibleTo: 100,
             })
@@ -193,7 +197,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
         const { unmount } = render(createElement(Host))
         expect(captured).not.toBeNull()
 
-        const disposeSpy = vi.spyOn(captured as ChartController, 'dispose')
+        const disposeSpy = vi.spyOn(captured as unknown as ChartController, 'dispose')
         unmount()
         expect(disposeSpy).toHaveBeenCalledTimes(1)
     })

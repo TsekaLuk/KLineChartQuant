@@ -207,14 +207,16 @@ describe('inputSchema correctness — spot checks', () => {
   it('drawing.setTool uses oneOf for tool types (string + null)', () => {
     const t = findTool('drawing.setTool')!
     if (t.inputSchema.type === 'object') {
-      const tool = t.inputSchema.properties.tool
+      const tool = t.inputSchema.properties.tool as
+        | { oneOf: Array<Record<string, unknown>> }
+        | undefined
       expect(tool?.oneOf).toBeDefined()
-      const stringOption = tool.oneOf.find((o: Record<string, unknown>) => o.type === 'string')
+      const stringOption = tool!.oneOf.find((o) => o.type === 'string')
       expect(stringOption).toBeDefined()
       expect(stringOption!.enum).toContain('trendline')
       expect(stringOption!.enum).toContain('fib')
 
-      const nullOption = tool.oneOf.find((o: Record<string, unknown>) => o.type === 'null')
+      const nullOption = tool!.oneOf.find((o) => o.type === 'null')
       expect(nullOption).toBeDefined()
     }
   })

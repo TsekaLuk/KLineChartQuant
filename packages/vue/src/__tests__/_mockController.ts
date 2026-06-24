@@ -11,19 +11,18 @@
 
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
 import type {
-    ActiveIndicator,
     ChartController,
     ChartMountOptions,
     ChartViewport,
-    DrawingController,
-    DrawingState,
+    DrawingObject,
+    DrawingToolType,
     IndicatorDefinition,
-    IndicatorSelectorController,
+    IndicatorInstance,
+    InteractionSnapshot,
     KLineData,
     PaneSpec,
-    ToolbarController,
-    ToolDefinition,
-    ToolId,
+    SubPaneInfo,
+    SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 
 // ---------------------------------------------------------------------------
@@ -58,68 +57,6 @@ export interface MockChartController extends ChartController {
     _setData: (data: ReadonlyArray<KLineData>) => void
 }
 
-function createMockIndicatorSelector(): IndicatorSelectorController {
-    const catalog = createSignal<ReadonlyArray<IndicatorDefinition>>([])
-    const active = createSignal<ReadonlyArray<ActiveIndicator>>([])
-    const menuOpen = createSignal<boolean>(false)
-    const searchQuery = createSignal<string>('')
-    const filteredMain = createSignal<ReadonlyArray<IndicatorDefinition>>([])
-    const filteredSub = createSignal<ReadonlyArray<IndicatorDefinition>>([])
-
-    return {
-        catalog,
-        active,
-        menuOpen,
-        searchQuery,
-        filteredMain,
-        filteredSub,
-        add: () => null,
-        remove: () => false,
-        updateParams: () => false,
-        reorder: () => false,
-        openMenu: () => menuOpen.set(true),
-        closeMenu: () => menuOpen.set(false),
-        toggleMenu: () => menuOpen.set(!menuOpen.peek()),
-        setSearchQuery: (q: string) => searchQuery.set(q),
-        isActive: () => false,
-        dispose: () => {},
-    }
-}
-
-function createMockToolbar(): ToolbarController {
-    const tools = createSignal<ReadonlyArray<ToolDefinition>>([])
-    const activeTool = createSignal<ToolId | null>(null)
-    const disabledTools = createSignal<ReadonlySet<ToolId>>(new Set())
-    return {
-        tools,
-        activeTool,
-        disabledTools,
-        selectTool: (id) => activeTool.set(id),
-        clearSelection: () => activeTool.set(null),
-        setDisabled: () => {},
-        dispose: () => {},
-    }
-}
-
-function createMockDrawing(): DrawingController {
-    const state = createSignal<DrawingState>({
-        activeTool: null,
-        drawingCount: 0,
-    })
-    return {
-        state,
-        setActiveTool: (tool) =>
-            state.set({ ...state.peek(), activeTool: tool }),
-        clearAll: () => state.set({ ...state.peek(), drawingCount: 0 }),
-        deleteLast: () =>
-            state.set({
-                ...state.peek(),
-                drawingCount: Math.max(0, state.peek().drawingCount - 1),
-            }),
-        dispose: () => {},
-    }
-}
-
 export function createMockChartController(
     opts: Partial<ChartMountOptions> = {},
 ): MockChartController {
@@ -128,29 +65,64 @@ export function createMockChartController(
     const viewport = createSignal<ChartViewport>({
         zoomLevel: opts.initialZoomLevel ?? 3,
         kWidth: 6,
+        kGap: 2,
+        plotWidth: 0,
+        plotHeight: 0,
+        dpr: 1,
         visibleFrom: 0,
         visibleTo: 0,
     })
     const data = createSignal<ReadonlyArray<KLineData>>(opts.data ?? [])
     const theme = createSignal<'light' | 'dark'>(opts.theme ?? 'light')
     const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
-    const indicatorSelector = createMockIndicatorSelector()
-    const toolbar = createMockToolbar()
-    const drawing = createMockDrawing()
 
     return {
         viewport,
         data,
+        dataLoading: createSignal(false),
+        symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
         theme,
+        indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
+        subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
+        drawingTool: createSignal<DrawingToolType | null>(null),
+        drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+        paneRatios: createSignal<Readonly<Record<string, number>>>({}),
         paneLayout,
-        indicatorSelector,
-        toolbar,
-        drawing,
+        interactionState: createSignal<InteractionSnapshot>({
+            crosshairPos: null,
+            crosshairIndex: null,
+            crosshairPrice: null,
+            hoveredIndex: null,
+            activePaneId: null,
+            tooltipPos: { x: 0, y: 0 },
+            tooltipAnchorPlacement: 'right-bottom',
+            hoveredMarkerData: null,
+            hoveredCustomMarker: null,
+            isDragging: false,
+            isResizingPaneBoundary: false,
+            isHoveringPaneBoundary: false,
+            hoveredPaneBoundaryId: null,
+            isHoveringRightAxis: false,
+        }),
+        comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
+        comparisonLoading: createSignal(false),
+        catalog: [],
+
         setData: (next) => data.set(next),
         appendData: (next) => data.set([...data.peek(), ...next]),
         updateData: (next) => data.set(next),
         getData: () => data.peek(),
         getZoomLevelCount: () => 10,
+        setSymbols: () => {},
+        addComparisonSymbol: () => {},
+        removeComparisonSymbol: () => {},
+        setComparisonData: () => {},
+        setCurrentSymbol: () => {},
+        setCurrentPeriod: () => {},
+        switchToTimeShareForDate: () => {},
+        applyCustomData: () => {},
+        setDataFetcher: () => {},
+        ensureDataRange: () => {},
         setTheme: (next) => theme.set(next),
         zoomToLevel: (level) =>
             viewport.set({ ...viewport.peek(), zoomLevel: level }),
@@ -172,12 +144,20 @@ export function createMockChartController(
         removeIndicator: () => false,
         updateIndicatorParams: () => false,
         updateRendererConfig: () => {},
-        setTooltipSize: () => {},
-        setTooltipAnchorPositioning: () => {},
-        getIndicatorTitle: () => undefined,
-        setDrawingTool: (tool) => drawing.setActiveTool(tool),
-        clearDrawings: () => drawing.clearAll(),
+        setDrawingTool: () => {},
+        clearDrawings: () => {},
         removeDrawing: () => {},
+        setDrawings: () => {},
+        getFullDrawings: () => [],
+        setSelectedDrawingId: () => {},
+        getViewport: () => null,
+        getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
+        getCurrentDpr: () => 1,
+        getLogicalIndexAtX: () => null,
+        getTimestampAtLogicalIndex: () => null,
+        priceToY: () => 0,
+        yToPrice: () => 0,
+        getPaneInfo: () => undefined,
         resizeSubPane: () => false,
         createSubPane: () => false,
         clearSubPanes: () => {},
@@ -185,6 +165,12 @@ export function createMockChartController(
         updatePaneLayout: (_panes: PaneSpec[]) => {},
         updateCustomMarkers: () => {},
         clearCustomMarkers: () => {},
+        setTooltipSize: () => {},
+        setTooltipAnchorPositioning: () => {},
+        getIndicatorTitle: () => undefined,
+        getContentWidth: () => 0,
+        getLeftLoadBufferWidth: () => 0,
+        scrollToRight: () => {},
         updateSettingsFacade: () => {},
         updateOptionsFacade: () => {},
         dispose: () => {

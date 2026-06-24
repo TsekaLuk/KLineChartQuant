@@ -15,6 +15,7 @@ function createRenderer(name: string): RendererPluginWithHost {
     version: '1.0.0',
     description: 'test renderer',
     paneId: 'test',
+    priority: 0,
     draw: vi.fn(),
   }
 }

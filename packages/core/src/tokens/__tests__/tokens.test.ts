@@ -24,6 +24,7 @@ import {
     mergeTheme,
     type Theme,
     type ColorTokens,
+    type IndicatorPalette,
 } from '..'
 
 // ---------------------------------------------------------------------------
@@ -197,7 +198,7 @@ describe('mergeTheme', () => {
 
     it('palette merges per-key, not whole-replace', () => {
         const merged = mergeTheme(lightTheme, {
-            colors: { palette: { i1: '#000000' } },
+            colors: { palette: { i1: '#000000' } as IndicatorPalette },
         })
         expect(merged.colors.palette.i1).toBe('#000000')
         expect(merged.colors.palette.i2).toBe(lightTheme.colors.palette.i2)

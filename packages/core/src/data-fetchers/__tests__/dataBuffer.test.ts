@@ -163,7 +163,7 @@ describe('DataBuffer', () => {
             expect(buffer.loading()).toBe(false)
         })
 
-        const timestamps = buffer.data().map((d) => d.timestamp)
+        const timestamps = buffer.getRawData().map((d) => d.timestamp)
         const uniqueTimestamps = new Set(timestamps)
         expect(timestamps.length).toBe(uniqueTimestamps.size)
         expect(timestamps).toEqual([...timestamps].sort((a, b) => a - b))

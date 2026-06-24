@@ -241,7 +241,7 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
             const container = divRef.current
             if (container === null) return
             let mounted = true
-            createChart({
+            const created = createChart({
                 container,
                 data,
                 symbols,
@@ -249,13 +249,19 @@ export const KLineChart = forwardRef<KLineChartHandle, KLineChartProps>(
                 initialZoomLevel,
                 zoomLevels,
                 theme,
-            }).then((created) => {
+            })
+            const applyController = (next: ChartController) => {
                 if (!mounted) {
-                    created.dispose()
+                    next.dispose()
                     return
                 }
-                controllerRef.current = created
-            })
+                controllerRef.current = next
+            }
+            if (typeof (created as Promise<ChartController>).then === 'function') {
+                ;(created as Promise<ChartController>).then(applyController)
+            } else {
+                applyController(created as ChartController)
+            }
             return () => {
                 mounted = false
                 controllerRef.current?.dispose()

@@ -20,8 +20,8 @@ export type JsonSchema =
   | { type: 'integer'; minimum?: number; maximum?: number; description?: string }
   | { type: 'boolean'; description?: string }
   | { type: 'null'; description?: string }
-  | { oneOf: JsonSchema[]; description?: string }
-  | { anyOf: JsonSchema[]; description?: string }
+  | { oneOf: JsonSchema[]; type?: undefined; description?: string }
+  | { anyOf: JsonSchema[]; type?: undefined; description?: string }
 
 export type { ControllerDescription } from '@363045841yyt/klinechart-core'
 

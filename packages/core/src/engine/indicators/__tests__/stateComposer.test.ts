@@ -47,9 +47,9 @@ function createBundle(): IndicatorSeriesBundle {
     mfi: { series: [], params: {} as never },
     pivot: { series: [], params: {} as never },
     fib: { series: [], params: {} as never },
-    structure: { series: { swings: [], breakouts: [] }, params: {} as never },
+    structure: { series: { swings: [], events: [], trend: 'range' }, params: {} as never },
     zones: { series: [], params: {} as never },
-    volumeProfile: { series: { bins: [], vah: 0, val: 0, poc: 0 }, params: {} as never },
+    volumeProfile: { series: { bins: [], vah: 0, val: 0, poc: 0, totalVolume: 0 }, params: {} as never },
     _changed: [],
   }
 }
@@ -330,7 +330,7 @@ describe('stateComposer', () => {
 
   it('uses fixed unit range for structure overlay via metadata composer', () => {
     const bundle = createBundle()
-    bundle.structure.series = { swings: [], breakouts: [] }
+    bundle.structure.series = { swings: [], events: [], trend: 'range' }
     bundle.structure.params = { showStructure: true } as never
     const timestamp = 1000
     const visibleRange = { start: 0, end: 1 }
@@ -346,10 +346,11 @@ describe('stateComposer', () => {
   it('derives volumeProfile range from bins and val/vah via metadata composer', () => {
     const bundle = createBundle()
     bundle.volumeProfile.series = {
-      bins: [{ priceLow: 95, priceHigh: 105, volume: 10, poc: false }],
+      bins: [{ priceLow: 95, priceHigh: 105, volume: 10 }],
       vah: 103,
       val: 97,
       poc: 100,
+      totalVolume: 0,
     }
     bundle.volumeProfile.params = { showVolumeProfile: true } as never
     const timestamp = 1000

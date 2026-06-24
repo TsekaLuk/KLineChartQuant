@@ -1,12 +1,12 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest'
-import { WebSocketServer, WebSocket as WsWebSocket, type WebSocket } from 'ws'
+import { WebSocketServer, WebSocket as WsWebSocket } from 'ws'
 import { ChartBridge } from '@363045841yyt/klinechart-core'
 
 const PORT = 9877
 const wss = new WebSocketServer({ port: PORT, host: '127.0.0.1' })
 
 const receivedMessages: unknown[] = []
-let serverWs: WebSocket | null = null
+let serverWs: import('ws').WebSocket | null = null
 
 wss.on('connection', (ws) => {
   serverWs = ws
@@ -34,6 +34,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
       wsUrl: `ws://127.0.0.1:${PORT}`,
       sessionId: 'bridge-test',
       autoReconnect: false,
+      onToolCall: () => ({ success: false }),
       wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
 
@@ -54,6 +55,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
       wsUrl: `ws://127.0.0.1:${PORT}`,
       sessionId: 'state-push-test',
       autoReconnect: false,
+      onToolCall: () => ({ success: false }),
       wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
 
@@ -85,6 +87,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
     const bridge = new ChartBridge({
       wsUrl: `ws://127.0.0.1:${PORT}`,
       autoReconnect: false,
+      onToolCall: () => ({ success: false }),
       wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
     expect(bridge.sessionId).toBeDefined()
@@ -96,6 +99,7 @@ describe('ChartBridge integration', { timeout: 10_000 }, () => {
     const bridge = new ChartBridge({
       wsUrl: `ws://127.0.0.1:${PORT}`,
       autoReconnect: false,
+      onToolCall: () => ({ success: false }),
       wsImpl: WsWebSocket as unknown as new (url: string) => WebSocket,
     })
     bridge.destroy()

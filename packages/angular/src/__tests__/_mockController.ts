@@ -21,54 +21,8 @@ import type {
     KLineData,
     PaneSpec,
     SubPaneInfo,
-    ToolId,
+    SymbolSpec,
 } from '@363045841yyt/klinechart-core'
-
-function createMockToolbar() {
-    const tools = createSignal<ReadonlyArray<{ id: ToolId; label: string; icon?: string; group?: string }>>([])
-    const activeTool = createSignal<ToolId | null>(null)
-    const disabledTools = createSignal<ReadonlySet<ToolId>>(new Set())
-    return {
-        tools,
-        activeTool,
-        disabledTools,
-        selectTool(id: ToolId) {
-            activeTool.set(id)
-        },
-        clearSelection() {
-            activeTool.set(null)
-        },
-        setDisabled(id: ToolId, disabled: boolean) {
-            const next = new Set(disabledTools())
-            if (disabled) next.add(id)
-            else next.delete(id)
-            disabledTools.set(next)
-        },
-        dispose() {
-            /* no-op */
-        },
-    }
-}
-
-function createMockDrawing() {
-    const state = createSignal<{ activeTool: DrawingToolType | null; drawingCount: number }>({ activeTool: null, drawingCount: 0 })
-    return {
-        state,
-        setActiveTool(tool: DrawingToolType | null) {
-            state.set({ ...state(), activeTool: tool })
-        },
-        clearAll() {
-            state.set({ ...state(), drawingCount: 0 })
-        },
-        deleteLast() {
-            const cur = state()
-            state.set({ ...cur, drawingCount: Math.max(0, cur.drawingCount - 1) })
-        },
-        dispose() {
-            /* no-op */
-        },
-    }
-}
 
 export interface MockControllerHandle {
     controller: ChartController
@@ -110,8 +64,10 @@ export function createMockChartController(
         isHoveringRightAxis: false,
     })
 
-    const toolbar = createMockToolbar()
-    const drawing = createMockDrawing()
+    const drawingTool = createSignal<DrawingToolType | null>(null)
+    const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
+    const paneRatios = createSignal<Readonly<Record<string, number>>>({})
+    const paneLayout = createSignal<ReadonlyArray<PaneSpec>>([])
 
     let disposeCount = 0
 
@@ -122,14 +78,15 @@ export function createMockChartController(
         interactionState,
         indicators: createSignal<ReadonlyArray<IndicatorInstance>>([]),
         subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
-        drawingTool: createSignal<DrawingToolType | null>(null),
-        drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
-        paneRatios: createSignal<Readonly<Record<string, number>>>({}),
-        paneLayout: createSignal<ReadonlyArray<PaneSpec>>([]),
+        drawingTool,
+        drawings,
+        paneRatios,
+        paneLayout,
+        dataLoading: createSignal(false),
+        symbols: createSignal([] as ReadonlyArray<SymbolSpec>),
+        comparisonColors: createSignal<ReadonlyMap<string, string>>(new Map()),
+        comparisonLoading: createSignal(false),
         catalog: [],
-
-        toolbar,
-        drawing,
 
         setData(next: ReadonlyArray<KLineData>) {
             data.set(next)
@@ -183,10 +140,10 @@ export function createMockChartController(
             /* no-op */
         },
         setDrawingTool(tool: DrawingToolType | null) {
-            drawing.setActiveTool(tool)
+            drawingTool.set(tool)
         },
         clearDrawings() {
-            drawing.clearAll()
+            drawings.set([])
         },
         removeDrawing() {
             /* no-op */
@@ -227,6 +184,69 @@ export function createMockChartController(
         getLeftLoadBufferWidth() {
             return 0
         },
+        setSymbols() {
+            /* no-op */
+        },
+        addComparisonSymbol() {
+            /* no-op */
+        },
+        removeComparisonSymbol() {
+            /* no-op */
+        },
+        setComparisonData() {
+            /* no-op */
+        },
+        setCurrentSymbol() {
+            /* no-op */
+        },
+        setCurrentPeriod() {
+            /* no-op */
+        },
+        switchToTimeShareForDate() {
+            /* no-op */
+        },
+        applyCustomData() {
+            /* no-op */
+        },
+        setDataFetcher() {
+            /* no-op */
+        },
+        ensureDataRange() {
+            /* no-op */
+        },
+        setDrawings() {
+            /* no-op */
+        },
+        getFullDrawings() {
+            return []
+        },
+        setSelectedDrawingId() {
+            /* no-op */
+        },
+        getViewport() {
+            return null
+        },
+        getKWidthKGap() {
+            return { kWidth: 2, kGap: 1 }
+        },
+        getCurrentDpr() {
+            return 1
+        },
+        getLogicalIndexAtX() {
+            return null
+        },
+        getTimestampAtLogicalIndex() {
+            return null
+        },
+        priceToY() {
+            return 0
+        },
+        yToPrice() {
+            return 0
+        },
+        getPaneInfo() {
+            return undefined
+        },
         scrollToRight() {
             /* no-op */
         },
@@ -238,8 +258,6 @@ export function createMockChartController(
         },
         dispose() {
             disposeCount += 1
-            toolbar.dispose()
-            drawing.dispose()
         },
     }
 

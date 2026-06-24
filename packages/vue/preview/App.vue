@@ -265,7 +265,7 @@ if (typeof document !== 'undefined') {
 
 // ── 自定义数据源 Demo ──
 const useCustomData = ref(false)
-const customData = ref<CustomDataSource | null>(null)
+const customData = ref<CustomDataSource>()
 
 function onToggleCustomData() {
   useCustomData.value = !useCustomData.value
@@ -280,7 +280,7 @@ function onToggleCustomData() {
       },
     }
   } else {
-    customData.value = null
+    customData.value = undefined
   }
 }
 </script>

@@ -16,6 +16,7 @@ describe('PaneRenderer resize DPR mapping', () => {
       pane,
       {
         rightAxisWidth: 80,
+        leftAxisWidth: 60,
         yPaddingPx: 0,
         priceLabelWidth: 60,
       },
@@ -44,6 +45,7 @@ describe('PaneRenderer resize DPR mapping', () => {
       pane,
       {
         rightAxisWidth: 100,
+        leftAxisWidth: 60,
         yPaddingPx: 0,
         priceLabelWidth: 70,
       },
@@ -77,6 +79,7 @@ describe('PaneRenderer resize DPR mapping', () => {
       pane,
       {
         rightAxisWidth: 100,
+        leftAxisWidth: 60,
         yPaddingPx: 0,
         priceLabelWidth: 70,
       },

@@ -1,4 +1,5 @@
 import {
+    createElement,
     forwardRef,
     useEffect,
     useImperativeHandle,
@@ -112,12 +113,10 @@ export const KLineChartWC = forwardRef<KLineChartWCHandle, KLineChartWCProps>(
             }
         }, [props.onZoomLevelChange, props.onToggleFullscreen])
 
-        return (
-            <kline-chart
-                ref={hostRef}
-                style={props.style}
-                className={props.className}
-            />
-        )
+        return createElement('kline-chart', {
+            ref: hostRef,
+            style: props.style,
+            className: props.className,
+        })
     },
 )

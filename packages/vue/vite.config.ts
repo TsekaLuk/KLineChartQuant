@@ -25,7 +25,6 @@ export default defineConfig({
     build: {
         target: 'esnext',
         emptyOutDir: !isWC,
-        codeSplitting: !isWC,
         cssCodeSplit: !isWC,
         lib: isWC
             ? {

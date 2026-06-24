@@ -10,6 +10,7 @@ import { defineComponent, h, nextTick, ref, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
 import * as VueAdapter from '../index'
 import { coreSignalToVueRef } from '../index'
+import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core'
 import { createMockChartController, createTestSignal } from './_mockController'
 
 describe('@363045841yyt/klinechart —public API surface', () => {
@@ -49,7 +50,7 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
 
     it('mounts on first render via template ref', async () => {
         const mockController = createMockChartController({ data: [] })
-        const factorySpy = vi.fn(() => mockController)
+        const factorySpy = vi.fn((opts: ChartMountOptions) => Promise.resolve(mockController))
         VueAdapter.__setControllerFactory(factorySpy)
 
         const HostComponent = defineComponent({
@@ -77,7 +78,7 @@ describe('@363045841yyt/klinechart —useChart lifecycle', () => {
 
     it('disposes on unmount', async () => {
         const mockController = createMockChartController({ data: [] })
-        VueAdapter.__setControllerFactory(() => mockController)
+        VueAdapter.__setControllerFactory(() => Promise.resolve(mockController))
 
         const HostComponent = defineComponent({
             name: 'Host',

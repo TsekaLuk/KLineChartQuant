@@ -85,7 +85,12 @@ jobs:
             cd packages/vue
             cp package.json package.json.bak
             trap 'mv -f package.json.bak package.json' EXIT
-            sed -i 's/workspace:^/^/g' package.json
+            # workspace:^ → ^<TAG> (e.g. workspace:^ → ^0.8.9), and
+            # workspace:* → <TAG> (exact pin). Without the version number,
+            # npm would publish bare ^/* — unresolvable peer deps that
+            # prevent auto-install of klinechart-core.
+            sed -i "s/workspace:\^/^${TAG}/g" package.json
+            sed -i "s/workspace:\*/${TAG}/g" package.json
             npm publish --provenance --access public --tag "$NPM_TAG"
             mv package.json.bak package.json
             trap - EXIT

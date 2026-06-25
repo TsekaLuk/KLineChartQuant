@@ -1,39 +1,13 @@
 import { createSignal, type Signal } from '../reactivity/signal'
 import type { DataFetcher, KLineData, SymbolSpec } from '../controllers/types'
 import type { DataBufferLike } from './dataBufferTypes'
+import { Effect, pipe } from 'effect'
+import type { Effect as EffectType } from 'effect/Effect'
+import { fetchKLine, KLineFetchService, getPeriodDays, formatDate, MS_PER_DAY } from './dataBuffer.effects'
 
 export interface DataWindow {
     earliestTs: number
     latestTs: number
-}
-
-const MS_PER_DAY = 86_400_000
-const FETCH_MAX_RETRIES = 2
-
-const PERIOD_INITIAL_DAYS: Record<string, number> = {
-  '1min': 3,
-  '5min': 30,
-  '15min': 60,
-  '30min': 90,
-  '60min': 180,
-  daily: 365,
-  weekly: 365,
-  monthly: 365,
-  quarterly: 365,
-  yearly: 365,
-  timeshare: 1,
-}
-
-export function getPeriodDays(period?: string): number {
-  return PERIOD_INITIAL_DAYS[period ?? 'daily'] ?? 365
-}
-
-function formatDate(ts: number): string {
-    const d = new Date(ts)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
 }
 
 function mergeSortedData(
@@ -62,6 +36,7 @@ export class DataBuffer implements DataBufferLike {
     private _loadedWindow: DataWindow | null = null
     private _pendingFetch: Promise<void> | null = null
     private _disposed = false
+    // 已尝试请求过的边界时间戳集合，防止同一个时间段重复请求
     private _attemptedBoundaries: Set<number> = new Set()
     private _monthKeys: Int32Array | null = null
     private _dayKeys: Int32Array | null = null
@@ -157,57 +132,61 @@ export class DataBuffer implements DataBufferLike {
         this.fetchRange(requestStartTs, incrementalEnd)
     }
 
-	private loadInitial(): void {
-		if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
+    private loadInitial(): void {
+        if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
 
-		const now = Date.now()
-		const days = getPeriodDays(this._currentSpec.period)
-		const startDate = now - days * MS_PER_DAY
-		const endDate = now
+        const now = Date.now()
+        const days = getPeriodDays(this._currentSpec.period)
+        const startDate = now - days * MS_PER_DAY
+        const endDate = now
 
-		this.fetchRange(startDate, endDate)
-	}
+        this.fetchRange(startDate, endDate)
+    }
 
     private loadInitialRange(startTs: number, endTs: number): void {
         if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
         this.fetchRange(startTs, endTs)
     }
 
-    private fetchRange(startTs: number, endTs: number, retryCount = 0): void {
+    private fetchRange(startTs: number, endTs: number): void {
         if ((!this._requestFetch && !this._fetcher) || !this._currentSpec || this._disposed) return
 
         if (this._pendingFetch) {
             this._pendingFetch = this._pendingFetch.then(() => {
                 if (this._disposed) return
-                return this.fetchRange(startTs, endTs, retryCount)
+                return this.fetchRange(startTs, endTs)
             })
             return
         }
 
         const spec = this._currentSpec
-        const fetcher = this._fetcher
-
         this._loadingSignal.set(true)
 
-        const doFetch = (): Promise<void> => {
-            const fetchPromise = this._requestFetch
-                ? this._requestFetch(spec, startTs, endTs)
-                : (fetcher as NonNullable<DataFetcher>)(spec.source ?? 'baostock', {
-                    symbol: spec.symbol,
-                    startDate: formatDate(startTs),
-                    endDate: formatDate(endTs),
-                    period: spec.period ?? 'daily',
-                    adjust: spec.adjust ?? 'none',
-                    exchange: spec.exchange,
-                })
-            return fetchPromise.then((incoming) => {
-                if (this._disposed) return
+        const service: { readonly fetch: (spec: SymbolSpec, startTs: number, endTs: number) => EffectType<ReadonlyArray<KLineData>, unknown> } = {
+            fetch: (s, start, end) =>
+                Effect.tryPromise(() => {
+                    if (this._requestFetch) {
+                        return this._requestFetch(s, start, end)
+                    }
+                    // 未定义 Fetcher 走 gotdx fallback 获取
+                    return (this._fetcher as NonNullable<DataFetcher>)(s.source ?? 'gotdx', {
+                        symbol: s.symbol,
+                        startDate: formatDate(start),
+                        endDate: formatDate(end),
+                        period: s.period ?? 'daily',
+                        adjust: s.adjust ?? 'none',
+                        exchange: s.exchange,
+                    })
+                }),
+        }
 
-                if (incoming.length === 0) {
-                    throw new Error(
-                        `[DataBuffer] empty data for ${spec.symbol} ${formatDate(startTs)}~${formatDate(endTs)}`,
-                    )
-                }
+        this._pendingFetch = pipe(
+            fetchKLine(spec, startTs, endTs),
+            Effect.provideService(KLineFetchService, service),
+            Effect.runPromise, // 链式传递返回值, Effect -> Promise -> run
+        )
+            .then((incoming) => {
+                if (this._disposed) return
 
                 const oldLength = this._data.length
                 const oldEarliestTs = oldLength > 0 ? this._data[0]!.timestamp : null
@@ -245,35 +224,15 @@ export class DataBuffer implements DataBufferLike {
                     }
                 }
             })
-        }
-
-        const attempt = (count: number): Promise<void> => {
-            return doFetch().catch((err) => {
-                if (this._disposed) return
-
-                if (count < FETCH_MAX_RETRIES) {
-                    const delay = Math.pow(2, count) * 1000
-                    console.warn(
-                        `[DataBuffer] fetch failed, retry ${count + 1}/${FETCH_MAX_RETRIES} in ${delay}ms:`,
-                        err,
-                    )
-                    return new Promise<void>((resolve) => setTimeout(resolve, delay)).then(() => {
-                        if (this._disposed) return
-                        return attempt(count + 1)
-                    })
-                }
-
-                console.error(`[DataBuffer] fetch failed after ${FETCH_MAX_RETRIES + 1} attempts:`, err)
+            .catch(() => {
                 this._attemptedBoundaries.delete(endTs)
             })
-        }
-
-        this._pendingFetch = attempt(retryCount).finally(() => {
-            this._pendingFetch = null
-            if (!this._disposed) {
-                this._loadingSignal.set(false)
-            }
-        })
+            .finally(() => {
+                this._pendingFetch = null
+                if (!this._disposed) {
+                    this._loadingSignal.set(false)
+                }
+            })
     }
 
     /**

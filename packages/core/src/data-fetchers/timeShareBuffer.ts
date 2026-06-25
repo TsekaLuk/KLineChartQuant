@@ -5,14 +5,24 @@ import type { TimeShareFetcherFn } from './types'
 import type { DataBufferLike } from './dataBufferTypes'
 import type { DataWindow } from './dataBuffer'
 import { routerTimeShareFetcher } from './router'
+import { Effect, Fiber, pipe } from 'effect'
 
 export class TimeShareBuffer implements DataBufferLike {
+  // 当前持有的分时数据数组（内部可变副本）
   private _data: TimeShareData[] = []
+  // 向外部广播只读数据快照的信号
   private _dataSignal = createSignal<ReadonlyArray<TimeShareData>>([])
+  // 是否正在加载中，外部 UI 绑定用
   private _loadingSignal = createSignal<boolean>(false)
+  // 可选的自定义 fetcher，优先级大于默认 fectcher
   private _fetcher: TimeShareFetcherFn | null = null
+  // 指定查询的历史日期（0 = 当天）
   private _queryDate = 0
+  // 请求序号，每次 load() 递增
   private _requestSeq = 0
+  // 当前运行的 fetch Fiber 句柄，用于随时中断旧请求
+  private _fetchFiber: Fiber.RuntimeFiber<readonly TimeShareData[], unknown> | null = null
+  // 实例是否已销毁，阻止后续任何操作
   private _disposed = false
 
   get data(): Signal<ReadonlyArray<unknown>> {
@@ -51,30 +61,49 @@ export class TimeShareBuffer implements DataBufferLike {
     return this._queryDate
   }
 
-  async load(spec: SymbolSpec): Promise<void> {
+  load(spec: SymbolSpec): void {
     if (this._disposed) return
+
+    // 中断上次请求
+    if (this._fetchFiber) {
+      Fiber.interrupt(this._fetchFiber)
+      this._fetchFiber = null
+    }
+
     const fetcher = this._fetcher ?? routerTimeShareFetcher
     const requestSeq = ++this._requestSeq
     this._loadingSignal.set(true)
 
-    try {
-      const data = await fetcher(spec.source ?? 'gotdx', {
-        symbol: spec.symbol,
-        exchange: spec.exchange,
-        date: this._queryDate || undefined,
-      })
-      this._queryDate = 0
+    const effect = pipe(
+      // 把一个可能抛异常的 Promise 工厂函数，包装成 Effect
+      Effect.tryPromise(() =>
+        fetcher(spec.source ?? 'gotdx', {
+          symbol: spec.symbol,
+          exchange: spec.exchange,
+          date: this._queryDate || undefined,
+        }),
+      ),
+      Effect.tap((data) =>
+        // 把一个同步操作包装成 Effect
+        Effect.sync(() => {
+          if (this._disposed) return
+          this._queryDate = 0
+          this._data = [...data]
+          // 通知 UI 更新
+          this._dataSignal.set([...data])
+        }),
+      ),
+      // 清理,更新加载状态
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (requestSeq === this._requestSeq) {
+            this._loadingSignal.set(false)
+          }
+        }),
+      ),
+    )
 
-      if (requestSeq !== this._requestSeq) return
-      if (this._disposed) return
-
-      this._data = [...data]
-      this._dataSignal.set([...data])
-    } finally {
-      if (requestSeq === this._requestSeq) {
-        this._loadingSignal.set(false)
-      }
-    }
+    this._fetchFiber = Effect.runFork(effect)
   }
 
   setInlineData(data: unknown[]): void {
@@ -83,9 +112,14 @@ export class TimeShareBuffer implements DataBufferLike {
     this._dataSignal.set([...(data as TimeShareData[])])
   }
 
+  // 销毁实例
   dispose(): void {
     this._disposed = true
     this._requestSeq++
+    if (this._fetchFiber) {
+      Fiber.interrupt(this._fetchFiber)
+      this._fetchFiber = null
+    }
     this._data = []
     this._loadingSignal.set(false)
   }

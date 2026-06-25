@@ -6,6 +6,8 @@ import type { DataBufferLike } from './dataBufferTypes'
 import type { DataWindow } from './dataBuffer'
 import { routerTimeShareFetcher } from './router'
 import { Effect, Fiber, pipe } from 'effect'
+import type { Effect as EffectType } from 'effect/Effect'
+import { fetchTimeShare, TimeShareFetchService } from './dataBuffer.effects'
 
 export class TimeShareBuffer implements DataBufferLike {
   // 当前持有的分时数据数组（内部可变副本）
@@ -64,36 +66,39 @@ export class TimeShareBuffer implements DataBufferLike {
   load(spec: SymbolSpec): void {
     if (this._disposed) return
 
-    // 中断上次请求
     if (this._fetchFiber) {
       Fiber.interrupt(this._fetchFiber)
       this._fetchFiber = null
     }
 
-    const fetcher = this._fetcher ?? routerTimeShareFetcher
     const requestSeq = ++this._requestSeq
     this._loadingSignal.set(true)
 
-    const effect = pipe(
-      // 把一个可能抛异常的 Promise 工厂函数，包装成 Effect
-      Effect.tryPromise(() =>
-        fetcher(spec.source ?? 'gotdx', {
-          symbol: spec.symbol,
-          exchange: spec.exchange,
-          date: this._queryDate || undefined,
+    const timeShareService: {
+      readonly fetch: (s: SymbolSpec, date?: number) => EffectType<ReadonlyArray<TimeShareData>>
+    } = {
+      fetch: (s, date) =>
+        Effect.tryPromise(() => {
+          const fetcher = this._fetcher ?? routerTimeShareFetcher
+          return fetcher(s.source ?? 'gotdx', {
+            symbol: s.symbol,
+            exchange: s.exchange,
+            date,
+          })
         }),
-      ),
+    }
+
+    const effect = pipe(
+      fetchTimeShare(spec, this._queryDate || undefined),
+      Effect.provideService(TimeShareFetchService, timeShareService),
       Effect.tap((data) =>
-        // 把一个同步操作包装成 Effect
         Effect.sync(() => {
           if (this._disposed) return
           this._queryDate = 0
           this._data = [...data]
-          // 通知 UI 更新
           this._dataSignal.set([...data])
         }),
       ),
-      // 清理,更新加载状态
       Effect.ensuring(
         Effect.sync(() => {
           if (requestSeq === this._requestSeq) {

@@ -297,7 +297,13 @@ export function createDefaultPrimitiveRendererSet(): PrimitiveRendererSet {
       ctx.font = `${primitive.style?.fontSize ?? 12}px sans-serif`
       ctx.textAlign = primitive.align ?? 'left'
       ctx.textBaseline = primitive.baseline ?? 'bottom'
-      ctx.fillText(primitive.text, primitive.point.x, primitive.point.y)
+      if (primitive.rotation !== undefined) {
+        ctx.translate(primitive.point.x, primitive.point.y)
+        ctx.rotate(primitive.rotation)
+        ctx.fillText(primitive.text, 0, 0)
+      } else {
+        ctx.fillText(primitive.text, primitive.point.x, primitive.point.y)
+      }
       ctx.restore()
     },
   }
@@ -400,10 +406,11 @@ export function createInfoLineDefinition(): DrawingDefinition {
           { kind: 'line', a, b, style: drawing.style },
           {
             kind: 'text',
-            point: { x: (a.x + b.x) / 2 + 8, y: Math.min(a.y, b.y) - 8 },
+            point: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
             text,
-            align: 'left',
+            align: 'center',
             baseline: 'bottom',
+            rotation: Math.atan2(b.y - a.y, b.x - a.x),
             style: drawing.style,
           },
         ],

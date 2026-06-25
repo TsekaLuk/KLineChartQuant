@@ -419,6 +419,7 @@ export type TextPrimitive = {
   text: string
   align?: 'left' | 'center' | 'right'
   baseline?: 'top' | 'middle' | 'bottom'
+  rotation?: number
   style?: DrawingStyle
 }
 

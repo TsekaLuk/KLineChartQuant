@@ -22,7 +22,7 @@ export class KLineFetchService extends Context.Tag('@klc/KLineFetchService')<
 export class TimeShareFetchService extends Context.Tag('@klc/TimeShareFetchService')<
   TimeShareFetchService,
   {
-    readonly fetch: (spec: SymbolSpec, date?: number) => EffectType<ReadonlyArray<TimeShareData>>
+    readonly fetch: (spec: SymbolSpec, date?: number) => EffectType<ReadonlyArray<TimeShareData>, unknown>
   }
 >() { }
 
@@ -101,7 +101,7 @@ export const fetchKLine = (
 export const fetchTimeShare = (
   spec: SymbolSpec,
   date?: number,
-): EffectType<ReadonlyArray<TimeShareData>, Error, TimeShareFetchService> =>
+): EffectType<ReadonlyArray<TimeShareData>, unknown, TimeShareFetchService> =>
   pipe(
     Effect.gen(function* () {
       const { fetch } = yield* TimeShareFetchService // 获取服务实例

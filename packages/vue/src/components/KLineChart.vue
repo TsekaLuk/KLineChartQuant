@@ -65,6 +65,7 @@
           @pointerup="onPointerUp"
           @pointerleave="onPointerLeave"
           @dblclick="onDoubleClick"
+          @contextmenu.prevent
         >
           <div class="scroll-content">
             <div class="canvas-layer" ref="canvasLayerRef">
@@ -158,6 +159,7 @@
           @pointermove="onRightAxisPointerMove"
           @pointerup="onRightAxisPointerUp"
           @pointerleave="onRightAxisPointerLeave"
+          @contextmenu.prevent
         ></div>
       </div>
     </div>

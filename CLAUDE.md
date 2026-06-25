@@ -1,0 +1,1 @@
+D:/Code/kmap/kmap/AGENTS.md

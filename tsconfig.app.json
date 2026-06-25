@@ -18,6 +18,9 @@
       "@/*": ["./packages/core/src/*"],
       "@/core/*": ["./packages/core/src/engine/*"]
     },
+    "plugins": [
+      { "name": "@effect/language-service/tsconfig-plugin" }
+    ],
     "types": [
       "vite/client",
       "unplugin-icons/types/vue"

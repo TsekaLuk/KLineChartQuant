@@ -35,7 +35,8 @@ describe('@363045841yyt/klinechart-react —public API surface', () => {
         expect(typeof ReactAdapter.useChart).toBe('function')
         expect(typeof ReactAdapter.useIndicators).toBe('function')
         expect(ReactAdapter.KLineChart).not.toBeNull()
-        expect(typeof ReactAdapter.KLineChart).toBe('function')
+        expect(typeof ReactAdapter.KLineChart).toBe('object')
+        expect((ReactAdapter.KLineChart as Record<string, unknown>).$$typeof).toBeDefined()
     })
 })
 
@@ -109,7 +110,7 @@ describe('@363045841yyt/klinechart-react —useChart lifecycle', () => {
         __setChartFactory((opts: ChartMountOptions) => {
             const handle = createMockChartController(opts.data)
             lastHandle = handle
-            return Promise.resolve(handle.controller)
+            return handle.controller
         })
     })
 

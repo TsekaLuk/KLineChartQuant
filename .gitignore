@@ -28,6 +28,12 @@ coverage
 
 *.tsbuildinfo
 
+# Compiled TS outputs in src (build artifacts, never committed)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+
 .eslintcache
 
 # Cypress

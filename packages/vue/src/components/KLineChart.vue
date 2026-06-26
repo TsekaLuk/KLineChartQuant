@@ -261,7 +261,6 @@ const props = withDefaults(
     }
   }>(),
   {
-    dataFetcher: () => routerDataFetcher,
     yPaddingPx: 20,
     minKWidth: 1,
     maxKWidth: 50,
@@ -380,6 +379,11 @@ const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
 const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
+
+// ── DataFetcher 默认值（未绑定时回退到内置 routerDataFetcher）──
+// 用 computed 解析默认值，避免依赖 Vue 对「函数类型 prop 默认值」的特殊语义
+// （函数类型 prop 的 withDefaults 默认值会被原样使用而非作为工厂调用，跨编译条件不稳定）
+const effectiveDataFetcher = computed(() => props.dataFetcher ?? routerDataFetcher)
 
 // ── Fullscreen (controlled / uncontrolled) ──
 const internalIsFullscreen = ref(false)
@@ -506,7 +510,7 @@ const {
   containerRef,
   dataVersion,
   viewportVersion,
-  dataFetcher: computed(() => props.dataFetcher),
+  dataFetcher: effectiveDataFetcher,
   batchStockCodes,
 })
 
@@ -992,7 +996,7 @@ function setupSemanticController(ctrl: ChartController): void {
     return
   }
 
-  ctrl.setDataFetcher(props.dataFetcher)
+  ctrl.setDataFetcher(effectiveDataFetcher.value)
   semanticController.value = new SemanticChartController(ctrl)
 
   semanticController.value.on('config:error', (error) => {

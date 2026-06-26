@@ -130,3 +130,107 @@ describe('@klinechart-quant/vue — useChart lifecycle', () => {
         wrapper.unmount()
     })
 })
+
+describe('@klinechart-quant/vue — KLineChart fullscreen', () => {
+    afterEach(() => {
+        VueAdapter.__setControllerFactory(null)
+        // Reset the controllable fullscreenElement getter installed per-test.
+        delete (document as { fullscreenElement?: unknown }).fullscreenElement
+    })
+
+    /**
+     * jsdom does not implement the Fullscreen API, so we install spies on the
+     * root host element and document, plus a controllable fullscreenElement
+     * getter, to exercise the adapter's DOM wiring.
+     */
+    function installFullscreenSpies(): {
+        requestFullscreen: ReturnType<typeof vi.fn>
+        exitFullscreen: ReturnType<typeof vi.fn>
+        setFullscreenElement: (el: Element | null) => void
+    } {
+        const requestFullscreen = vi.fn(() => Promise.resolve())
+        const exitFullscreen = vi.fn(() => Promise.resolve())
+
+        let current: Element | null = null
+        Object.defineProperty(document, 'fullscreenElement', {
+            configurable: true,
+            get: () => current,
+        })
+        ;(document as { exitFullscreen?: unknown }).exitFullscreen =
+            exitFullscreen
+
+        return {
+            requestFullscreen,
+            exitFullscreen,
+            setFullscreenElement: (el) => {
+                current = el
+            },
+        }
+    }
+
+    function mountKLineChart(props: Record<string, unknown> = {}) {
+        const mockController = createMockChartController({ data: [] })
+        VueAdapter.__setControllerFactory(() => mockController)
+        return mount(VueAdapter.KLineChart, {
+            attachTo: document.body,
+            props: { data: [], ...props },
+        })
+    }
+
+    it('Test A: fullscreen prop true calls requestFullscreen, false calls exitFullscreen', async () => {
+        const spies = installFullscreenSpies()
+        const wrapper = mountKLineChart()
+        await nextTick()
+
+        const rootEl = wrapper.element as HTMLElement
+        rootEl.requestFullscreen = spies.requestFullscreen
+
+        await wrapper.setProps({ fullscreen: true })
+        await nextTick()
+        expect(spies.requestFullscreen).toHaveBeenCalledTimes(1)
+
+        // Simulate the element now being the fullscreen element, then exit.
+        spies.setFullscreenElement(rootEl)
+        await wrapper.setProps({ fullscreen: false })
+        await nextTick()
+        expect(spies.exitFullscreen).toHaveBeenCalledTimes(1)
+
+        wrapper.unmount()
+    })
+
+    it('Test B: fullscreenchange emits update:fullscreen reflecting fullscreenElement', async () => {
+        const spies = installFullscreenSpies()
+        const wrapper = mountKLineChart()
+        await nextTick()
+
+        const rootEl = wrapper.element as HTMLElement
+
+        spies.setFullscreenElement(rootEl)
+        document.dispatchEvent(new Event('fullscreenchange'))
+        await nextTick()
+        expect(wrapper.emitted('update:fullscreen')?.at(-1)).toEqual([true])
+
+        spies.setFullscreenElement(null)
+        document.dispatchEvent(new Event('fullscreenchange'))
+        await nextTick()
+        expect(wrapper.emitted('update:fullscreen')?.at(-1)).toEqual([false])
+
+        wrapper.unmount()
+    })
+
+    it('Test C: unmount removes the fullscreenchange listener (no post-unmount emit)', async () => {
+        installFullscreenSpies()
+        const wrapper = mountKLineChart()
+        await nextTick()
+
+        wrapper.unmount()
+        await nextTick()
+
+        const emittedBefore = wrapper.emitted('update:fullscreen')?.length ?? 0
+        // After unmount the listener must be gone — dispatching does nothing.
+        document.dispatchEvent(new Event('fullscreenchange'))
+        await nextTick()
+        const emittedAfter = wrapper.emitted('update:fullscreen')?.length ?? 0
+        expect(emittedAfter).toBe(emittedBefore)
+    })
+})

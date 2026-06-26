@@ -197,3 +197,155 @@ describe('@klinechart-quant/react — useChart lifecycle', () => {
         expect(disposeSpy).toHaveBeenCalledTimes(1)
     })
 })
+
+// ---------------------------------------------------------------------------
+// <KLineChart /> — internalized Fullscreen handling
+//
+// jsdom does NOT implement the Fullscreen API, so we install spies for
+// requestFullscreen / exitFullscreen and a controllable fullscreenElement
+// getter. The KLineChart component drives those off the controlled
+// `fullscreen` prop and emits `onFullscreenChange` from a document
+// 'fullscreenchange' listener it registers on mount and removes on unmount.
+// ---------------------------------------------------------------------------
+
+describe('@klinechart-quant/react — KLineChart fullscreen', () => {
+    let requestSpy: ReturnType<typeof vi.fn>
+    let exitSpy: ReturnType<typeof vi.fn>
+    let fullscreenElement: Element | null
+
+    beforeEach(() => {
+        // Same mock factory wiring as the lifecycle suite so KLineChart's
+        // internal useChart can mount without the production engine.
+        __setChartFactory((opts: ChartMountOptions) => {
+            const handle = createMockChartController(opts.data)
+            return handle.controller
+        })
+
+        // jsdom lacks the Fullscreen API; install controllable spies/getter.
+        fullscreenElement = null
+        requestSpy = vi.fn(function (this: HTMLElement) {
+            fullscreenElement = this
+            return Promise.resolve()
+        })
+        exitSpy = vi.fn(() => {
+            fullscreenElement = null
+            return Promise.resolve()
+        })
+        Object.defineProperty(document, 'fullscreenElement', {
+            configurable: true,
+            get: () => fullscreenElement,
+        })
+        // The component reads requestFullscreen off the host element instance.
+        // Define it on the prototype so any rendered <div> host inherits it.
+        Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+            configurable: true,
+            writable: true,
+            value: requestSpy,
+        })
+        Object.defineProperty(document, 'exitFullscreen', {
+            configurable: true,
+            writable: true,
+            value: exitSpy,
+        })
+    })
+
+    afterEach(() => {
+        __setChartFactory(null)
+        // Tear down the Fullscreen API shims so other suites see a clean jsdom.
+        delete (document as unknown as { fullscreenElement?: unknown }).fullscreenElement
+        delete (HTMLElement.prototype as unknown as { requestFullscreen?: unknown }).requestFullscreen
+        delete (document as unknown as { exitFullscreen?: unknown }).exitFullscreen
+    })
+
+    it('Test A: toggling the fullscreen prop calls requestFullscreen then exitFullscreen', () => {
+        const { rerender } = render(
+            createElement(ReactAdapter.KLineChart, { data: [] as ReadonlyArray<KLineData> }),
+        )
+
+        // Initial render with fullscreen=false (default): no calls yet.
+        expect(requestSpy).not.toHaveBeenCalled()
+        expect(exitSpy).not.toHaveBeenCalled()
+
+        // false → true requests fullscreen exactly once.
+        act(() => {
+            rerender(
+                createElement(ReactAdapter.KLineChart, {
+                    data: [] as ReadonlyArray<KLineData>,
+                    fullscreen: true,
+                }),
+            )
+        })
+        expect(requestSpy).toHaveBeenCalledTimes(1)
+        expect(exitSpy).not.toHaveBeenCalled()
+
+        // true → false exits fullscreen.
+        act(() => {
+            rerender(
+                createElement(ReactAdapter.KLineChart, {
+                    data: [] as ReadonlyArray<KLineData>,
+                    fullscreen: false,
+                }),
+            )
+        })
+        expect(requestSpy).toHaveBeenCalledTimes(1)
+        expect(exitSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('Test B: a fullscreenchange event emits onFullscreenChange with the derived boolean', () => {
+        const onFullscreenChange = vi.fn<(v: boolean) => void>()
+
+        const { container } = render(
+            createElement(ReactAdapter.KLineChart, {
+                data: [] as ReadonlyArray<KLineData>,
+                onFullscreenChange,
+            }),
+        )
+
+        // KLineChart renders exactly one host div (RTL nests it under its own
+        // container, so query within the container to get the chart's root).
+        const rootEl = container.querySelector('div') as HTMLElement
+        expect(rootEl).not.toBeNull()
+
+        // Browser enters fullscreen on the root element → emit true.
+        act(() => {
+            fullscreenElement = rootEl
+            document.dispatchEvent(new Event('fullscreenchange'))
+        })
+        expect(onFullscreenChange).toHaveBeenLastCalledWith(true)
+
+        // Browser leaves fullscreen (e.g. Esc) → emit false.
+        act(() => {
+            fullscreenElement = null
+            document.dispatchEvent(new Event('fullscreenchange'))
+        })
+        expect(onFullscreenChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('Test C: unmount removes the fullscreenchange listener (no leak)', () => {
+        const onFullscreenChange = vi.fn<(v: boolean) => void>()
+        const removeSpy = vi.spyOn(document, 'removeEventListener')
+
+        const { container, unmount } = render(
+            createElement(ReactAdapter.KLineChart, {
+                data: [] as ReadonlyArray<KLineData>,
+                onFullscreenChange,
+            }),
+        )
+
+        const rootEl = container.querySelector('div') as HTMLElement
+        unmount()
+
+        // The component removed its fullscreenchange listener on unmount.
+        expect(removeSpy).toHaveBeenCalledWith('fullscreenchange', expect.any(Function))
+
+        // And a post-unmount event must not emit.
+        const callsAfterUnmount = onFullscreenChange.mock.calls.length
+        act(() => {
+            fullscreenElement = rootEl
+            document.dispatchEvent(new Event('fullscreenchange'))
+        })
+        expect(onFullscreenChange.mock.calls.length).toBe(callsAfterUnmount)
+
+        removeSpy.mockRestore()
+    })
+})

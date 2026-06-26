@@ -235,17 +235,54 @@ export const KLineChart = defineComponent({
         },
         /** custom class for the chart container root */
         containerClass: { type: String, default: '' },
+        /**
+         * Controlled fullscreen flag (v-model:fullscreen). When it transitions
+         * to true the root host element enters browser fullscreen; when false
+         * it exits. Browser-driven changes (Esc / F11) are reflected back via
+         * the `update:fullscreen` emit. Default false.
+         */
+        fullscreen: { type: Boolean, default: false },
     },
     emits: {
         ready: (_controller: ChartController) => true,
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         zoomLevelChange: (_level: number, _kWidth: number) => true,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        'update:fullscreen': (_value: boolean) => true,
     },
     setup(props, { emit, expose }) {
         const containerRef = shallowRef<HTMLElement | null>(null)
         const scope = effectScope()
 
         const chart = shallowRef<ChartController | null>(null)
+
+        // -------------------------------------------------------------------
+        // Fullscreen: pure DOM concern on the existing root host element.
+        // SSR / jsdom safe — every document/element access is guarded, and
+        // the Fullscreen API methods are feature-detected before calling.
+        // -------------------------------------------------------------------
+
+        const requestFullscreen = (): void => {
+            if (typeof document === 'undefined') return
+            const el = containerRef.value
+            if (el == null) return
+            if (typeof el.requestFullscreen !== 'function') return
+            // Browser returns a Promise; swallow rejection (e.g. no user gesture)
+            // without throwing so the controlled prop stays the source of truth.
+            void Promise.resolve(el.requestFullscreen()).catch(() => {})
+        }
+
+        const exitFullscreen = (): void => {
+            if (typeof document === 'undefined') return
+            if (document.fullscreenElement == null) return
+            if (typeof document.exitFullscreen !== 'function') return
+            void Promise.resolve(document.exitFullscreen()).catch(() => {})
+        }
+
+        const onFullscreenChange = (): void => {
+            if (typeof document === 'undefined') return
+            emit('update:fullscreen', document.fullscreenElement === containerRef.value)
+        }
 
         onMounted(() => {
             const el = containerRef.value
@@ -285,9 +322,39 @@ export const KLineChart = defineComponent({
                     chart.value?.setTheme(next)
                 },
             )
+
+            // Subscribe to browser-driven fullscreen changes (Esc / F11) so the
+            // consumer's bound state stays in sync. Registered on mount, removed
+            // on unmount — no leaks.
+            if (typeof document !== 'undefined') {
+                document.addEventListener('fullscreenchange', onFullscreenChange)
+            }
+
+            // React to the controlled `fullscreen` prop transitions.
+            watch(
+                () => props.fullscreen,
+                (next) => {
+                    if (next) {
+                        requestFullscreen()
+                    } else {
+                        exitFullscreen()
+                    }
+                },
+            )
+
+            // Apply the initial controlled state if it mounts already true.
+            if (props.fullscreen) {
+                requestFullscreen()
+            }
         })
 
         onUnmounted(() => {
+            if (typeof document !== 'undefined') {
+                document.removeEventListener(
+                    'fullscreenchange',
+                    onFullscreenChange,
+                )
+            }
             chart.value?.dispose()
             chart.value = null
             scope.stop()

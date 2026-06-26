@@ -8,7 +8,7 @@
  * signal bridge.
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
     DestroyRef,
     Injector,
@@ -266,4 +266,147 @@ describe('@klinechart-quant/angular — component lifecycle', () => {
     it.todo(
         'provideKLineChart provides theme via DI through the full bootstrap pipeline — requires TestBed + zone.js; covered indirectly by the provideKLineChart() injector-level test above',
     )
+})
+
+// ---------------------------------------------------------------------------
+// Fullscreen — controlled @Input() fullscreen + @Output() fullscreenChange
+//
+// jsdom is NOT loaded (environment: 'node'), so the global `document` is
+// undefined by default. We install a minimal fake Fullscreen-capable document
+// for the duration of each test and tear it down afterwards, exercising the
+// adapter's feature-detected DOM path while keeping the rest of the suite
+// SSR-safe.
+// ---------------------------------------------------------------------------
+
+interface FakeFullscreenDocument {
+    fullscreenElement: Element | null
+    requestFullscreen: ReturnType<typeof vi.fn>
+    exitFullscreen: ReturnType<typeof vi.fn>
+    addEventListener: ReturnType<typeof vi.fn>
+    removeEventListener: ReturnType<typeof vi.fn>
+    dispatchFullscreenChange: () => void
+}
+
+/**
+ * Build a fake `document` + a root element carrying a `requestFullscreen`
+ * spy, install both on `globalThis`, and return handles. The root element's
+ * `requestFullscreen` is the spy the adapter calls; the document owns
+ * `exitFullscreen`, a settable `fullscreenElement`, and a tiny event registry
+ * so we can drive `fullscreenchange` deterministically.
+ */
+function installFakeFullscreen(): {
+    rootEl: HTMLElement
+    doc: FakeFullscreenDocument
+    restore: () => void
+} {
+    const listeners = new Set<() => void>()
+
+    const requestFullscreen = vi.fn(() => Promise.resolve())
+    const rootEl = { requestFullscreen } as unknown as HTMLElement
+
+    const doc: FakeFullscreenDocument = {
+        fullscreenElement: null,
+        requestFullscreen,
+        exitFullscreen: vi.fn(() => Promise.resolve()),
+        addEventListener: vi.fn((type: string, cb: () => void) => {
+            if (type === 'fullscreenchange') listeners.add(cb)
+        }),
+        removeEventListener: vi.fn((type: string, cb: () => void) => {
+            if (type === 'fullscreenchange') listeners.delete(cb)
+        }),
+        dispatchFullscreenChange: () => {
+            for (const cb of [...listeners]) cb()
+        },
+    }
+
+    const prevDocument = (globalThis as { document?: unknown }).document
+    ;(globalThis as { document?: unknown }).document = doc
+
+    return {
+        rootEl,
+        doc,
+        restore: () => {
+            if (prevDocument === undefined) {
+                delete (globalThis as { document?: unknown }).document
+            } else {
+                ;(globalThis as { document?: unknown }).document = prevDocument
+            }
+        },
+    }
+}
+
+describe('@klinechart-quant/angular — fullscreen', () => {
+    let teardown: (() => void) | null = null
+
+    afterEach(() => {
+        if (teardown !== null) {
+            teardown()
+            teardown = null
+        }
+    })
+
+    function mountWithFullscreen(): {
+        component: KLineChartComponent
+        rootEl: HTMLElement
+        doc: FakeFullscreenDocument
+    } {
+        const { rootEl, doc, restore } = installFakeFullscreen()
+        teardown = restore
+
+        const handle = createMockChartController()
+        const factory: ChartControllerFactory = () => handle.controller
+        const { injector } = buildInjector(factory)
+
+        const component = runInInjectionContext(injector, () => new KLineChartComponent())
+        component.container = { nativeElement: rootEl }
+        component.ngAfterViewInit()
+        return { component, rootEl, doc }
+    }
+
+    it('Test A: setting fullscreen true requests, then false exits', () => {
+        const { component, rootEl, doc } = mountWithFullscreen()
+
+        const reqSpy = rootEl.requestFullscreen as unknown as ReturnType<typeof vi.fn>
+        expect(reqSpy).not.toHaveBeenCalled()
+
+        component.fullscreen = true
+        expect(reqSpy).toHaveBeenCalledOnce()
+
+        // Mimic the browser having entered fullscreen so exit's guard passes.
+        doc.fullscreenElement = rootEl as unknown as Element
+        component.fullscreen = false
+        expect(doc.exitFullscreen).toHaveBeenCalledOnce()
+    })
+
+    it('Test B: browser-driven fullscreenchange emits the matching boolean', () => {
+        const { component, rootEl, doc } = mountWithFullscreen()
+
+        const emitted: boolean[] = []
+        component.fullscreenChange.subscribe((v) => emitted.push(v))
+
+        doc.fullscreenElement = rootEl as unknown as Element
+        doc.dispatchFullscreenChange()
+        expect(emitted[emitted.length - 1]).toBe(true)
+
+        doc.fullscreenElement = null
+        doc.dispatchFullscreenChange()
+        expect(emitted[emitted.length - 1]).toBe(false)
+    })
+
+    it('Test C: destroy removes the fullscreenchange listener (no leak / no post-destroy emit)', () => {
+        const { component, rootEl, doc } = mountWithFullscreen()
+
+        expect(doc.addEventListener).toHaveBeenCalledWith('fullscreenchange', expect.any(Function))
+
+        const emitted: boolean[] = []
+        component.fullscreenChange.subscribe((v) => emitted.push(v))
+
+        component.ngOnDestroy()
+        expect(doc.removeEventListener).toHaveBeenCalledWith('fullscreenchange', expect.any(Function))
+
+        // A post-destroy browser event must not reach the (removed) handler.
+        doc.fullscreenElement = rootEl as unknown as Element
+        doc.dispatchFullscreenChange()
+        expect(emitted).toHaveLength(0)
+    })
 })

@@ -14,9 +14,11 @@ import {
     Component,
     DestroyRef,
     ElementRef,
+    EventEmitter,
     InjectionToken,
     Input,
     OnDestroy,
+    Output,
     PLATFORM_ID,
     Provider,
     Signal as NgSignal,
@@ -158,6 +160,32 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
     @Input() theme: 'light' | 'dark' | undefined = undefined
     @Input() initialZoomLevel: number | undefined = undefined
 
+    /**
+     * Controlled fullscreen flag. When it transitions to true the root host
+     * element enters browser fullscreen; when false it exits. Browser-driven
+     * changes (Esc / F11) are reflected back via the `fullscreenChange` output.
+     * Default false. Uses a setter so the transition fires immediately once the
+     * view is initialised; transitions requested before ngAfterViewInit are
+     * replayed against the live state at mount.
+     */
+    @Input()
+    get fullscreen(): boolean {
+        return this._fullscreen
+    }
+    set fullscreen(value: boolean) {
+        const next = value === true
+        if (next === this._fullscreen) return
+        this._fullscreen = next
+        // Only act once the host element exists (post-AfterViewInit). Pre-mount
+        // transitions are applied in syncFullscreen() during ngAfterViewInit.
+        if (this.viewInitialised) {
+            this.syncFullscreen()
+        }
+    }
+
+    /** Reflects browser-driven fullscreen changes back to the consumer. */
+    @Output() fullscreenChange = new EventEmitter<boolean>()
+
     @ViewChild('container', { static: true })
     container!: ElementRef<HTMLElement>
 
@@ -172,6 +200,10 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
     private readonly factory = inject(KLINE_CHART_FACTORY)
     private readonly destroyRef = inject(DestroyRef)
     private viewportUnsub: (() => void) | null = null
+
+    private _fullscreen = false
+    private viewInitialised = false
+    private fullscreenChangeUnsub: (() => void) | null = null
 
     ngAfterViewInit(): void {
         // SSR guard — never touch DOM on the server.
@@ -206,9 +238,24 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
         this.viewportUnsub = unsub
         this.destroyRef.onDestroy(unsub)
         this.viewport = ngViewport.asReadonly()
+
+        // Fullscreen: pure DOM concern on the existing root host element.
+        // Register the browser-driven 'fullscreenchange' listener and replay
+        // any controlled-prop transition requested before the view existed.
+        this.registerFullscreenListener()
+        this.viewInitialised = true
+        this.syncFullscreen()
     }
 
     ngOnDestroy(): void {
+        if (this.fullscreenChangeUnsub !== null) {
+            try {
+                this.fullscreenChangeUnsub()
+            } catch {
+                /* ignore */
+            }
+            this.fullscreenChangeUnsub = null
+        }
         if (this.viewportUnsub !== null) {
             try {
                 this.viewportUnsub()
@@ -224,6 +271,55 @@ export class KLineChartComponent implements AfterViewInit, OnDestroy {
                 this.controller = null
             }
         }
+        this.viewInitialised = false
+    }
+
+    // -----------------------------------------------------------------------
+    // Fullscreen — SSR / jsdom safe. Every document/element access is guarded
+    // and the Fullscreen API methods are feature-detected before calling, since
+    // jsdom does not implement them.
+    // -----------------------------------------------------------------------
+
+    private get rootElement(): HTMLElement | null {
+        return this.container?.nativeElement ?? null
+    }
+
+    private syncFullscreen(): void {
+        if (this._fullscreen) {
+            this.requestFullscreen()
+        } else {
+            this.exitFullscreen()
+        }
+    }
+
+    private requestFullscreen(): void {
+        if (typeof document === 'undefined') return
+        const el = this.rootElement
+        if (el === null) return
+        if (typeof el.requestFullscreen !== 'function') return
+        // Browser returns a Promise; swallow rejection (e.g. no user gesture)
+        // without throwing so the controlled input stays the source of truth.
+        void Promise.resolve(el.requestFullscreen()).catch(() => {})
+    }
+
+    private exitFullscreen(): void {
+        if (typeof document === 'undefined') return
+        if (document.fullscreenElement === null || document.fullscreenElement === undefined) return
+        if (typeof document.exitFullscreen !== 'function') return
+        void Promise.resolve(document.exitFullscreen()).catch(() => {})
+    }
+
+    private registerFullscreenListener(): void {
+        if (typeof document === 'undefined') return
+        const handler = (): void => {
+            if (typeof document === 'undefined') return
+            this.fullscreenChange.emit(document.fullscreenElement === this.rootElement)
+        }
+        document.addEventListener('fullscreenchange', handler)
+        this.fullscreenChangeUnsub = () => {
+            document.removeEventListener('fullscreenchange', handler)
+        }
+        this.destroyRef.onDestroy(this.fullscreenChangeUnsub)
     }
 }
 

@@ -224,11 +224,28 @@ export interface KLineChartProps {
     theme?: 'light' | 'dark'
     className?: string
     style?: CSSProperties
+    /**
+     * Controlled fullscreen input. When it transitions to `true` the host
+     * element requests browser fullscreen; transitioning to `false` exits it.
+     * Defaults to `false`.
+     */
+    fullscreen?: boolean
+    /**
+     * Reflects browser-driven fullscreen changes (user pressing Esc / F11).
+     * Keeps the consumer's bound state in sync; mirror it back into the
+     * `fullscreen` prop for two-way binding.
+     */
+    onFullscreenChange?: (v: boolean) => void
 }
 
 /**
  * Convenience component. Renders a host div, mounts a chart into it via
  * `useChart`, and forwards `className` / `style`.
+ *
+ * Owns browser Fullscreen handling on its existing root host element: the
+ * controlled `fullscreen` prop drives `requestFullscreen` / `exitFullscreen`,
+ * and a `fullscreenchange` listener emits `onFullscreenChange` so consumers
+ * never wire those up themselves.
  *
  * Consumers needing direct controller access should use `useChart` with their
  * own ref instead.
@@ -239,9 +256,64 @@ export const KLineChart: FC<KLineChartProps> = ({
     theme,
     className,
     style,
+    fullscreen = false,
+    onFullscreenChange,
 }) => {
     const ref = useRef<HTMLDivElement | null>(null)
     useChart(ref, { data, initialZoomLevel, theme })
+
+    // Keep the latest callback in a ref so the mount-only listener effect does
+    // not re-subscribe on every render when the consumer passes an inline fn.
+    const onFullscreenChangeRef = useRef(onFullscreenChange)
+    onFullscreenChangeRef.current = onFullscreenChange
+
+    // Sync the controlled `fullscreen` input → browser fullscreen state on the
+    // existing root host element. SSR-safe + jsdom-safe: every DOM access is
+    // guarded, and the Fullscreen API methods may be absent.
+    useEffect(() => {
+        if (typeof document === 'undefined') {
+            return
+        }
+        const rootElement = ref.current
+        if (rootElement === null) {
+            return
+        }
+        if (fullscreen) {
+            if (
+                document.fullscreenElement !== rootElement &&
+                typeof rootElement.requestFullscreen === 'function'
+            ) {
+                void rootElement.requestFullscreen()
+            }
+        } else if (
+            document.fullscreenElement !== null &&
+            typeof document.exitFullscreen === 'function'
+        ) {
+            void document.exitFullscreen()
+        }
+    }, [fullscreen])
+
+    // Subscribe to browser-driven fullscreen changes once on mount; emit the
+    // new boolean derived from whether the root host element is fullscreen.
+    // Listener is removed on unmount so nothing leaks.
+    useEffect(() => {
+        if (typeof document === 'undefined') {
+            return
+        }
+        const handleFullscreenChange = (): void => {
+            const rootElement = ref.current
+            const isFullscreen = document.fullscreenElement === rootElement
+            const emit = onFullscreenChangeRef.current
+            if (emit !== undefined) {
+                emit(isFullscreen)
+            }
+        }
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange)
+        }
+    }, [])
+
     return createElement('div', { ref, className, style })
 }
 

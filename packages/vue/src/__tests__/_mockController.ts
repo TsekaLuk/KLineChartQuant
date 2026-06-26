@@ -14,6 +14,7 @@ import type {
     ChartController,
     ChartMountOptions,
     ChartViewport,
+    DataFetcher,
     DrawingObject,
     DrawingToolType,
     IndicatorDefinition,
@@ -52,15 +53,23 @@ function createSignal<T>(initial: T): Signal<T> {
 export interface MockChartController extends ChartController {
     /** spy: how many times `dispose` was called */
     disposeCalls: () => number
+    /** spy: data fetchers passed to `setDataFetcher` */
+    setDataFetcherCalls: () => ReadonlyArray<DataFetcher | null>
+    /** spy: themes passed to `setTheme` */
+    setThemeCalls: () => ReadonlyArray<'light' | 'dark'>
     /** test-only signal mutators */
     _setViewport: (vp: ChartViewport) => void
     _setData: (data: ReadonlyArray<KLineData>) => void
+    /** test-only: emit a theme change as the controller would */
+    _emitTheme: (next: 'light' | 'dark') => void
 }
 
 export function createMockChartController(
     opts: Partial<ChartMountOptions> = {},
 ): MockChartController {
     let disposeCalls = 0
+    const setDataFetcherCalls: Array<DataFetcher | null> = []
+    const setThemeCalls: Array<'light' | 'dark'> = []
 
     const viewport = createSignal<ChartViewport>({
         zoomLevel: opts.initialZoomLevel ?? 3,
@@ -121,9 +130,14 @@ export function createMockChartController(
         setCurrentPeriod: () => {},
         switchToTimeShareForDate: () => {},
         applyCustomData: () => {},
-        setDataFetcher: () => {},
+        setDataFetcher: (fetcher) => {
+            setDataFetcherCalls.push(fetcher)
+        },
         ensureDataRange: () => {},
-        setTheme: (next) => theme.set(next),
+        setTheme: (next) => {
+            setThemeCalls.push(next)
+            theme.set(next)
+        },
         zoomToLevel: (level) =>
             viewport.set({ ...viewport.peek(), zoomLevel: level }),
         zoomIn: () =>
@@ -177,8 +191,11 @@ export function createMockChartController(
             disposeCalls += 1
         },
         disposeCalls: () => disposeCalls,
+        setDataFetcherCalls: () => setDataFetcherCalls,
+        setThemeCalls: () => setThemeCalls,
         _setViewport: (vp) => viewport.set(vp),
         _setData: (next) => data.set(next),
+        _emitTheme: (next) => theme.set(next),
     }
 }
 

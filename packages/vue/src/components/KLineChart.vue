@@ -31,9 +31,9 @@
     >
       <LeftToolbar
         ref="toolbarRef"
-        :is-fullscreen="isFullscreen"
+        :is-fullscreen="effectiveIsFullscreen"
         @select-tool="handleSelectTool"
-        @toggle-fullscreen="$emit('toggleFullscreen')"
+        @toggle-fullscreen="handleToggleFullscreen"
         @zoom-in="applyZoomToLevel(zoomLevel + 1)"
         @zoom-out="applyZoomToLevel(zoomLevel - 1)"
         @settings-change="handleSettingsChange"
@@ -196,6 +196,7 @@ import CanvasToolbarStack from './common/CanvasToolbarStack.vue'
 import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
 import {
   createChartController,
+  routerDataFetcher,
   type ChartController,
   type InteractionSnapshot,
   type SymbolSpec,
@@ -218,8 +219,8 @@ const props = withDefaults(
     /** 语义化配置（可选，唯一控制源） */
     semanticConfig?: SemanticChartConfig
 
-    /** 数据获取函数（必需）。框架不绑定数据源，由使用者注入。 */
-    dataFetcher: DataFetcher
+    /** 数据获取函数（可选）。默认使用内置 routerDataFetcher，亦可由使用者注入覆盖。 */
+    dataFetcher?: DataFetcher
 
     yPaddingPx?: number
     minKWidth?: number
@@ -237,8 +238,10 @@ const props = withDefaults(
     zoomLevels?: number
     /** 初始缩放级别（1 ~ zoomLevels，默认居中） */
     initialZoomLevel?: number
-    /** 是否全屏 */
+    /** 是否全屏（受控）。不绑定时为非受控模式，组件内部接管全屏 DOM 操作 */
     isFullscreen?: boolean
+    /** 主题（受控）。不传时由设置项决定 */
+    theme?: 'light' | 'dark'
     /** 时区，默认 Asia/Shanghai */
     timezone?: string
 
@@ -258,6 +261,7 @@ const props = withDefaults(
     }
   }>(),
   {
+    dataFetcher: () => routerDataFetcher,
     yPaddingPx: 20,
     minKWidth: 1,
     maxKWidth: 50,
@@ -266,7 +270,9 @@ const props = withDefaults(
     priceLabelWidth: 60,
     zoomLevels: 20,
     initialZoomLevel: 3,
-    isFullscreen: false,
+    // 显式 undefined：覆盖 Vue 对 Boolean 缺省值的强制转换（默认会变成 false），
+    // 保证未绑定 isFullscreen 时为非受控模式（props.isFullscreen === undefined）
+    isFullscreen: undefined,
     timezone: 'Asia/Shanghai',
   },
 )
@@ -274,6 +280,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'zoomLevelChange', level: number, kWidth: number): void
   (e: 'toggleFullscreen'): void
+  (e: 'update:isFullscreen', value: boolean): void
   (e: 'themeChange', theme: 'light' | 'dark'): void
   (e: 'kLineLevelChange', level: string): void
   (e: 'kLineAdjustChange', adjust: 'qfq' | 'hfq' | 'splits' | 'none'): void
@@ -373,6 +380,36 @@ const toolbarRef = ref<InstanceType<typeof LeftToolbar> | null>(null)
 const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
 const leftAxisLayerRef = ref<HTMLDivElement | null>(null)
 provideFullscreenTeleportTarget(chartWrapperRef)
+
+// ── Fullscreen (controlled / uncontrolled) ──
+const internalIsFullscreen = ref(false)
+const effectiveIsFullscreen = computed(() => props.isFullscreen ?? internalIsFullscreen.value)
+let onFullscreenChange: (() => void) | null = null
+
+function handleToggleFullscreen() {
+  // 受控模式：保持旧行为，仅通知，不操作 DOM
+  if (props.isFullscreen !== undefined) {
+    emit('toggleFullscreen')
+    return
+  }
+
+  // 非受控模式：组件内部接管全屏 DOM 操作
+  if (typeof document !== 'undefined') {
+    const el = chartWrapperRef.value
+    if (!document.fullscreenElement) {
+      if (el && typeof el.requestFullscreen === 'function') {
+        el.requestFullscreen().catch(() => {
+          /* 用户拒绝或浏览器不支持，忽略 */
+        })
+      }
+    } else if (typeof document.exitFullscreen === 'function') {
+      document.exitFullscreen().catch(() => {
+        /* 忽略 */
+      })
+    }
+  }
+  emit('toggleFullscreen')
+}
 
 // ── Controller & Composable Wiring ──
 const controller = shallowRef<ChartController | null>(null)
@@ -929,7 +966,12 @@ function setupChartCallbacks(ctrl: ChartController): () => void {
 function applyInitialSettings(ctrl: ChartController): void {
   const initialSettings = toolbarRef.value?.getSettings() ?? { showVolumePriceMarkers: true }
   chartSettings.value = initialSettings
-  applyThemeFromSettings(initialSettings.theme as string)
+  // 受控主题优先，否则交由设置项决定
+  if (props.theme) {
+    ctrl.setTheme(props.theme)
+  } else {
+    applyThemeFromSettings(initialSettings.theme as string)
+  }
   ctrl.updateSettingsFacade(initialSettings)
 }
 
@@ -973,6 +1015,15 @@ function setupSemanticController(ctrl: ChartController): void {
 // ── onMounted ──
 onMounted(async () => {
   useAnchorPositioning.value = false
+
+  // 全屏状态监听（非受控模式下驱动内部状态与 update:isFullscreen）
+  if (typeof document !== 'undefined') {
+    onFullscreenChange = () => {
+      internalIsFullscreen.value = !!document.fullscreenElement
+      emit('update:isFullscreen', internalIsFullscreen.value)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+  }
 
   const container = containerRef.value
   const chartMain = chartMainRef.value
@@ -1020,6 +1071,10 @@ onMounted(async () => {
 
 // ── onUnmounted & Watchers ──
 onUnmounted(() => {
+  if (typeof document !== 'undefined' && onFullscreenChange) {
+    document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }
+  onFullscreenChange = null
   cleanupChartCallbacks?.()
   cleanupChartCallbacks = null
   const ctrl = controller.value
@@ -1060,6 +1115,14 @@ watch(
     if (newVal) controller.value?.applyCustomData(newVal)
   },
   { deep: true },
+)
+
+// 受控主题：外部 theme 变化时同步到控制器
+watch(
+  () => props.theme,
+  (t) => {
+    if (t) controller.value?.setTheme(t)
+  },
 )
 </script>
 

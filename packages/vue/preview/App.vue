@@ -89,11 +89,10 @@
       <KLineChart
         ref="chartRef"
         :mcp="mcpConfig"
-        :dataFetcher="dataFetcher"
         :left-axis-width="60"
         :custom-data="customData"
-        :is-fullscreen="isFullscreen"
-        @toggle-fullscreen="toggleFullscreen"
+        :theme="currentTheme"
+        @update:is-fullscreen="isFullscreen = $event"
         @theme-change="onThemeChange"
       />
     </div>
@@ -108,7 +107,7 @@
               <button class="close-btn" @click="showModal = false">×</button>
             </header>
             <div class="modal-body">
-              <KLineChart :dataFetcher="dataFetcher" @theme-change="onThemeChange" />
+              <KLineChart @theme-change="onThemeChange" />
             </div>
           </div>
         </div>
@@ -121,7 +120,7 @@
 import { ref, computed, provide, inject, type Ref, type InjectionKey } from 'vue'
 import KLineChart from '../src/components/KLineChart.vue'
 import { VERSION, CORE_VERSION } from '../src/version'
-import { routerDataFetcher, type KLineData, type CustomDataSource } from '@363045841yyt/klinechart-core/controllers'
+import { type KLineData, type CustomDataSource } from '@363045841yyt/klinechart-core/controllers'
 import { executeTool } from '@363045841yyt/klinechart-ai-runtime'
 
 /** 硬编码演示数据：主品种 CUSTOM.DEMO（15 根日 K） */
@@ -196,8 +195,6 @@ function useFullscreenTeleportTarget() {
   })
 }
 
-const dataFetcher = routerDataFetcher
-
 const chartRef = ref<InstanceType<typeof KLineChart> | null>(null)
 const mcpConfig = {
   wsUrl: 'ws://localhost:8081',
@@ -239,29 +236,6 @@ function onThemeChange(theme: 'light' | 'dark') {
 provideFullscreenTeleportTarget(embedContainerRef)
 
 const teleportTarget = computed<HTMLElement | string>(() => embedContainerRef.value ?? 'body')
-
-async function toggleFullscreen() {
-  if (!embedContainerRef.value) return
-  try {
-    if (!document.fullscreenElement) {
-      await embedContainerRef.value.requestFullscreen()
-      isFullscreen.value = true
-    } else {
-      await document.exitFullscreen()
-      isFullscreen.value = false
-    }
-  } catch (err) {
-    console.error('Fullscreen error:', err)
-  }
-}
-
-function handleFullscreenChange() {
-  isFullscreen.value = !!document.fullscreenElement
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('fullscreenchange', handleFullscreenChange)
-}
 
 // ── 自定义数据源 Demo ──
 const useCustomData = ref(false)

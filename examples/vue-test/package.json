@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@363045841yyt/klinechart": "^0.8.11-alpha.0",
+    "@363045841yyt/klinechart": "^0.8.11-alpha.1",
     "@363045841yyt/klinechart-ai-runtime": "^0.1.1",
-    "@363045841yyt/klinechart-core": "^0.8.11-alpha.0",
+    "@363045841yyt/klinechart-core": "^0.8.11-alpha.1",
     "vue": "^3.5.0"
   },
   "devDependencies": {

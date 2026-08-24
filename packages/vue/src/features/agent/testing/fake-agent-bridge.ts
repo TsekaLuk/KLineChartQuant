@@ -1,7 +1,9 @@
 /** Drive complete UI states deterministically without Provider or chart business logic. */
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  KQ_TRACE_EXPORT_VERSION,
   type AgentBridgeClient,
+  type AgentRunTraceExport,
   type AgentSessionView,
   type AgentSessionSnapshot,
   type AgentRunUiEventInput,
@@ -197,6 +199,38 @@ export class FakeAgentBridge implements AgentBridgeClient {
     const run = this.runs.get(runId)
     if (!run?.tool) return
     this.emitRun(run, { type: 'tool.undone', toolCallId: run.tool.id, undoneAt: Date.now() })
+  }
+
+  async exportRunTrace(runId: string): Promise<AgentRunTraceExport> {
+    const run = this.runs.get(runId)
+    if (!run) throw new Error(`Unknown fake run: ${runId}`)
+    const now = Date.now()
+    return {
+      exportVersion: KQ_TRACE_EXPORT_VERSION,
+      exportedAt: now,
+      sessionId: run.sessionId,
+      runId,
+      turnId: `turn-${runId}`,
+      readOnly: run.readOnly,
+      startedAt: now,
+      status: 'completed',
+      toolCalls: run.tool
+        ? [
+            {
+              toolCallId: run.tool.id,
+              toolName: run.tool.name,
+              toolVersion: '1.0.0',
+              status: run.tool.status,
+              safety: run.tool.safety,
+              reversible: run.tool.reversible,
+              inputSummary: run.tool.inputSummary,
+              resultSummary: run.tool.resultSummary,
+              durationMs: run.tool.durationMs,
+            },
+          ]
+        : [],
+      events: [],
+    }
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {

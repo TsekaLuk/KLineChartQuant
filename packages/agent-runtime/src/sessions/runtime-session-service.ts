@@ -1,6 +1,9 @@
 import { AgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  KQ_TRACE_EXPORT_VERSION,
+  type AgentRunTraceExport,
+  type AgentRunTraceToolCall,
   type AgentSessionSnapshot,
   type AgentSessionView,
   type AgentUiEvent,
@@ -111,6 +114,35 @@ function requireToolTrace(value: unknown): KqToolTraceEntry {
     throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent tool trace is invalid.')
   }
   return value as unknown as KqToolTraceEntry
+}
+
+type ToolResultMeta = KqToolTraceEntry['result']['meta']
+
+// 工具卡片视图给业务语义，trace meta 给 toolVersion 与 revision 证据，两者按 toolCallId 合并。
+function mergeTraceToolCall(
+  call: AgentSessionSnapshot['toolCalls'][number] | undefined,
+  meta: ToolResultMeta | undefined,
+  fallbackName: string,
+): AgentRunTraceToolCall {
+  return {
+    toolCallId: call?.id ?? meta?.toolCallId ?? fallbackName,
+    toolName: call?.name ?? fallbackName,
+    toolVersion: meta?.toolVersion,
+    status: call?.status ?? 'succeeded',
+    safety: call?.safety ?? 'read-only',
+    reversible: call?.reversible ?? false,
+    inputSummary: call?.inputSummary ?? '',
+    resultSummary: call?.resultSummary,
+    error: call?.error,
+    startedAt: call?.startedAt,
+    finishedAt: call?.finishedAt,
+    durationMs: call?.durationMs ?? meta?.durationMs,
+    chartRevisionBefore: meta?.chartRevisionBefore,
+    chartRevisionAfter: meta?.chartRevisionAfter,
+    dataRevision: meta?.dataRevision,
+    undoToken: call?.undoToken ?? meta?.undoToken,
+    idempotentReplay: meta?.idempotentReplay,
+  }
 }
 
 function replaySnapshot(session: AgentSessionView, events: AgentUiEvent[]): AgentSessionSnapshot {
@@ -250,21 +282,59 @@ export class RuntimeSessionService {
     const session = await this.requireSession(sessionId)
     await this.ensureSchema(session)
     const view = await this.catalogEntry(await session.getMetadata())
-    const entries = await session.findEntries({
-      customType: KQ_CUSTOM_ENTRY.event,
-      order: 'oldestFirst',
-    })
-    const events = entries.map((entry) => {
-      if (
-        !isCustom(entry, KQ_CUSTOM_ENTRY.event) ||
-        !isObject(entry.data) ||
-        !isObject(entry.data.event)
-      ) {
-        throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent event checkpoint is invalid.')
-      }
-      return entry.data.event as unknown as AgentUiEvent
-    })
-    return replaySnapshot(view, events)
+    return replaySnapshot(view, await this.readEvents(session))
+  }
+
+  /**
+   * 按 runId 汇总一次 run 的可审计证据：run 元信息、终态、事件序列，以及工具调用的
+   * 业务视图与 revision/toolVersion meta。内容在写入时已脱敏，导出时再统一过一次。
+   */
+  async exportRunTrace(runId: string): Promise<AgentRunTraceExport> {
+    const context = await this.findRun(runId)
+    const session = await this.requireSession(context.sessionId)
+    const view = await this.catalogEntry(await session.getMetadata())
+    const events = (await this.readEvents(session)).filter(
+      (event) => 'runId' in event && event.runId === runId,
+    )
+    const replayed = replaySnapshot(view, events)
+    const run = replayed.runs.find((entry) => entry.id === runId)
+    const terminal = await this.findRunTerminal(session, runId)
+    const traces = (await this.listToolTraces(context.sessionId)).filter(
+      (trace) => trace.result.meta.runId === runId,
+    )
+
+    const metaByToolCall = new Map<string, ToolResultMeta>(
+      traces.map((trace) => [trace.result.meta.toolCallId, trace.result.meta]),
+    )
+    const toolCalls = replayed.toolCalls.map((call) =>
+      mergeTraceToolCall(call, metaByToolCall.get(call.id), call.name),
+    )
+    // 有 trace 却没有对应事件说明事件丢失，仍然导出，避免审计包静默隐藏已执行的工具。
+    const reported = new Set(replayed.toolCalls.map((call) => call.id))
+    for (const trace of traces) {
+      if (reported.has(trace.result.meta.toolCallId)) continue
+      toolCalls.push(mergeTraceToolCall(undefined, trace.result.meta, trace.toolName))
+    }
+
+    return redactValue(
+      {
+        exportVersion: KQ_TRACE_EXPORT_VERSION,
+        exportedAt: this.now(),
+        sessionId: context.sessionId,
+        runId,
+        turnId: context.turnId,
+        retryOfRunId: context.retryOfRunId,
+        readOnly: context.readOnly,
+        startedAt: context.startedAt,
+        status: terminal?.status ?? run?.status ?? 'idle',
+        endedAt: terminal?.endedAt ?? run?.endedAt,
+        usage: run?.usage,
+        error: run?.error,
+        toolCalls,
+        events,
+      } satisfies AgentRunTraceExport,
+      this.redaction,
+    ) as AgentRunTraceExport
   }
 
   async rename(sessionId: string, title: string): Promise<void> {
@@ -480,6 +550,38 @@ export class RuntimeSessionService {
     return entries.flatMap((entry) =>
       entry.type === 'message' && entry.id !== context.userEntryId ? [entry.message] : [],
     )
+  }
+
+  private async readEvents(session: Session): Promise<AgentUiEvent[]> {
+    const entries = await session.findEntries({
+      customType: KQ_CUSTOM_ENTRY.event,
+      order: 'oldestFirst',
+    })
+    return entries.map((entry) => {
+      if (
+        !isCustom(entry, KQ_CUSTOM_ENTRY.event) ||
+        !isObject(entry.data) ||
+        !isObject(entry.data.event)
+      ) {
+        throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent event checkpoint is invalid.')
+      }
+      return entry.data.event as unknown as AgentUiEvent
+    })
+  }
+
+  private async findRunTerminal(
+    session: Session,
+    runId: string,
+  ): Promise<KqRunTerminalEntry | undefined> {
+    const entries = await session.findEntries({
+      customType: KQ_CUSTOM_ENTRY.runTerminal,
+      order: 'newestFirst',
+    })
+    for (const entry of entries) {
+      const record = requireRunTerminal((entry as CustomEntry).data)
+      if (record.runId === runId) return record
+    }
+    return undefined
   }
 
   private async findRunStart(session: Session, runId: string): Promise<KqRunStartedEntry> {

@@ -90,6 +90,10 @@ export const AgentIpcRequestSchema = Type.Union([
   ),
   Type.Object({ ...BaseEnvelope, command: Type.Literal('turn.undo'), payload: RunPayload }, Strict),
   Type.Object(
+    { ...BaseEnvelope, command: Type.Literal('run.exportTrace'), payload: RunPayload },
+    Strict,
+  ),
+  Type.Object(
     { ...BaseEnvelope, command: Type.Literal('provider.status'), payload: NoPayload },
     Strict,
   ),

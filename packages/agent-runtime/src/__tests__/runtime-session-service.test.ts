@@ -5,8 +5,11 @@ import {
   AGENT_UI_PROTOCOL_VERSION,
   AgentRuntimeError,
   KQ_CUSTOM_ENTRY,
+  KQ_TRACE_EXPORT_VERSION,
   RuntimeSessionService,
 } from '../index'
+
+import type { KqToolTraceEntry, RunPersistenceContext } from '../sessions/types'
 
 function createFixture() {
   let now = 1_000
@@ -19,6 +22,39 @@ function createFixture() {
     redaction: { secretValues: ['registered-secret'] },
   })
   return { repository, service }
+}
+
+function toolTrace(
+  context: RunPersistenceContext,
+  toolCallId: string,
+  overrides: Partial<KqToolTraceEntry['result']['meta']> = {},
+): Omit<KqToolTraceEntry, 'schemaVersion'> {
+  return {
+    key: `${context.sessionId}/${context.runId}/${toolCallId}/1.0.0`,
+    inputHash: 'hash',
+    toolName: 'indicators.add',
+    toolVersion: '1.0.0',
+    createdAt: 1_500,
+    result: {
+      ok: true,
+      data: {},
+      meta: {
+        requestId: 'request-1',
+        sessionId: context.sessionId,
+        runId: context.runId,
+        turnId: context.turnId,
+        toolCallId,
+        toolVersion: '1.0.0',
+        registryVersion: '1',
+        durationMs: 12,
+        chartRevisionBefore: 4,
+        chartRevisionAfter: 5,
+        dataRevision: 9,
+        undoToken: 'undo-1',
+        ...overrides,
+      },
+    },
+  }
 }
 
 describe('RuntimeSessionService', () => {
@@ -162,6 +198,153 @@ describe('RuntimeSessionService', () => {
     })
     await expect(service.open('corrupt')).rejects.toMatchObject({
       code: 'SESSION_CORRUPT',
+    } satisfies Partial<AgentRuntimeError>)
+  })
+
+  it('exports one run trace with merged tool evidence and terminal state', async () => {
+    const { service } = createFixture()
+    const session = await service.create()
+    const run = await service.beginRun({
+      sessionId: session.id,
+      runId: 'run-1',
+      turnId: 'turn-1',
+      prompt: 'Add RSI',
+      readOnly: false,
+      startedAt: 1_100,
+    })
+    const other = await service.beginRun({
+      sessionId: session.id,
+      runId: 'run-2',
+      turnId: 'turn-2',
+      prompt: 'Unrelated',
+      readOnly: true,
+      startedAt: 1_150,
+    })
+    await service.persistEvent({
+      sessionId: session.id,
+      lane: run.lane,
+      event: {
+        type: 'tool.finished',
+        runId: run.runId,
+        sessionId: session.id,
+        result: {
+          id: 'call-1',
+          runId: run.runId,
+          name: 'indicators.add',
+          label: 'Add indicator',
+          status: 'succeeded',
+          inputSummary: 'RSI(14)',
+          resultSummary: 'RSI added',
+          safety: 'reversible-write',
+          reversible: true,
+          durationMs: 12,
+        },
+      },
+    })
+    await service.persistEvent({
+      sessionId: session.id,
+      lane: other.lane,
+      event: {
+        type: 'run.completed',
+        runId: other.runId,
+        sessionId: session.id,
+        endedAt: 1_180,
+      },
+    })
+    await service.appendToolTrace(run, toolTrace(run, 'call-1'))
+    await service.appendToolTrace(other, toolTrace(other, 'call-2'))
+    await service.finishRun(run, { status: 'completed', endedAt: 1_200 })
+
+    const trace = await service.exportRunTrace('run-1')
+
+    expect(trace).toMatchObject({
+      exportVersion: KQ_TRACE_EXPORT_VERSION,
+      sessionId: session.id,
+      runId: 'run-1',
+      turnId: 'turn-1',
+      readOnly: false,
+      startedAt: 1_100,
+      status: 'completed',
+      endedAt: 1_200,
+    })
+    expect(trace.toolCalls).toEqual([
+      {
+        toolCallId: 'call-1',
+        toolName: 'indicators.add',
+        toolVersion: '1.0.0',
+        status: 'succeeded',
+        safety: 'reversible-write',
+        reversible: true,
+        inputSummary: 'RSI(14)',
+        resultSummary: 'RSI added',
+        durationMs: 12,
+        chartRevisionBefore: 4,
+        chartRevisionAfter: 5,
+        dataRevision: 9,
+        undoToken: 'undo-1',
+      },
+    ])
+    // 另一个 run 的事件与 trace 都不得混入。
+    expect(trace.events.every((event) => 'runId' in event && event.runId === 'run-1')).toBe(true)
+  })
+
+  it('keeps executed tools in the export even when their events are missing', async () => {
+    const { service } = createFixture()
+    const session = await service.create()
+    const run = await service.beginRun({
+      sessionId: session.id,
+      runId: 'run-1',
+      turnId: 'turn-1',
+      prompt: 'Add RSI',
+      readOnly: false,
+      startedAt: 1_100,
+    })
+    await service.appendToolTrace(run, toolTrace(run, 'orphan-call'))
+
+    const trace = await service.exportRunTrace('run-1')
+
+    expect(trace.status).toBe('idle')
+    expect(trace.toolCalls).toMatchObject([
+      { toolCallId: 'orphan-call', toolName: 'indicators.add', toolVersion: '1.0.0' },
+    ])
+  })
+
+  it('redacts credentials injected into a persisted trace before exporting it', async () => {
+    const { service } = createFixture()
+    const session = await service.create()
+    const run = await service.beginRun({
+      sessionId: session.id,
+      runId: 'run-1',
+      turnId: 'turn-1',
+      prompt: 'Summarize',
+      readOnly: true,
+      startedAt: 1_100,
+    })
+    await service.persistEvent({
+      sessionId: session.id,
+      lane: run.lane,
+      event: {
+        type: 'assistant.text.delta',
+        runId: run.runId,
+        sessionId: session.id,
+        messageId: 'message-1',
+        delta: 'key sk-livesecretvalue0123 registered-secret from /Users/alice/notes',
+      },
+    })
+
+    const serialized = JSON.stringify(await service.exportRunTrace('run-1'))
+
+    expect(serialized).not.toContain('sk-livesecretvalue0123')
+    expect(serialized).not.toContain('registered-secret')
+    expect(serialized).not.toContain('/Users/alice')
+    expect(serialized).toContain('[REDACTED]')
+  })
+
+  it('rejects exporting a run that does not exist', async () => {
+    const { service } = createFixture()
+    await service.create()
+    await expect(service.exportRunTrace('missing')).rejects.toMatchObject({
+      code: 'RUN_NOT_ACTIVE',
     } satisfies Partial<AgentRuntimeError>)
   })
 

@@ -1,11 +1,36 @@
 # CI Gates
 
 This file documents the quality gates wired into `.github/workflows/library-ci.yml`
-and their current enforcement state. **Updating this file is part of changing a
-gate's enforcement level** — if you flip a step from `continue-on-error: true` to
-required, update the table here in the same PR.
+and `.github/workflows/agent-ci.yml`, and their current enforcement state.
+**Updating this file is part of changing a gate's enforcement level** — if you flip
+a step from `continue-on-error: true` to required, update the table here in the
+same PR.
 
-## Gate matrix
+## Agent gates (`agent-ci.yml`)
+
+The KQ Agent Workbench ships behind its own workflow. Every job is required and
+**no job may use `continue-on-error`** — the Agent Alpha release criteria depend on
+these being hard failures, not advisory ones.
+
+| Job                   | What it proves                                                                                    |
+|-----------------------|---------------------------------------------------------------------------------------------------|
+| `agent-static`        | Frozen install, published Agent packages build, desktop shell type-checks, publint stays clean.   |
+| `agent-unit-contract` | Tool registry/MCP parity, agent-runtime coverage thresholds, Renderer workspace, IPC and preload. |
+| `agent-electron-e2e`  | Playwright Electron under Xvfb with the deterministic faux Provider and `retries: 0`.             |
+| `agent-package-smoke` | Production build output has real entries, the external-link allowlist, and no E2E faux Provider.  |
+
+Coverage thresholds for `@363045841yyt/klinechart-agent-runtime` live in its
+`vitest.config.ts` (statements/lines ≥ 90%, branches ≥ 85%, functions ≥ 90%). The
+redaction module is held at 100% branches. Lowering a threshold requires the same
+justification as flipping a gate to warn-only.
+
+Real-model evaluation deliberately stays out of the PR path. `provider-302ai-live.yml`
+runs on `workflow_dispatch`, nightly, and `v*-rc*` tags, and needs the
+`KQ_302AI_API_KEY` repository secret; model non-determinism must never be able to
+block or silently pass a pull request. See
+[ADR-005](adr/ADR-005-deterministic-vs-live-gates.md).
+
+## Library gate matrix
 
 | Gate                          | Tool                          | Scope             | State    | Promotion blocker                                                                |
 |-------------------------------|-------------------------------|-------------------|----------|----------------------------------------------------------------------------------|

@@ -1,0 +1,128 @@
+# Agent CI — required gates for KQ Agent Workbench.
+#
+# Unlike `library-ci.yml`, no job here may use `continue-on-error`. The Agent
+# Alpha release criteria (see docs/CI_GATES.md and the Native Agent PRD §20.1)
+# require static checks, contract tests, deterministic Electron E2E, and a
+# packaging smoke to all block the merge.
+#
+# Real 302.ai evaluation stays out of this workflow; see `provider-302ai-live.yml`.
+
+name: agent-ci
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'packages/agent-runtime/**'
+      - 'packages/ai-runtime/**'
+      - 'packages/desktop-electron/**'
+      - 'packages/vue/src/features/agent/**'
+      - 'packages/core/src/**'
+      - '.github/workflows/agent-ci.yml'
+      - 'pnpm-lock.yaml'
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: agent-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: 'Asia/Shanghai'
+
+jobs:
+  agent-static:
+    name: agent-static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build published Agent packages
+        run: pnpm build:packages
+      - name: Type-check the Electron desktop shell
+        run: pnpm --filter @363045841yyt/klinechart-desktop typecheck
+      - name: Publish hygiene for Agent packages
+        run: |
+          pnpm --filter @363045841yyt/klinechart-core lint:publish
+          pnpm --filter @363045841yyt/klinechart-agent-runtime lint:publish
+
+  agent-unit-contract:
+    name: agent-unit-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build published Agent packages
+        run: pnpm build:packages
+      - name: Tool registry and MCP parity tests
+        run: pnpm --filter @363045841yyt/klinechart-ai-runtime test
+      - name: Agent runtime coverage gate
+        run: pnpm --filter @363045841yyt/klinechart-agent-runtime coverage
+      - name: Renderer Agent workspace tests
+        run: pnpm --filter @363045841yyt/klinechart test
+      - name: IPC, preload, and navigation policy tests
+        run: pnpm --filter @363045841yyt/klinechart-desktop test
+
+  agent-electron-e2e:
+    name: agent-electron-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright system dependencies
+        run: pnpm --filter @363045841yyt/klinechart-desktop exec playwright install-deps chromium
+      # The Playwright config pins `retries: 0`; a flaky run must block, not self-heal.
+      - name: Electron E2E with the deterministic faux Provider
+        run: xvfb-run --auto-servernum pnpm --filter @363045841yyt/klinechart-desktop test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: agent-electron-e2e-artifacts
+          path: packages/desktop-electron/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  agent-package-smoke:
+    name: agent-package-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Production build and packaging assertions
+        run: pnpm --filter @363045841yyt/klinechart-desktop test:smoke

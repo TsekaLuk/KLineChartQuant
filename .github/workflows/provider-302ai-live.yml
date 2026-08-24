@@ -1,9 +1,16 @@
+# Live 302.ai evaluation. Deliberately outside `agent-ci.yml`: real model runs are
+# non-deterministic and must never gate a pull request. Triggered on demand, nightly,
+# and for release candidate tags (see docs/CI_GATES.md).
+
 name: 302.ai Live Provider Evaluation
 
 on:
   workflow_dispatch:
   schedule:
     - cron: '15 19 * * *'
+  push:
+    tags:
+      - 'v*-rc*'
 
 permissions:
   contents: read

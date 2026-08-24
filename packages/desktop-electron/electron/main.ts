@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   AgentApplicationService,
@@ -15,6 +15,7 @@ import {
 import { app, BrowserWindow, safeStorage, shell } from 'electron'
 
 import { registerAgentIpc, type RegisteredAgentIpc } from './agent-ipc'
+import { createNavigationPolicy } from './external-navigation'
 import { registerIpcHandlers } from './ipc-handlers'
 import {
   ElectronProviderSettingsStore,
@@ -29,6 +30,10 @@ let shutdownStarted = false
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 
 function createWindow(): void {
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  const rendererFile = join(currentDirectory, '../renderer/index.html')
+  const applicationUrl = rendererUrl ?? pathToFileURL(rendererFile).toString()
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -49,15 +54,27 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  const navigation = createNavigationPolicy({
+    openExternal: (url) => void shell.openExternal(url),
+    applicationUrl,
+    onRejected: (rawUrl, reason) => {
+      console.warn(`Blocked external navigation (${reason}):`, rawUrl)
+    },
+  })
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    navigation.handleWindowOpen(url)
     return { action: 'deny' }
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!navigation.handleWillNavigate(url)) event.preventDefault()
+  })
+
+  if (rendererUrl) {
+    mainWindow.loadURL(rendererUrl)
   } else {
-    mainWindow.loadFile(join(currentDirectory, '../renderer/index.html'))
+    mainWindow.loadFile(rendererFile)
   }
 }
 

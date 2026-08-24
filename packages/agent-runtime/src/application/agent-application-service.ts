@@ -1,6 +1,7 @@
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  type AgentRunTraceExport,
   type AgentRunUiEventInput,
   type AgentUiEvent,
   type ProviderStatusView,
@@ -174,6 +175,10 @@ export class AgentApplicationService implements AgentApplicationApi {
     }
     await this.sessions.findRun(runId)
     await this.toolRuntime.undoTurn(runId)
+  }
+
+  exportRunTrace(runId: string): Promise<AgentRunTraceExport> {
+    return this.sessions.exportRunTrace(runId)
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {

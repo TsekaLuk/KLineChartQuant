@@ -18,6 +18,7 @@ import {
 import type {
   AgentBridgeClient,
   AgentIpcRequest,
+  AgentRunTraceExport,
   AgentSessionView,
   AgentSessionSnapshot,
   AgentUiEvent,
@@ -104,6 +105,8 @@ const nativeAgent: AgentBridgeClient = {
   confirmTool: (confirmationId, decision) =>
     invokeAgent<'tool.confirm', void>('tool.confirm', { confirmationId, decision }),
   undoTurn: (runId) => invokeAgent<'turn.undo', void>('turn.undo', { runId }),
+  exportRunTrace: (runId) =>
+    invokeAgent<'run.exportTrace', AgentRunTraceExport>('run.exportTrace', { runId }),
   testProvider: (input: ProviderTestInput) =>
     invokeAgent<'provider.test', ProviderTestResult>('provider.test', input),
   deleteProviderCredential: () => invokeAgent<'provider.delete', void>('provider.delete', {}),

@@ -211,6 +211,51 @@ export interface AgentSessionSnapshot {
   lastSequence: number
 }
 
+/** 审计导出结构的版本，独立于会话持久化 schema，便于外部消费方单独迁移。 */
+export const KQ_TRACE_EXPORT_VERSION = 1 as const
+
+/**
+ * 一次工具调用的审计记录：工具卡片视图提供业务语义，工具结果 meta 提供 toolVersion
+ * 与 revision 证据，两者按 toolCallId 合并。
+ */
+export interface AgentRunTraceToolCall {
+  toolCallId: string
+  toolName: string
+  toolVersion?: string
+  status: ToolCallStatus
+  safety: ToolSafety
+  reversible: boolean
+  inputSummary: string
+  resultSummary?: string
+  error?: AgentErrorView
+  startedAt?: number
+  finishedAt?: number
+  durationMs?: number
+  chartRevisionBefore?: number
+  chartRevisionAfter?: number
+  dataRevision?: number
+  undoToken?: string
+  idempotentReplay?: boolean
+}
+
+/** 按 runId 导出的完整审计包，内容已统一脱敏。 */
+export interface AgentRunTraceExport {
+  exportVersion: typeof KQ_TRACE_EXPORT_VERSION
+  exportedAt: number
+  sessionId: string
+  runId: string
+  turnId: string
+  retryOfRunId?: string
+  readOnly: boolean
+  startedAt: number
+  status: AgentRunStatus
+  endedAt?: number
+  usage?: AgentUsageView
+  error?: AgentErrorView
+  toolCalls: AgentRunTraceToolCall[]
+  events: AgentUiEvent[]
+}
+
 export interface StartRunInput {
   sessionId: string
   prompt: string
@@ -255,6 +300,7 @@ export interface AgentBridgeClient {
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void>
   undoTurn(runId: string): Promise<void>
+  exportRunTrace(runId: string): Promise<AgentRunTraceExport>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>

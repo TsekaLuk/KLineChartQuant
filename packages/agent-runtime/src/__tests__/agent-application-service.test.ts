@@ -41,6 +41,15 @@ class ControlledDriver implements RunDriver {
   }
 }
 
+/** 模拟 Provider 侧失败，用于验证 run 走 failed 分支而不是 cancelled。 */
+class FailingDriver implements RunDriver {
+  async run(): Promise<PiRunResult> {
+    throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider rejected the request.')
+  }
+  abort(): void {}
+  async waitForIdle(): Promise<void> {}
+}
+
 function fixture() {
   let id = 0
   let now = 1_000
@@ -213,6 +222,148 @@ describe('AgentApplicationService', () => {
     const retryStart = (await service.openSession(session.id)).messages.at(-1)
     expect(retryStart?.content).toBe('Inspect RSI')
     await service.cancelRun(retry.runId)
+  })
+
+  it('reports a driver failure as a failed run and logs its error code', async () => {
+    const records: Array<{ event: string; fields?: Record<string, unknown> }> = []
+    let id = 0
+    const drivers: FailingDriver[] = []
+    const service = new AgentApplicationService({
+      sessions: new RuntimeSessionService({
+        repository: new InMemorySessionRepo(),
+        id: () => `session-${++id}`,
+      }),
+      id: () => `runtime-${++id}`,
+      createDriver: () => {
+        const driver = new FailingDriver()
+        drivers.push(driver)
+        return driver
+      },
+      createPlan: () => ({}) as PiRunPlan,
+      logger: { write: (record) => void records.push(record) },
+    })
+    const session = await service.createSession()
+    const events: AgentUiEvent[] = []
+    service.subscribe((event) => events.push(event))
+
+    const run = await service.startRun({ sessionId: session.id, prompt: 'Fail', readOnly: true })
+    await tick()
+
+    expect(events.find((event) => event.type === 'run.failed')).toMatchObject({
+      error: { code: 'PROVIDER_ERROR' },
+    })
+    expect(
+      (await service.openSession(session.id)).runs.find((entry) => entry.id === run.runId),
+    ).toMatchObject({ status: 'failed' })
+    expect(records.map((record) => record.event)).toEqual(['agent.run.failed'])
+    expect(records[0]?.fields).toMatchObject({ code: 'PROVIDER_ERROR' })
+  })
+
+  it('protects an active run from session deletion and concurrent retry', async () => {
+    const { service } = fixture()
+    const session = await service.createSession()
+    const run = await service.startRun({ sessionId: session.id, prompt: 'One', readOnly: true })
+    await tick()
+
+    await expect(service.deleteSession(session.id)).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+    await expect(service.retryRun(run.runId)).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+
+    await service.cancelRun(run.runId)
+    await service.deleteSession(session.id)
+    expect(await service.listSessions()).toEqual([])
+  })
+
+  it('refuses to retry a finished run while its session is busy again', async () => {
+    const { service, drivers } = fixture()
+    const session = await service.createSession()
+    const first = await service.startRun({ sessionId: session.id, prompt: 'One', readOnly: true })
+    await tick()
+    drivers[0]!.complete()
+    await tick()
+    const second = await service.startRun({ sessionId: session.id, prompt: 'Two', readOnly: true })
+    await tick()
+
+    await expect(service.retryRun(first.runId)).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+
+    await service.cancelRun(second.runId)
+  })
+
+  it('renames a session and republishes the catalogue', async () => {
+    const { service } = fixture()
+    const session = await service.createSession()
+    const events: AgentUiEvent[] = []
+    service.subscribe((event) => events.push(event))
+
+    await service.renameSession(session.id, 'Momentum review')
+
+    expect(events).toMatchObject([{ type: 'sessions.changed' }])
+    expect((await service.listSessions())[0]?.title).toBe('Momentum review')
+  })
+
+  it('fails closed when no tool runtime or Provider adapter is installed', async () => {
+    const { service } = fixture()
+
+    await expect(service.confirmTool('confirmation-1', 'confirmed')).rejects.toMatchObject({
+      code: 'RUN_NOT_ACTIVE',
+    })
+    await expect(service.undoTurn('run-1')).rejects.toMatchObject({ code: 'RUN_NOT_ACTIVE' })
+    await expect(
+      service.testProvider({ baseUrl: 'https://example.invalid', model: 'fast' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
+    await expect(
+      service.listProviderModels({ baseUrl: 'https://example.invalid' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
+    await expect(service.deleteProviderCredential()).resolves.toBeUndefined()
+    expect(await service.getProviderStatus()).toMatchObject({
+      state: 'not-configured',
+      providerLabel: '302.ai',
+    })
+  })
+
+  it('stops publishing to a listener after it unsubscribes', async () => {
+    const { service } = fixture()
+    const events: AgentUiEvent[] = []
+    const unsubscribe = service.subscribe((event) => events.push(event))
+
+    await service.createSession()
+    unsubscribe()
+    await service.createSession()
+
+    expect(events).toHaveLength(1)
+  })
+
+  it('interrupts every owned run when the host shuts down', async () => {
+    const { service } = fixture()
+    const first = await service.createSession()
+    const second = await service.createSession()
+    const events: AgentUiEvent[] = []
+    service.subscribe((event) => events.push(event))
+    await service.startRun({ sessionId: first.id, prompt: 'One', readOnly: true })
+    await service.startRun({ sessionId: second.id, prompt: 'Two', readOnly: true })
+    await tick()
+
+    await service.interruptOwnedRuns()
+
+    expect(events.filter((event) => event.type === 'run.cancelled')).toHaveLength(2)
+    await expect(
+      service.startRun({ sessionId: first.id, prompt: 'Again', readOnly: true }),
+    ).resolves.toMatchObject({ runId: expect.any(String) })
+  })
+
+  it('delegates run trace export to the session store', async () => {
+    const { service, drivers } = fixture()
+    const session = await service.createSession()
+    const run = await service.startRun({ sessionId: session.id, prompt: 'Inspect', readOnly: true })
+    await tick()
+    drivers[0]!.complete()
+    await tick()
+
+    expect(await service.exportRunTrace(run.runId)).toMatchObject({
+      runId: run.runId,
+      sessionId: session.id,
+      status: 'completed',
+      readOnly: true,
+    })
   })
 
   it('continues the durable event sequence after a runtime restart', async () => {

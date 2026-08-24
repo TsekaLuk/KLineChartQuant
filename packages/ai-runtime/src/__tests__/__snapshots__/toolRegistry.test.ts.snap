@@ -1,0 +1,1952 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`canonical tool registry > serializes a deterministic contract snapshot without functions 1`] = `
+{
+  "registryVersion": "1.0.0",
+  "tools": [
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "List the current canonical tool capabilities and their availability reasons.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "agent.capabilities",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "registryVersion": {
+            "type": "string",
+          },
+          "tools": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "available": {
+                  "type": "boolean",
+                },
+                "name": {
+                  "type": "string",
+                },
+                "reason": {
+                  "type": "string",
+                },
+                "reasonCode": {
+                  "type": "string",
+                },
+                "version": {
+                  "type": "string",
+                },
+              },
+              "required": [
+                "name",
+                "version",
+                "available",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+        },
+        "required": [
+          "registryVersion",
+          "tools",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "parallel",
+        "reversible": false,
+        "safety": "read-only",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "List Agent capabilities",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Create a persistent indicator crossing alert after the alert state machine is implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "any",
+            ],
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "indicatorId": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "oneShot": {
+            "type": "boolean",
+          },
+          "threshold": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "id",
+          "name",
+          "indicatorId",
+          "threshold",
+          "direction",
+          "oneShot",
+        ],
+        "type": "object",
+      },
+      "name": "alerts.addIndicatorCross",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Add indicator crossing alert",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Create a persistent price crossing alert after the alert state machine is implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "any",
+            ],
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "oneShot": {
+            "type": "boolean",
+          },
+          "price": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "id",
+          "name",
+          "price",
+          "direction",
+          "oneShot",
+        ],
+        "type": "object",
+      },
+      "name": "alerts.addPriceCross",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Add price crossing alert",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Remove a persistent alert after the alert lifecycle and background trigger model are implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+        ],
+        "type": "object",
+      },
+      "name": "alerts.remove",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Remove alert",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Read the minimum serializable chart context and its current revision identifiers.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "chart.getContext",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "chartId": {
+            "type": "string",
+          },
+          "chartRevision": {
+            "minimum": 0,
+            "type": "number",
+          },
+          "dataRevision": {
+            "minimum": 0,
+            "type": "number",
+          },
+          "exchange": {
+            "type": "string",
+          },
+          "market": {
+            "type": "string",
+          },
+          "period": {
+            "type": "string",
+          },
+          "symbol": {
+            "type": "string",
+          },
+          "theme": {
+            "enum": [
+              "light",
+              "dark",
+            ],
+          },
+          "visibleRange": {
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "number",
+              },
+              "to": {
+                "type": "number",
+              },
+            },
+            "required": [
+              "from",
+              "to",
+            ],
+            "type": "object",
+          },
+        },
+        "required": [
+          "chartRevision",
+          "dataRevision",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "parallel",
+        "reversible": false,
+        "safety": "read-only",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Get chart context",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Read a bounded chart state summary suitable for deterministic postcondition checks.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "chart.getState",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "activeIndicators": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "definitionId": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "instanceId": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "params": {
+                  "patternProperties": {
+                    "^.*$": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                        },
+                        {
+                          "type": "string",
+                        },
+                        {
+                          "type": "boolean",
+                        },
+                      ],
+                    },
+                  },
+                  "type": "object",
+                },
+              },
+              "required": [
+                "instanceId",
+                "definitionId",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "chartRevision": {
+            "minimum": 0,
+            "type": "number",
+          },
+          "comparisonSymbols": {
+            "items": {
+              "type": "string",
+            },
+            "type": "array",
+          },
+          "dataRevision": {
+            "minimum": 0,
+            "type": "number",
+          },
+          "drawingIds": {
+            "items": {
+              "type": "string",
+            },
+            "type": "array",
+          },
+          "markerIds": {
+            "items": {
+              "type": "string",
+            },
+            "type": "array",
+          },
+          "theme": {
+            "enum": [
+              "light",
+              "dark",
+            ],
+          },
+          "visibleRange": {
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "number",
+              },
+              "to": {
+                "type": "number",
+              },
+            },
+            "required": [
+              "from",
+              "to",
+            ],
+            "type": "object",
+          },
+        },
+        "required": [
+          "chartRevision",
+          "dataRevision",
+          "activeIndicators",
+          "comparisonSymbols",
+          "drawingIds",
+          "markerIds",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "parallel",
+        "reversible": false,
+        "safety": "read-only",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Get chart state",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Scroll the chart to the rightmost position so the latest available bars are visible.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "chart.scrollToRight",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Scroll to latest",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Switch the chart between its supported light and dark visual themes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "theme": {
+            "enum": [
+              "light",
+              "dark",
+            ],
+          },
+        },
+        "required": [
+          "theme",
+        ],
+        "type": "object",
+      },
+      "name": "chart.setTheme",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Set chart theme",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Zoom the chart in by one discrete level around an optional horizontal anchor.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "anchorX": {
+            "type": "number",
+          },
+        },
+        "type": "object",
+      },
+      "name": "chart.zoomIn",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Zoom chart in",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Zoom the chart out by one discrete level around an optional horizontal anchor.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "anchorX": {
+            "type": "number",
+          },
+        },
+        "type": "object",
+      },
+      "name": "chart.zoomOut",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Zoom chart out",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Set the chart to an exact discrete zoom level around an optional horizontal anchor.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "anchorX": {
+            "type": "number",
+          },
+          "level": {
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer",
+          },
+        },
+        "required": [
+          "level",
+        ],
+        "type": "object",
+      },
+      "name": "chart.zoomToLevel",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Set chart zoom level",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Add a comparison or overlay instrument after its market identity has been resolved.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "exchange": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "market": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "source": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "symbol": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "symbol",
+        ],
+        "type": "object",
+      },
+      "name": "data.addComparisonSymbol",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "when-inferred",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Add comparison symbol",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Append trusted raw OHLCV bars through the legacy SDK and MCP compatibility surface.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "bars": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "close": {
+                  "type": "number",
+                },
+                "high": {
+                  "type": "number",
+                },
+                "low": {
+                  "type": "number",
+                },
+                "open": {
+                  "type": "number",
+                },
+                "timestamp": {
+                  "type": "number",
+                },
+                "volume": {
+                  "minimum": 0,
+                  "type": "number",
+                },
+              },
+              "required": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+              ],
+              "type": "object",
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "type": "array",
+          },
+        },
+        "required": [
+          "bars",
+        ],
+        "type": "object",
+      },
+      "name": "data.appendData",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "always",
+        "execution": "sequential",
+        "reversible": false,
+        "safety": "destructive",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": true,
+      "title": "Append raw chart data",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Remove an existing comparison or overlay instrument from the active chart.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "symbol": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "symbol",
+        ],
+        "type": "object",
+      },
+      "name": "data.removeComparisonSymbol",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Remove comparison symbol",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Set the primary instrument and optional period without assuming an ambiguous market.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "adjust": {
+            "enum": [
+              "qfq",
+              "hfq",
+              "none",
+            ],
+          },
+          "endDate": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "type": "string",
+          },
+          "exchange": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "market": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "period": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "source": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "startDate": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "type": "string",
+          },
+          "symbol": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "symbol",
+        ],
+        "type": "object",
+      },
+      "name": "data.setSymbols",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "when-inferred",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Set primary instrument",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Update trusted raw OHLCV bars through the legacy SDK and MCP compatibility surface.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "bars": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "close": {
+                  "type": "number",
+                },
+                "high": {
+                  "type": "number",
+                },
+                "low": {
+                  "type": "number",
+                },
+                "open": {
+                  "type": "number",
+                },
+                "timestamp": {
+                  "type": "number",
+                },
+                "volume": {
+                  "minimum": 0,
+                  "type": "number",
+                },
+              },
+              "required": [
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+              ],
+              "type": "object",
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "type": "array",
+          },
+        },
+        "required": [
+          "bars",
+        ],
+        "type": "object",
+      },
+      "name": "data.updateData",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "always",
+        "execution": "sequential",
+        "reversible": false,
+        "safety": "destructive",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": true,
+      "title": "Update raw chart data",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Add a drawing with validated anchors and bounded visual style overrides.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "anchors": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "barIndex": {
+                  "type": "number",
+                },
+                "price": {
+                  "type": "number",
+                },
+              },
+              "required": [
+                "barIndex",
+                "price",
+              ],
+              "type": "object",
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "type": "array",
+          },
+          "kind": {
+            "enum": [
+              "trend-line",
+              "ray",
+              "extended-line",
+              "horizontal-line",
+              "horizontal-ray",
+              "vertical-line",
+              "cross-line",
+              "info-line",
+              "parallel-channel",
+              "regression-channel",
+              "flat-line",
+              "disjoint-channel",
+            ],
+          },
+          "style": {
+            "additionalProperties": false,
+            "properties": {
+              "stroke": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string",
+              },
+              "strokeStyle": {
+                "enum": [
+                  "solid",
+                  "dashed",
+                  "dotted",
+                ],
+              },
+              "strokeWidth": {
+                "maximum": 20,
+                "minimum": 0.25,
+                "type": "number",
+              },
+            },
+            "type": "object",
+          },
+        },
+        "required": [
+          "kind",
+          "anchors",
+        ],
+        "type": "object",
+      },
+      "name": "drawing.add",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "drawingId": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "drawingId",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Add chart drawing",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Remove every drawing from the active chart after explicit structured confirmation.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "drawing.clear",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "always",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "destructive",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Clear chart drawings",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Remove one existing chart drawing by its stable drawing object identifier.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "drawingId": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "drawingId",
+        ],
+        "type": "object",
+      },
+      "name": "drawing.remove",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Remove chart drawing",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Activate one supported drawing cursor tool or return the chart to cursor mode.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "anyOf": [
+              {
+                "enum": [
+                  "trend-line",
+                  "h-line",
+                  "fib-retracement",
+                  "rectangle",
+                  "arrow",
+                ],
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+        },
+        "required": [
+          "tool",
+        ],
+        "type": "object",
+      },
+      "name": "drawing.setTool",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Set drawing cursor tool",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Add a registered technical indicator definition to the active chart.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "definitionId": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "definitionId",
+        ],
+        "type": "object",
+      },
+      "name": "indicators.add",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "instanceId": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+        },
+        "required": [
+          "instanceId",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Add chart indicator",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "List active indicator instances with their definitions and validated parameter values.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "indicators.listActive",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "indicators": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "definitionId": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "instanceId": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "params": {
+                  "patternProperties": {
+                    "^.*$": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                        },
+                        {
+                          "type": "string",
+                        },
+                        {
+                          "type": "boolean",
+                        },
+                      ],
+                    },
+                  },
+                  "type": "object",
+                },
+              },
+              "required": [
+                "instanceId",
+                "definitionId",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+        },
+        "required": [
+          "indicators",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "parallel",
+        "reversible": false,
+        "safety": "read-only",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "List active indicators",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Query compact semantic indicator evidence through the stable asynchronous core facade.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "definitionId": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "from": {
+            "type": "number",
+          },
+          "limit": {
+            "maximum": 2000,
+            "minimum": 1,
+            "type": "integer",
+          },
+          "params": {
+            "patternProperties": {
+              "^.*$": {
+                "type": "number",
+              },
+            },
+            "type": "object",
+          },
+          "to": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "definitionId",
+        ],
+        "type": "object",
+      },
+      "name": "indicators.query",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "content",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "parallel",
+        "reversible": false,
+        "safety": "read-only",
+        "syncCompatible": false,
+        "timeoutMs": 30000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Query indicator evidence",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Remove one active indicator instance by its stable instance identifier.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "instanceId": {
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "instanceId",
+        ],
+        "type": "object",
+      },
+      "name": "indicators.remove",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Remove chart indicator",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Update the validated scalar parameters of one active indicator instance.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "instanceId": {
+            "minLength": 1,
+            "type": "string",
+          },
+          "params": {
+            "patternProperties": {
+              "^.*$": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                  },
+                  {
+                    "type": "string",
+                  },
+                  {
+                    "type": "boolean",
+                  },
+                ],
+              },
+            },
+            "type": "object",
+          },
+        },
+        "required": [
+          "instanceId",
+          "params",
+        ],
+        "type": "object",
+      },
+      "name": "indicators.updateParams",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Update indicator parameters",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Remove custom chart markers within the currently authorized marker scope.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "markers.clear",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "when-inferred",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Clear chart markers",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Replace authorized custom markers with a strictly validated bounded marker list.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "markers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "date": {
+                  "maxLength": 40,
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "groupKey": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "id": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "label": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "position": {
+                      "enum": [
+                        "left",
+                        "right",
+                        "top",
+                        "bottom",
+                        "inside",
+                      ],
+                    },
+                    "text": {
+                      "maxLength": 500,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "text",
+                  ],
+                  "type": "object",
+                },
+                "shape": {
+                  "enum": [
+                    "arrow_up",
+                    "arrow_down",
+                    "flag",
+                    "circle",
+                    "rectangle",
+                    "diamond",
+                  ],
+                },
+                "style": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "fillColor": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "lineWidth": {
+                      "maximum": 10,
+                      "minimum": 0.5,
+                      "type": "number",
+                    },
+                    "opacity": {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number",
+                    },
+                    "size": {
+                      "maximum": 50,
+                      "minimum": 4,
+                      "type": "number",
+                    },
+                    "strokeColor": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "textColor": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "type": "object",
+                },
+              },
+              "required": [
+                "id",
+                "date",
+                "shape",
+              ],
+              "type": "object",
+            },
+            "maxItems": 2000,
+            "type": "array",
+          },
+        },
+        "required": [
+          "markers",
+        ],
+        "type": "object",
+      },
+      "name": "markers.update",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Update chart markers",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Set an exact requested time range and later verify the resulting visible chart range.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "number",
+          },
+          "to": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "from",
+          "to",
+        ],
+        "type": "object",
+      },
+      "name": "navigation.setVisibleRange",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "visibleRange": {
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "number",
+              },
+              "to": {
+                "type": "number",
+              },
+            },
+            "required": [
+              "from",
+              "to",
+            ],
+            "type": "object",
+          },
+        },
+        "required": [
+          "visibleRange",
+        ],
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Set exact visible range",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Pause chart replay after the replay state machine and deterministic time control are implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "replay.pause",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Pause replay",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Start chart replay after the replay state machine and deterministic time control are implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "name": "replay.play",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Start replay",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Move the replay cursor after the replay state machine and deterministic time control are implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "type": "number",
+          },
+        },
+        "required": [
+          "position",
+        ],
+        "type": "object",
+      },
+      "name": "replay.seekTo",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Seek replay cursor",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "first-party",
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": false,
+        "reason": "The host implementation is not available yet.",
+        "reasonCode": "NOT_IMPLEMENTED",
+      },
+      "description": "Set chart replay speed after the replay state machine and deterministic time control are implemented.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "speed": {
+            "maximum": 1000,
+            "minimum": 0.01,
+            "type": "number",
+          },
+        },
+        "required": [
+          "speed",
+        ],
+        "type": "object",
+      },
+      "name": "replay.setSpeed",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "never",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": false,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": false,
+      "title": "Set replay speed",
+      "version": "1.0.0",
+    },
+    {
+      "audiences": [
+        "mcp",
+        "sdk",
+      ],
+      "availability": {
+        "available": true,
+      },
+      "description": "Update arbitrary legacy chart settings only through an explicitly trusted compatibility client.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "options": {
+            "patternProperties": {
+              "^.*$": {},
+            },
+            "type": "object",
+          },
+          "settings": {
+            "patternProperties": {
+              "^.*$": {},
+            },
+            "type": "object",
+          },
+        },
+        "type": "object",
+      },
+      "name": "settings.update",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object",
+      },
+      "policy": {
+        "confirmation": "always",
+        "execution": "sequential",
+        "reversible": true,
+        "safety": "reversible-write",
+        "syncCompatible": true,
+        "timeoutMs": 10000,
+      },
+      "requiresLegacyRawMutations": true,
+      "title": "Update arbitrary chart settings",
+      "version": "1.0.0",
+    },
+  ],
+}
+`;

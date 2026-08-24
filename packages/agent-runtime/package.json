@@ -41,6 +41,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@363045841yyt/klinechart-ai-runtime": "workspace:*",
     "@earendil-works/pi-agent-core": "0.84.2",
     "@earendil-works/pi-ai": "0.84.2",
     "@earendil-works/pi-session-backend-sqlite-node": "0.84.2",

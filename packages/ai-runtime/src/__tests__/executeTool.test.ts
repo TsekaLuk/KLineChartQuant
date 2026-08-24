@@ -103,10 +103,22 @@ describe('executeTool', () => {
       input: {},
     })
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/Unknown tool/)
+    expect(result.error).toMatch(/UNKNOWN_TOOL/)
   })
 
   describe('chart.zoomToLevel', () => {
+    it('rejects coercible and additional values before calling the chart', () => {
+      const chart = createMockChart()
+      for (const input of [{ level: '5' }, { level: 5, extra: true }]) {
+        const result = executeTool(chart, {
+          name: 'chart.zoomToLevel',
+          input: input as Record<string, unknown>,
+        })
+        expect(result).toMatchObject({ success: false, error: expect.stringMatching(/INVALID/) })
+      }
+      expect(chart.zoomToLevel).not.toHaveBeenCalled()
+    })
+
     it('calls chart.zoomToLevel with level only', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
@@ -288,32 +300,30 @@ describe('executeTool', () => {
   })
 
   describe('data.setSymbols', () => {
-    it('calls chart.setSymbols with symbol and defaults', () => {
+    it('rejects an instrument whose market is not explicit', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'data.setSymbols',
         input: { symbol: 'AAPL' },
       })
-      expect(chart.setSymbols).toHaveBeenCalledWith([
-        {
-          symbol: 'AAPL',
-          market: 'CN',
-          exchange: undefined,
-          period: undefined,
-          adjust: undefined,
-          source: undefined,
-          startDate: undefined,
-          endDate: undefined,
-        },
-      ])
-      expect(result.success).toBe(true)
+      expect(result).toMatchObject({
+        success: false,
+        error: expect.stringMatching(/AMBIGUOUS_INSTRUMENT/),
+      })
+      expect(chart.setSymbols).not.toHaveBeenCalled()
     })
 
     it('passes optional fields when provided', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'data.setSymbols',
-        input: { symbol: '600519', exchange: 'SSE', period: 'daily', adjust: 'qfq' },
+        input: {
+          symbol: '600519',
+          market: 'CN',
+          exchange: 'SSE',
+          period: 'daily',
+          adjust: 'qfq',
+        },
       })
       expect(chart.setSymbols).toHaveBeenCalledWith([
         {
@@ -358,29 +368,28 @@ describe('executeTool', () => {
   })
 
   describe('data.addComparisonSymbol', () => {
-    it('calls chart.addComparisonSymbol', () => {
+    it('rejects a comparison whose market is not explicit', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'data.addComparisonSymbol',
         input: { symbol: 'MSFT' },
       })
-      expect(chart.addComparisonSymbol).toHaveBeenCalledWith({
-        symbol: 'MSFT',
-        market: 'CN',
-        exchange: undefined,
+      expect(result).toMatchObject({
+        success: false,
+        error: expect.stringMatching(/AMBIGUOUS_INSTRUMENT/),
       })
-      expect(result.success).toBe(true)
+      expect(chart.addComparisonSymbol).not.toHaveBeenCalled()
     })
 
     it('passes exchange and source when given', () => {
       const chart = createMockChart()
       const result = executeTool(chart, {
         name: 'data.addComparisonSymbol',
-        input: { symbol: 'SPY', exchange: 'NYSE', source: 'tradingview' },
+        input: { symbol: 'SPY', market: 'US', exchange: 'NYSE', source: 'tradingview' },
       })
       expect(chart.addComparisonSymbol).toHaveBeenCalledWith({
         symbol: 'SPY',
-        market: 'CN',
+        market: 'US',
         exchange: 'NYSE',
         source: 'tradingview',
       })
@@ -586,7 +595,7 @@ describe('executeTool', () => {
     })
   })
 
-  describe('alerts.* — not implemented', () => {
+  describe('alerts.* — async-only and unavailable', () => {
     type Case = { name: string; input: Record<string, unknown> }
     const cases: Case[] = [
       {
@@ -608,17 +617,16 @@ describe('executeTool', () => {
     ]
 
     for (const { name, input } of cases) {
-      it(`returns not-implemented for ${name}`, () => {
+      it(`rejects synchronous execution for ${name}`, () => {
         const chart = createMockChart()
         const result = executeTool(chart, { name, input })
         expect(result.success).toBe(false)
-        expect(result.error).toMatch(/not implemented/)
-        expect(result.error).toMatch(/alerts controller/)
+        expect(result.error).toMatch(/SYNC_TOOL_UNSUPPORTED/)
       })
     }
   })
 
-  describe('replay.* — not implemented', () => {
+  describe('replay.* — async-only and unavailable', () => {
     type Case = { name: string; input: Record<string, unknown> }
     const cases: Case[] = [
       { name: 'replay.seekTo', input: { position: 100 } },
@@ -628,12 +636,11 @@ describe('executeTool', () => {
     ]
 
     for (const { name, input } of cases) {
-      it(`returns not-implemented for ${name}`, () => {
+      it(`rejects synchronous execution for ${name}`, () => {
         const chart = createMockChart()
         const result = executeTool(chart, { name, input })
         expect(result.success).toBe(false)
-        expect(result.error).toMatch(/not implemented/)
-        expect(result.error).toMatch(/replay controller/)
+        expect(result.error).toMatch(/SYNC_TOOL_UNSUPPORTED/)
       })
     }
   })

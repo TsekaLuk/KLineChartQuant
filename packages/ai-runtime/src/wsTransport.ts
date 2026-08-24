@@ -2,7 +2,7 @@ import type { ToolResult } from '@363045841yyt/klinechart-core'
 import { Deferred, Effect, pipe } from 'effect'
 import { WebSocketServer, type WebSocket } from 'ws'
 
-import type { SessionHandle } from './sessionRegistry'
+import type { SessionHandle } from './sessionRegistry.js'
 
 export class WsSessionHandle implements SessionHandle {
   readonly sessionId: string

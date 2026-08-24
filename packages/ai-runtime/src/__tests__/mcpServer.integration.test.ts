@@ -69,6 +69,10 @@ describe('mcpServer WebSocket integration', { timeout: 10_000 }, () => {
   it('registers session in the registry', async () => {
     const ws = await connectClient('registry-test')
     expect(server.registry.has('registry-test')).toBe(true)
+    const names = server.adapter.listTools().tools.map((tool) => tool.name)
+    expect(names).toContain('chart.setTheme')
+    expect(names).not.toContain('data.appendData')
+    expect(names.some((name) => name.startsWith('alerts.'))).toBe(false)
     ws.close()
   })
 

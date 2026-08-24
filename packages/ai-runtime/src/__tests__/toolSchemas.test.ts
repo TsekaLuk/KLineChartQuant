@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ALL_TOOLS,
   TOOL_GROUPS,
+  AGENT_TOOLS,
   CHART_NAVIGATION_TOOLS,
   INDICATOR_TOOLS,
   DATA_TOOLS,
@@ -52,6 +53,7 @@ describe('ALL_TOOLS structural invariants', () => {
 describe('TOOL_GROUPS coverage', () => {
   it('ALL_TOOLS is the union of every group', () => {
     const union = [
+      ...TOOL_GROUPS.agent,
       ...TOOL_GROUPS.navigation,
       ...TOOL_GROUPS.indicators,
       ...TOOL_GROUPS.data,
@@ -82,6 +84,10 @@ describe('TOOL_GROUPS coverage', () => {
         'chart.zoomOut',
       ]),
     )
+  })
+
+  it('AGENT_TOOLS includes the capability probe contract', () => {
+    expect(AGENT_TOOLS.map((tool) => tool.name)).toContain('agent.capabilities')
   })
 
   it('INDICATOR_TOOLS includes add/remove/updateParams', () => {
@@ -167,10 +173,7 @@ describe('inputSchema correctness — spot checks', () => {
     const t = findTool('chart.setTheme')!
     if (t.inputSchema.type === 'object') {
       const theme = t.inputSchema.properties.theme
-      expect(theme?.type).toBe('string')
-      if (theme?.type === 'string') {
-        expect(theme.enum).toEqual(['light', 'dark'])
-      }
+      expect(theme?.enum).toEqual(['light', 'dark'])
     }
   })
 
@@ -182,18 +185,18 @@ describe('inputSchema correctness — spot checks', () => {
     }
   })
 
-  it('drawing.setTool uses oneOf for tool types (string + null)', () => {
+  it('drawing.setTool uses a union for supported tool ids and null', () => {
     const t = findTool('drawing.setTool')!
     if (t.inputSchema.type === 'object') {
       const tool = t.inputSchema.properties.tool as
-        { oneOf: Array<Record<string, unknown>> } | undefined
-      expect(tool?.oneOf).toBeDefined()
-      const stringOption = tool!.oneOf.find((o) => o.type === 'string')
+        { anyOf: Array<Record<string, unknown>> } | undefined
+      expect(tool?.anyOf).toBeDefined()
+      const stringOption = tool!.anyOf.find((option) => Array.isArray(option.enum))
       expect(stringOption).toBeDefined()
       expect(stringOption!.enum).toContain('trend-line')
       expect(stringOption!.enum).toContain('fib-retracement')
 
-      const nullOption = tool!.oneOf.find((o) => o.type === 'null')
+      const nullOption = tool!.anyOf.find((option) => option.type === 'null')
       expect(nullOption).toBeDefined()
     }
   })

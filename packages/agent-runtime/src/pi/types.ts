@@ -6,9 +6,11 @@ import type {
   ToolProgressView,
   ToolSafety,
 } from '../contracts/ui.js'
+import type { CanonicalToolResult } from '@363045841yyt/klinechart-ai-runtime/browser'
 import type { AgentMessage, StreamFn } from '@earendil-works/pi-agent-core'
 import type { Model, Api } from '@earendil-works/pi-ai'
 import type { TSchema } from 'typebox'
+
 
 export interface RuntimeToolResult {
   content: string
@@ -16,6 +18,7 @@ export interface RuntimeToolResult {
   evidence?: EvidenceView
   undoToken?: string
   usage?: AgentUsageView
+  canonicalResult?: CanonicalToolResult
 }
 
 export interface RuntimeToolDefinition<TParameters extends TSchema = TSchema> {

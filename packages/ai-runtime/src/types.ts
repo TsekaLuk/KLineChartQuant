@@ -1,27 +1,15 @@
+import type { TSchema } from 'typebox'
+
 export interface McpToolSchema {
   name: string
   description: string
-  inputSchema: JsonSchema
-  outputSchema?: JsonSchema
+  inputSchema: TSchema
+  outputSchema?: TSchema
   safety: 'readonly' | 'mutates-state' | 'destroys-state'
 }
 
-export type JsonSchema =
-  | {
-      type: 'object'
-      properties: Record<string, JsonSchema>
-      required?: string[]
-      additionalProperties?: boolean
-      description?: string
-    }
-  | { type: 'array'; items: JsonSchema; description?: string }
-  | { type: 'string'; enum?: ReadonlyArray<string>; description?: string }
-  | { type: 'number'; minimum?: number; maximum?: number; description?: string }
-  | { type: 'integer'; minimum?: number; maximum?: number; description?: string }
-  | { type: 'boolean'; description?: string }
-  | { type: 'null'; description?: string }
-  | { oneOf: JsonSchema[]; type?: undefined; description?: string }
-  | { anyOf: JsonSchema[]; type?: undefined; description?: string }
+/** @deprecated Canonical tool contracts use TypeBox TSchema directly. */
+export type JsonSchema = TSchema
 
 export type { ControllerDescription } from '@363045841yyt/klinechart-core'
 

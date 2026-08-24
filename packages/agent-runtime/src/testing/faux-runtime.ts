@@ -47,9 +47,7 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
     },
     async listModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
       return {
-        models: [
-          { id: modelLabel, name: modelLabel, compatibility: 'compatible', latencyMs: 1 },
-        ],
+        models: [{ id: modelLabel, name: modelLabel, compatibility: 'compatible', latencyMs: 1 }],
         refreshedAt: Date.now(),
       }
     },
@@ -83,45 +81,43 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
       )
     }
     const mutation = !context.readOnly && /add|switch|clear|delete|move|theme/i.test(context.prompt)
-    const toolName = mutation ? 'chart.preview_change' : 'chart.inspect'
+    const toolName = mutation ? 'chart.setTheme' : 'chart.getContext'
+    const toolInput = mutation
+      ? { theme: /light|浅色/i.test(context.prompt) ? 'light' : 'dark' }
+      : {}
     const faux = fauxProvider({
       tokensPerSecond: mutation ? 18 : 10_000,
       tokenSize: { min: 1, max: 1 },
     })
     faux.setResponses([
-      fauxAssistantMessage(
-        fauxToolCall(toolName, { request: context.prompt }, { id: 'scripted-tool-call' }),
-        { stopReason: 'toolUse' },
-      ),
+      fauxAssistantMessage(fauxToolCall(toolName, toolInput, { id: 'scripted-tool-call' }), {
+        stopReason: 'toolUse',
+      }),
       fauxAssistantMessage(
         mutation
-          ? 'The deterministic preview tool completed. The chart mutation adapter will verify this operation in the chart-tool integration stage. '.repeat(
-              6,
-            )
-          : 'The visible chart context was inspected. Momentum is neutral in this deterministic runtime fixture.',
+          ? 'The deterministic E2E Provider requested a canonical chart theme change. '.repeat(6)
+          : 'The deterministic E2E Provider requested the live visible chart context.',
       ),
     ])
     const models = createModels()
     models.setProvider(faux.provider)
     const tool: RuntimeToolDefinition = {
       name: toolName,
-      label: mutation ? 'Preview chart update' : 'Inspect chart context',
-      description: mutation
-        ? 'Exercise a reversible fake Renderer tool.'
-        : 'Inspect deterministic chart context.',
-      parameters: Type.Object({ request: Type.String() }),
+      label: mutation ? 'Set chart theme' : 'Get chart context',
+      description: mutation ? 'Set the chart theme.' : 'Read the live chart context.',
+      parameters: mutation
+        ? Type.Object({ theme: Type.Union([Type.Literal('light'), Type.Literal('dark')]) })
+        : Type.Object({}),
       safety: mutation ? 'reversible-write' : 'read-only',
       reversible: mutation,
       executionMode: mutation ? 'sequential' : 'parallel',
-      summarizeInput: () => context.prompt,
+      summarizeInput: () => (mutation ? 'Set theme to dark' : 'Read chart context'),
       execute: async (_input, toolContext) => {
         toolContext.signal.throwIfAborted()
         toolContext.progress({ label: 'Validating chart scope', current: 1, total: 1 })
         return {
-          content: mutation
-            ? 'Preview mutation completed.'
-            : 'Deterministic chart evidence returned.',
-          summary: mutation ? 'Chart preview changed and verified.' : 'Chart context inspected.',
+          content: mutation ? 'Theme changed.' : 'Chart context returned.',
+          summary: mutation ? 'Chart theme changed.' : 'Chart context inspected.',
           undoToken: mutation ? `undo:${context.runId}` : undefined,
           evidence: {
             symbol: 'BTCUSDT',

@@ -6,6 +6,7 @@ import {
   type ToolCapabilityContext,
   type ToolDefinition,
   type ToolError,
+  type PostconditionResult,
   type ToolPostconditionContext,
   type ToolValidationIssue,
 } from './toolRegistry.js'
@@ -82,11 +83,30 @@ export type ToolPolicyEvaluator = (
   context: ToolExecutionContext,
 ) => Promise<ToolPolicyDecision> | ToolPolicyDecision
 
+export type ToolPostconditionVerifier = (
+  name: string,
+  input: unknown,
+  output: unknown,
+  context: ToolExecutionContext,
+  signal: AbortSignal,
+) => Promise<PostconditionResult> | PostconditionResult
+
+export type ToolReplayDecision =
+  { readonly replay: CanonicalToolResult } | { readonly error: ToolError } | undefined
+
+export type ToolReplayResolver = (
+  definition: ToolDefinition,
+  input: unknown,
+  context: ToolExecutionContext,
+) => Promise<ToolReplayDecision> | ToolReplayDecision
+
 export interface ExecuteToolOptions {
   registry?: ToolRegistry
   capabilityContext: ToolCapabilityContext
   execute: ToolHostExecutor
   policy?: ToolPolicyEvaluator
+  verify?: ToolPostconditionVerifier
+  replay?: ToolReplayResolver
   signal?: AbortSignal
   now?: () => number
 }
@@ -126,6 +146,10 @@ function abortError(timedOut: boolean): ToolError {
       }
 }
 
+function omitUndefined<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T
+}
+
 export async function executeToolAsync(
   call: CanonicalToolCall,
   identity: ToolExecutionIdentity,
@@ -137,14 +161,19 @@ export async function executeToolAsync(
   const definition = registry.find(call.name)
   let hostMeta: ToolHostMeta | undefined
 
-  const meta = (toolVersion = definition?.version ?? 'unknown'): ToolResultMeta => ({
-    ...identity,
-    toolVersion,
-    registryVersion: registry.version,
-    durationMs: Math.max(0, now() - startedAt),
-    ...hostMeta,
+  const meta = (toolVersion = definition?.version ?? 'unknown'): ToolResultMeta =>
+    omitUndefined({
+      ...identity,
+      toolVersion,
+      registryVersion: registry.version,
+      durationMs: Math.max(0, now() - startedAt),
+      ...hostMeta,
+    })
+  const fail = (error: ToolError): CanonicalToolResult => ({
+    ok: false,
+    error: omitUndefined(error),
+    meta: meta(),
   })
-  const fail = (error: ToolError): CanonicalToolResult => ({ ok: false, error, meta: meta() })
 
   if (!definition) {
     return fail({
@@ -171,6 +200,19 @@ export async function executeToolAsync(
     identity,
     definition,
     capabilityContext: options.capabilityContext,
+  }
+  if (options.replay) {
+    try {
+      const decision = await options.replay(definition, validatedInput.value, executionContext)
+      if (decision && 'replay' in decision) return decision.replay
+      if (decision && 'error' in decision) return fail(decision.error)
+    } catch {
+      return fail({
+        code: 'IDEMPOTENCY_LOOKUP_FAILED',
+        message: 'The prior tool result could not be checked safely.',
+        retryable: true,
+      })
+    }
   }
   if (options.policy) {
     try {
@@ -235,41 +277,73 @@ export async function executeToolAsync(
       })
     }
 
-    if (definition.verifyPostcondition) {
-      const verification = Promise.resolve()
-        .then(() =>
-          definition.verifyPostcondition!(identity, validatedInput.value, validatedOutput.value),
-        )
-        .then(
-          (postcondition) => ({ postcondition }),
-          () => ({ verificationError: true as const }),
-        )
-      const verified = await Promise.race([verification, aborted])
-      if ('aborted' in verified) return fail(abortError(timedOut))
-      if ('verificationError' in verified) {
-        return fail({
-          code: 'POSTCONDITION_FAILED',
-          message: 'The tool postcondition verifier failed.',
-          retryable: true,
-        })
-      }
-      const { postcondition } = verified
-      if (!postcondition.ok) {
-        return fail({
-          code: 'POSTCONDITION_FAILED',
-          message: postcondition.error?.message ?? 'The tool postcondition could not be verified.',
-          retryable: postcondition.error?.retryable ?? false,
-          retryAfterMs: postcondition.error?.retryAfterMs,
-          issues: postcondition.error?.issues,
-          details: postcondition.error?.details,
-        })
-      }
+    const verifiers = [options.verify, definition.verifyPostcondition].filter(
+      (verifier): verifier is NonNullable<typeof verifier> => verifier !== undefined,
+    )
+    type VerificationState =
+      { readonly ok: true } | { readonly ok: false; readonly result: CanonicalToolResult }
+    let verificationChain = Promise.resolve<VerificationState>({ ok: true })
+    for (const verifier of verifiers) {
+      verificationChain = verificationChain.then(async (previous) => {
+        if (!previous.ok) return previous
+        const verification = Promise.resolve()
+          .then(() => {
+            if (verifier === options.verify) {
+              return options.verify!(
+                call.name,
+                validatedInput.value,
+                validatedOutput.value,
+                executionContext,
+                controller.signal,
+              )
+            }
+            return definition.verifyPostcondition!(
+              identity,
+              validatedInput.value,
+              validatedOutput.value,
+            )
+          })
+          .then(
+            (postcondition) => ({ postcondition }),
+            () => ({ verificationError: true as const }),
+          )
+        const verified = await Promise.race([verification, aborted])
+        if ('aborted' in verified) {
+          return { ok: false, result: fail(abortError(timedOut)) }
+        }
+        if ('verificationError' in verified) {
+          return {
+            ok: false,
+            result: fail({
+              code: 'POSTCONDITION_FAILED',
+              message: 'The tool postcondition verifier failed.',
+              retryable: true,
+            }),
+          }
+        }
+        const { postcondition } = verified
+        if (postcondition.ok) return { ok: true }
+        return {
+          ok: false,
+          result: fail({
+            code: 'POSTCONDITION_FAILED',
+            message:
+              postcondition.error?.message ?? 'The tool postcondition could not be verified.',
+            retryable: postcondition.error?.retryable ?? false,
+            retryAfterMs: postcondition.error?.retryAfterMs,
+            issues: postcondition.error?.issues,
+            details: postcondition.error?.details,
+          }),
+        }
+      })
     }
+    const verificationState = await verificationChain
+    if (!verificationState.ok) return verificationState.result
 
     return {
       ok: true,
       data: validatedOutput.value,
-      content: settled.result.content,
+      ...(settled.result.content === undefined ? {} : { content: settled.result.content }),
       meta: meta(),
     }
   } finally {

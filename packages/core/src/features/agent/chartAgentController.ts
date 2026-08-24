@@ -8,9 +8,17 @@ import type {
   ChartAgentActiveIndicator,
   ChartAgentContextSnapshot,
   ChartAgentController,
+  ChartAgentStateSnapshot,
   ChartAgentTimeRange,
+  ChartAgentVisibleRangeResult,
 } from './types'
-import type { ChartViewport, IndicatorInstance, SymbolSpec } from '../../controllers/types'
+import type {
+  ChartViewport,
+  DrawingObject,
+  IndicatorInstance,
+  SymbolSpec,
+} from '../../controllers/types'
+import type { CustomMarkerEntity } from '../../engine/marker/registry'
 import type { DataStateModule } from '../../engine/state/dataState'
 
 interface ChartAgentControllerDependencies {
@@ -19,8 +27,13 @@ interface ChartAgentControllerDependencies {
   readonly currentSpec: ReadonlySignal<SymbolSpec | null>
   readonly viewport: ReadonlySignal<ChartViewport>
   readonly indicators: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  readonly theme: ReadonlySignal<'light' | 'dark'>
+  readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
+  readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  readonly customMarkers: ReadonlySignal<ReadonlyMap<string, CustomMarkerEntity>>
   readonly chartRevision: ReadonlySignal<number>
   readonly indicatorQuery: IndicatorQuery
+  readonly setVisibleRange: (input: ChartAgentTimeRange) => ChartAgentVisibleRangeResult
 }
 
 export interface ChartRevisionTracker {
@@ -142,6 +155,31 @@ export function createChartAgentController(
         chartRevision: dependencies.chartRevision.peek(),
         dataRevision: activeBuffer.dataRevision,
       })
+    },
+
+    getState(): ChartAgentStateSnapshot {
+      const context = this.getContext()
+      return Object.freeze({
+        chartId: context.chartId,
+        chartRevision: context.chartRevision,
+        dataRevision: context.dataRevision,
+        theme: dependencies.theme.peek(),
+        zoomLevel: dependencies.viewport.peek().zoomLevel,
+        visibleRange: context.visibleRange,
+        activeIndicators: context.activeIndicators,
+        comparisonSymbols: Object.freeze(
+          dependencies.symbols
+            .peek()
+            .slice(1)
+            .map((spec) => spec.symbol),
+        ),
+        drawingIds: Object.freeze(dependencies.drawings.peek().map((drawing) => drawing.id)),
+        markerIds: Object.freeze([...dependencies.customMarkers.peek().keys()]),
+      })
+    },
+
+    setVisibleRange(input: ChartAgentTimeRange): ChartAgentVisibleRangeResult {
+      return dependencies.setVisibleRange(input)
     },
 
     queryIndicator(input: Parameters<IndicatorQuery['queryIndicator']>[0]): Promise<string> {

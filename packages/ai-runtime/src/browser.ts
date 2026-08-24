@@ -16,9 +16,14 @@ export {
 export {
   executeToolAsync,
   type CanonicalToolResult,
+  type ToolExecutionContext,
   type ToolExecutionIdentity,
   type ToolHostExecutor,
+  type ToolHostResult,
+  type ToolPostconditionVerifier,
   type ToolPolicyEvaluator,
+  type ToolReplayDecision,
+  type ToolReplayResolver,
 } from './canonicalExecutor.js'
 
 export {
@@ -55,3 +60,32 @@ export {
 } from './serialization.js'
 
 export { executeTool, type ToolCall, type ToolResult } from './executeTool.js'
+
+export {
+  ChartToolHost,
+  FIRST_PARTY_CHART_TOOLS,
+  createChartToolHost,
+  type ChartToolExecutionOptions,
+  type ChartToolCapabilities,
+  type ChartToolHostOptions,
+  type ChartToolVerificationOptions,
+} from './chartToolHost.js'
+
+export {
+  RendererToolHostEndpoint,
+  createRendererToolHostEndpoint,
+  type RendererChartToolHost,
+  type RendererToolHostEndpointOptions,
+} from './rendererToolHost.js'
+
+export {
+  MAX_RENDERER_TOOL_MESSAGE_BYTES,
+  RENDERER_TOOL_PROTOCOL_VERSION,
+  parseRendererToolMessage,
+  rendererTargetsEqual,
+  type RendererToolMessage,
+  type RendererToolParseResult,
+  type RendererToolRequest,
+  type RendererToolResponse,
+  type RendererToolTarget,
+} from './rendererProtocol.js'

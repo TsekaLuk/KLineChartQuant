@@ -33,6 +33,29 @@ export interface ChartAgentContextSnapshot {
   readonly dataRevision: number
 }
 
+/** Bounded state required by Renderer tool postcondition checks. */
+export interface ChartAgentStateSnapshot {
+  readonly chartId: string
+  readonly chartRevision: number
+  readonly dataRevision: number
+  readonly theme: 'light' | 'dark'
+  readonly zoomLevel: number
+  readonly visibleRange: ChartAgentTimeRange | null
+  readonly activeIndicators: ReadonlyArray<ChartAgentActiveIndicator>
+  readonly comparisonSymbols: ReadonlyArray<string>
+  readonly drawingIds: ReadonlyArray<string>
+  readonly markerIds: ReadonlyArray<string>
+}
+
+/** Actual viewport result after a timestamp-range navigation transaction. */
+export interface ChartAgentVisibleRangeResult {
+  readonly visibleRange: ChartAgentTimeRange
+  readonly clampedFrom: boolean
+  readonly clampedTo: boolean
+  readonly zoomLevel: number
+  readonly chartRevision: number
+}
+
 /** Bounded parameters accepted by the compact indicator query. */
 export interface IndicatorQueryInput {
   readonly definitionId: string
@@ -45,5 +68,7 @@ export interface IndicatorQueryInput {
 /** Stable Agent-facing facade attached to every ChartController. */
 export interface ChartAgentController {
   getContext(): ChartAgentContextSnapshot
+  getState(): ChartAgentStateSnapshot
+  setVisibleRange(input: ChartAgentTimeRange): ChartAgentVisibleRangeResult
   queryIndicator(input: IndicatorQueryInput): Promise<string>
 }

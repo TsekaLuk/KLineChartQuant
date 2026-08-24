@@ -9,6 +9,7 @@ import {
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
+  type ToolConfirmationDecision,
 } from '../contracts/ui.js'
 import { PiRunDriver } from '../pi/pi-run-driver.js'
 
@@ -50,6 +51,7 @@ export class AgentApplicationService implements AgentApplicationApi {
   private readonly createDriver: () => RunDriver
   private readonly createPlan: AgentApplicationServiceOptions['createPlan']
   private readonly provider: AgentApplicationServiceOptions['provider']
+  private readonly toolRuntime: AgentApplicationServiceOptions['toolRuntime']
   private readonly now: () => number
   private readonly id: () => string
   private readonly logger: AgentApplicationServiceOptions['logger']
@@ -63,6 +65,7 @@ export class AgentApplicationService implements AgentApplicationApi {
     this.createDriver = options.createDriver ?? (() => new PiRunDriver())
     this.createPlan = options.createPlan
     this.provider = options.provider
+    this.toolRuntime = options.toolRuntime
     this.now = options.now ?? Date.now
     this.id = options.id ?? (() => globalThis.crypto.randomUUID())
     this.logger = options.logger
@@ -155,12 +158,22 @@ export class AgentApplicationService implements AgentApplicationApi {
     return this.launch(context)
   }
 
-  async confirmTool(): Promise<void> {
-    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No tool confirmation is pending.')
+  async confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void> {
+    if (!this.toolRuntime) {
+      throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No tool confirmation is pending.')
+    }
+    await this.toolRuntime.confirm(confirmationId, decision)
   }
 
-  async undoTurn(): Promise<void> {
-    throw new AgentRuntimeError('RUN_NOT_ACTIVE', 'No reversible runtime tool result is available.')
+  async undoTurn(runId: string): Promise<void> {
+    if (!this.toolRuntime) {
+      throw new AgentRuntimeError(
+        'RUN_NOT_ACTIVE',
+        'No reversible runtime tool result is available.',
+      )
+    }
+    await this.sessions.findRun(runId)
+    await this.toolRuntime.undoTurn(runId)
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
@@ -258,7 +271,12 @@ export class AgentApplicationService implements AgentApplicationApi {
       if (isCancelling(active)) {
         throw new AgentRuntimeError('ABORTED', 'The Agent run was cancelled.', { retryable: true })
       }
-      const configuredPlan = await this.createPlan(context)
+      const providerPlan = await this.createPlan(context)
+      const configuredPlan = this.toolRuntime
+        ? await this.toolRuntime.composePlan(context, providerPlan, {
+            emit: (event) => this.emitRun(active, event),
+          })
+        : providerPlan
       const plan = configuredPlan.transcript
         ? configuredPlan
         : { ...configuredPlan, transcript: await this.sessions.getTranscript(context) }
@@ -300,6 +318,7 @@ export class AgentApplicationService implements AgentApplicationApi {
         })
       }
     } finally {
+      this.toolRuntime?.finishRun(context.runId)
       this.activeByRun.delete(context.runId)
       if (this.activeBySession.get(context.sessionId) === context.runId)
         this.activeBySession.delete(context.sessionId)
@@ -307,16 +326,23 @@ export class AgentApplicationService implements AgentApplicationApi {
   }
 
   private async emitRun(active: ActiveRun, event: AgentRunUiEventInput): Promise<void> {
+    await this.emitContext(active.context, event)
+  }
+
+  private async emitContext(
+    context: RunPersistenceContext,
+    event: AgentRunUiEventInput,
+  ): Promise<void> {
     const projected = {
       ...event,
       protocolVersion: AGENT_UI_PROTOCOL_VERSION,
       sequence: ++this.sequence,
-      runId: active.context.runId,
-      sessionId: active.context.sessionId,
+      runId: context.runId,
+      sessionId: context.sessionId,
     } as AgentUiEvent
     const safe = await this.sessions.persistEvent({
-      sessionId: active.context.sessionId,
-      lane: active.context.lane,
+      sessionId: context.sessionId,
+      lane: context.lane,
       event: projected,
     })
     this.publish(safe)

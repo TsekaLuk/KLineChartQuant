@@ -71,7 +71,12 @@ function parseCatalog(value: unknown): CatalogModel[] {
     if (unique.size >= MAX_CATALOG_MODELS) break
   }
   if (unique.size === 0) throw malformed('302.ai returned an empty model catalog.')
-  return [...unique.values()].sort((left, right) => left.id.localeCompare(right.id))
+  const ordered: CatalogModel[] = []
+  for (const model of unique.values()) {
+    const index = ordered.findIndex((current) => model.id.localeCompare(current.id) < 0)
+    ordered.splice(index < 0 ? ordered.length : index, 0, model)
+  }
+  return ordered
 }
 
 function malformed(message = '302.ai returned a malformed response.'): AgentRuntimeError {
@@ -492,7 +497,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
         }),
       classifyProviderError: (message) => classifyStreamError(message, observation),
       systemPrompt:
-        'You are the KLineChartQuant financial analysis Agent. No chart tools are available in this build. Do not claim to have read or changed the chart. Answer only from user-provided text and state limitations clearly.',
+        'You are the KLineChartQuant financial analysis Agent. Use only the tools supplied for this run, inspect chart state before writes, and preserve structured tool failures in your reasoning.',
     }
   }
 

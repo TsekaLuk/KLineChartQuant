@@ -77,7 +77,11 @@ export const AgentIpcRequestSchema = Type.Union([
       payload: Type.Object(
         {
           confirmationId: Id,
-          decision: Type.Union([Type.Literal('confirmed'), Type.Literal('rejected')]),
+          decision: Type.Union([
+            Type.Literal('confirmed'),
+            Type.Literal('rejected'),
+            Type.Literal('allow-session'),
+          ]),
         },
         Strict,
       ),

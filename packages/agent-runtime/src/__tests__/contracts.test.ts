@@ -39,11 +39,14 @@ describe('Agent IPC contracts', () => {
     ],
   ]
 
-  it.each(malformedEnvelopeCases)('rejects malformed envelopes with stable errors', (input, code) => {
-    expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code }),
-    )
-  })
+  it.each(malformedEnvelopeCases)(
+    'rejects malformed envelopes with stable errors',
+    (input, code) => {
+      expect(() => parseAgentIpcRequest(input, 1_000)).toThrowError(
+        expect.objectContaining<Partial<AgentRuntimeError>>({ code }),
+      )
+    },
+  )
 
   it('rejects oversized values before dispatch', () => {
     const input = request({
@@ -78,6 +81,12 @@ describe('Agent IPC contracts', () => {
 })
 
 describe('redaction', () => {
+  it('normalizes undefined values into JSON-compatible output', () => {
+    expect(
+      redactValue({ omitted: undefined, list: [1, undefined], nested: { kept: true } }),
+    ).toEqual({ list: [1, null], nested: { kept: true } })
+  })
+
   it('removes secret-shaped fields, registered values, auth headers, and local usernames', () => {
     const secret = 'temporary-provider-value'
     const result = redactValue(

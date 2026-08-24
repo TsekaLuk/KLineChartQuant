@@ -129,8 +129,9 @@ describe('canonical tool registry', () => {
     expect(names).not.toContain('settings.update')
     expect(names.some((name) => name.startsWith('alerts.'))).toBe(false)
     expect(names.some((name) => name.startsWith('replay.'))).toBe(false)
-    expect(names).not.toContain('indicators.query')
-    expect(names).not.toContain('navigation.setVisibleRange')
+    expect(names).toContain('indicators.query')
+    expect(names).toContain('navigation.setVisibleRange')
+    expect(names).toContain('chart.getState')
   })
 
   it('requires an explicit trusted capability for legacy MCP raw mutations', () => {

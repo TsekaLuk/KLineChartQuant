@@ -35,8 +35,40 @@ export {
   type ToolHostResult,
   type ToolPolicyDecision,
   type ToolPolicyEvaluator,
+  type ToolPostconditionVerifier,
+  type ToolReplayDecision,
+  type ToolReplayResolver,
   type ToolResultMeta,
 } from './canonicalExecutor.js'
+
+export {
+  MAX_RENDERER_TOOL_MESSAGE_BYTES,
+  RENDERER_TOOL_PROTOCOL_VERSION,
+  parseRendererToolMessage,
+  rendererTargetsEqual,
+  type RendererToolMessage,
+  type RendererToolParseResult,
+  type RendererToolRequest,
+  type RendererToolResponse,
+  type RendererToolTarget,
+} from './rendererProtocol.js'
+
+export {
+  ChartToolHost,
+  FIRST_PARTY_CHART_TOOLS,
+  createChartToolHost,
+  type ChartToolExecutionOptions,
+  type ChartToolCapabilities,
+  type ChartToolHostOptions,
+  type ChartToolVerificationOptions,
+} from './chartToolHost.js'
+
+export {
+  RendererToolHostEndpoint,
+  createRendererToolHostEndpoint,
+  type RendererChartToolHost,
+  type RendererToolHostEndpointOptions,
+} from './rendererToolHost.js'
 
 export {
   createMcpToolAdapter,

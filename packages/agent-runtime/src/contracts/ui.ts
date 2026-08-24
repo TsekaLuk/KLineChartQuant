@@ -74,7 +74,8 @@ export interface ToolCallView {
   evidence?: EvidenceView
 }
 
-export type ConfirmationStatus = 'pending' | 'confirmed' | 'rejected' | 'expired'
+export type ToolConfirmationDecision = 'confirmed' | 'rejected' | 'allow-session'
+export type ConfirmationStatus = 'pending' | ToolConfirmationDecision | 'expired'
 export interface ConfirmationView {
   id: string
   toolCallId: string
@@ -182,7 +183,7 @@ export type AgentUiEvent =
   | (RunEventEnvelope & {
       type: 'tool.confirmation.resolved'
       confirmationId: string
-      decision: 'confirmed' | 'rejected'
+      decision: Exclude<ConfirmationStatus, 'pending'>
     })
   | (RunEventEnvelope & { type: 'tool.finished'; result: ToolCallView })
   | (RunEventEnvelope & { type: 'tool.undone'; toolCallId: string; undoneAt: number })
@@ -252,7 +253,7 @@ export interface AgentBridgeClient {
   startRun(input: StartRunInput): Promise<{ runId: string }>
   cancelRun(runId: string): Promise<void>
   retryRun(runId: string): Promise<{ runId: string }>
-  confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
+  confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void>
   undoTurn(runId: string): Promise<void>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>

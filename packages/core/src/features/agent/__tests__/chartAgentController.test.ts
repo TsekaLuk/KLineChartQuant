@@ -5,7 +5,13 @@ import { createSignal } from '../../../foundation/reactivity/signal'
 import { createChartAgentController, createChartRevisionTracker } from '../chartAgentController'
 import { CHART_AGENT_ERROR_CODES } from '../errors'
 
-import type { ChartViewport, IndicatorInstance, SymbolSpec } from '../../../controllers/types'
+import type {
+  ChartViewport,
+  DrawingObject,
+  IndicatorInstance,
+  SymbolSpec,
+} from '../../../controllers/types'
+import type { CustomMarkerEntity } from '../../../engine/marker/registry'
 import type { KLineData } from '../../../foundation/types/price'
 
 const BAR_SELECTION = {
@@ -74,15 +80,38 @@ function createFixture() {
     },
   ])
   const chartRevision = createSignal(7)
-  const queryIndicator = vi.fn(async () => 'RSI compact text')
+  const theme = createSignal<'light' | 'dark'>('dark')
+  const symbols = createSignal<ReadonlyArray<SymbolSpec>>([
+    currentSpec.peek()!,
+    { symbol: 'ETHUSDT', market: 'crypto', exchange: 'BINANCE' },
+  ])
+  const drawings = createSignal<ReadonlyArray<DrawingObject>>([
+    { id: 'drawing-1' } as DrawingObject,
+  ])
+  const customMarkers = createSignal<ReadonlyMap<string, CustomMarkerEntity>>(
+    new Map([['agent-marker-1', { id: 'agent-marker-1' } as CustomMarkerEntity]]),
+  )
+  const queryIndicator = vi.fn<(input: unknown) => Promise<string>>(async () => 'RSI compact text')
+  const setVisibleRange = vi.fn<(range: { from: number; to: number }) => object>(() => ({
+    visibleRange: { from: 1_000, to: 3_000 },
+    clampedFrom: false,
+    clampedTo: false,
+    zoomLevel: 4,
+    chartRevision: 8,
+  }))
   const controller = createChartAgentController({
     chartId: 'chart-fixture',
     dataState,
     currentSpec,
     viewport,
     indicators,
+    theme,
+    symbols,
+    drawings,
+    customMarkers,
     chartRevision,
     indicatorQuery: { queryIndicator },
+    setVisibleRange,
   })
 
   return {
@@ -93,6 +122,7 @@ function createFixture() {
     indicatorParams,
     indicators,
     queryIndicator,
+    setVisibleRange,
   }
 }
 
@@ -143,6 +173,38 @@ describe('createChartAgentController', () => {
     expect(first).not.toBe(second)
     expect(first.chartId).toBe(second.chartId)
     expect(first.chartRevision).toBe(second.chartRevision)
+  })
+
+  it('returns a bounded immutable state projection and delegates exact navigation', () => {
+    const fixture = createFixture()
+
+    const state = fixture.controller.getState()
+    expect(state).toEqual({
+      chartId: 'chart-fixture',
+      chartRevision: 7,
+      dataRevision: 1,
+      theme: 'dark',
+      zoomLevel: 3,
+      visibleRange: { from: 2_000, to: 4_000 },
+      activeIndicators: [{ instanceId: 'rsi-1', definitionId: 'RSI', params: { period: 14 } }],
+      comparisonSymbols: ['ETHUSDT'],
+      drawingIds: ['drawing-1'],
+      markerIds: ['agent-marker-1'],
+    })
+    expect(Object.isFrozen(state)).toBe(true)
+    expect(Object.isFrozen(state.comparisonSymbols)).toBe(true)
+    expect(Object.isFrozen(state.drawingIds)).toBe(true)
+    expect(Object.isFrozen(state.markerIds)).toBe(true)
+
+    const input = { from: 1_000, to: 3_000 }
+    expect(fixture.controller.setVisibleRange(input)).toEqual({
+      visibleRange: input,
+      clampedFrom: false,
+      clampedTo: false,
+      zoomLevel: 4,
+      chartRevision: 8,
+    })
+    expect(fixture.setVisibleRange).toHaveBeenCalledWith(input)
   })
 
   it('throws a typed no-data error for an absent or empty active series', () => {

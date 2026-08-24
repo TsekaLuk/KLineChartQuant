@@ -341,6 +341,8 @@ export interface ChartController extends DrawingChartAdapter {
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
   readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  /** Detached custom-marker map used by shared browser hosts to preserve user markers. */
+  readonly customMarkers: ReadonlySignal<ReadonlyMap<string, CustomMarkerEntity>>
   /** 当前选中绘图 id（kernel.drawing SSOT） */
   readonly selectedDrawingId: ReadonlySignal<string | null>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>

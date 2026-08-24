@@ -33,6 +33,28 @@ interface AgentIpcEnvelope {
   payload: unknown
 }
 
+interface RendererToolTarget {
+  windowId: string
+  chartId: string
+  hostGeneration: number
+}
+
+interface RendererToolTransport {
+  target: RendererToolTarget
+  request(message: RendererToolMessage, signal?: AbortSignal): Promise<unknown>
+  close?(): void | Promise<void>
+}
+
+interface AgentToolRuntime {
+  composePlan(
+    context: RunPersistenceContext,
+    plan: PiRunPlan,
+    hooks: AgentToolRunHooks,
+  ): Promise<PiRunPlan>
+  confirm(confirmationId: string, decision: ToolConfirmationDecision): Promise<void>
+  undoTurn(runId: string): Promise<readonly string[]>
+}
+
 interface ToolDefinition<I, O> {
   name: string
   version: string
@@ -111,6 +133,37 @@ root and `./mcp-server` entry.
 - First-party Pi calls `executeToolAsync` in process through `createPiTools`;
   it never opens an MCP/WebSocket/stdio loopback. MCP uses
   `createMcpToolAdapter` over the same executor.
+- Chart execution has one browser-compatible owner: `ChartToolHost` in
+  `ai-runtime`. Electron Main uses a transport-neutral `RendererToolProxy`,
+  preload adapts a `MessagePort`, and Vue registers the same host used by a Web
+  consumer. Main and preload must not import chart internals or implement tool
+  behavior.
+- Renderer tool messages use protocol version `1`, strict closed TypeBox
+  schemas, and a 512 KiB encoded-size limit. Every request and response carries
+  the exact `{ windowId, chartId, hostGeneration }` target and `requestId`;
+  execute/verify/undo also carry canonical run identity. Replaced ports,
+  cancelled requests, late responses, and target/request mismatches never reach
+  the active host.
+- The first-party chart allowlist is the intersection of the canonical
+  registry, implemented host handlers, readiness, and run scope, recomputed for
+  every plan. Missing or disposed controllers return
+  `TARGET_GONE`/`TOOL_UNAVAILABLE`; there is no mock-result fallback.
+- Writes use the last chart revision observed by the run and serialize at the
+  host. A mismatch returns `STATE_CONFLICT` before mutation. Successful writes
+  return before/after revisions and an opaque Renderer-owned undo token; turn
+  undo applies tokens in reverse order and checks the current revision before
+  every reversal.
+- Idempotency keys are exactly
+  `sessionId/runId/toolCallId/toolVersion`. The canonical tool name and input
+  are deterministically serialized and SHA-256 hashed. Same-key/same-hash
+  replay returns the original canonical result with `idempotentReplay: true`;
+  same-key/different-hash returns `DUPLICATE_REQUEST` before policy or host
+  dispatch. Bounded trace records survive Renderer reconnects and exclude
+  credentials and authorization headers.
+- Read-only tools run automatically. Reversible writes require a write-enabled
+  run; destructive or external-side-effect policy creates a structured,
+  expiring confirmation. Session grants are keyed by session plus normalized
+  tool scope and are cleared on runtime shutdown.
 - `ALL_TOOLS`, `TOOL_GROUPS`, `findTool`, and synchronous `executeTool` are
   compatibility views only. Never send `ALL_TOOLS` to a model. The sync path
   accepts only definitions marked `syncCompatible`.
@@ -126,26 +179,30 @@ root and `./mcp-server` entry.
 
 ## 4. Validation & Error Matrix
 
-| Condition                                  | Stable result                                                                  |
-| ------------------------------------------ | ------------------------------------------------------------------------------ |
-| Protocol or payload version mismatch       | `INVALID_PROTOCOL` / `INVALID_PAYLOAD`                                         |
-| Expired deadline or oversized payload      | `DEADLINE_EXCEEDED` / `PAYLOAD_TOO_LARGE`                                      |
-| Non-main frame or wrong window/chart owner | `TARGET_MISMATCH`                                                              |
-| Reused request ID with different input     | `DUPLICATE_REQUEST`                                                            |
-| Missing Provider adapter or credential     | `PROVIDER_NOT_CONFIGURED`                                                      |
+| Condition                                   | Stable result                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| Protocol or payload version mismatch        | `INVALID_PROTOCOL` / `INVALID_PAYLOAD`                                         |
+| Expired deadline or oversized payload       | `DEADLINE_EXCEEDED` / `PAYLOAD_TOO_LARGE`                                      |
+| Non-main frame or wrong window/chart owner  | `TARGET_MISMATCH`                                                              |
+| Reused request ID with different input      | `DUPLICATE_REQUEST`                                                            |
+| Missing Provider adapter or credential      | `PROVIDER_NOT_CONFIGURED`                                                      |
 | Provider 401 / 403 / 404                    | `PROVIDER_AUTHENTICATION` / `PROVIDER_PERMISSION` / `PROVIDER_MODEL_NOT_FOUND` |
 | Provider 429 / 5xx / timeout                | `PROVIDER_RATE_LIMITED` / `PROVIDER_UNAVAILABLE` / `PROVIDER_TIMEOUT`          |
 | Malformed output / invalid tool call        | `PROVIDER_MALFORMED_RESPONSE` / `PROVIDER_INCOMPATIBLE_TOOLS`                  |
-| Tool/provider deadline or explicit stop    | `TIMEOUT` / terminal cancelled or partial run                                  |
-| More than the configured tool-turn limit   | `TOOL_LOOP_LIMIT`                                                              |
-| Unknown or unavailable canonical tool      | `UNKNOWN_TOOL` / `TOOL_UNAVAILABLE`                                            |
-| Invalid canonical input                    | `INVALID_ARGUMENTS` / `UNKNOWN_FIELD` / `OUT_OF_RANGE`                         |
-| Invalid successful tool output             | `INVALID_TOOL_OUTPUT`                                                          |
-| Policy or confirmation refusal             | `POLICY_DENIED` / `CONFIRMATION_REQUIRED`                                      |
-| Tool deadline or caller abort              | `TIMEOUT` / `CANCELLED`                                                        |
-| Host or verifier throws                    | redacted `TOOL_EXECUTION_FAILED` / `POSTCONDITION_FAILED`                      |
-| Unknown future session schema              | `SESSION_SCHEMA_UNSUPPORTED`                                                   |
-| Open run found during startup recovery     | persisted `interrupted` run                                                    |
+| Tool/provider deadline or explicit stop     | `TIMEOUT` / terminal cancelled or partial run                                  |
+| More than the configured tool-turn limit    | `TOOL_LOOP_LIMIT`                                                              |
+| Unknown or unavailable canonical tool       | `UNKNOWN_TOOL` / `TOOL_UNAVAILABLE`                                            |
+| Missing/disposed Renderer chart target      | `TARGET_GONE` / `TOOL_UNAVAILABLE`                                             |
+| Renderer protocol, payload, target mismatch | `INVALID_PROTOCOL` / `INVALID_PAYLOAD` / `TARGET_MISMATCH`                     |
+| Invalid canonical input                     | `INVALID_ARGUMENTS` / `UNKNOWN_FIELD` / `OUT_OF_RANGE`                         |
+| Invalid successful tool output              | `INVALID_TOOL_OUTPUT`                                                          |
+| Policy or confirmation refusal              | `POLICY_DENIED` / `CONFIRMATION_REQUIRED`                                      |
+| Stale write or stale undo revision          | `STATE_CONFLICT` / `UNDO_CONFLICT`                                             |
+| Same idempotency key with different input   | `DUPLICATE_REQUEST`                                                            |
+| Tool deadline or caller abort               | `TIMEOUT` / `CANCELLED`                                                        |
+| Host or verifier throws                     | redacted `TOOL_EXECUTION_FAILED` / `POSTCONDITION_FAILED`                      |
+| Unknown future session schema               | `SESSION_SCHEMA_UNSUPPORTED`                                                   |
+| Open run found during startup recovery      | persisted `interrupted` run                                                    |
 
 Consumers branch on `code`, never message text. Unknown errors are normalized
 once at the adapter boundary and returned without raw Provider details.
@@ -167,6 +224,13 @@ once at the adapter boundary and returned without raw Provider details.
 - Bad: application code publishes `ALL_TOOLS`, hand-authors a second Pi/MCP
   schema, silently defaults an ambiguous instrument to CN, or parses error
   message strings to decide retry behavior.
+- Good: Main asks `RendererToolProxy` for live capabilities for each plan, then
+  the shared Renderer host executes and separately verifies Controller state.
+- Base: the port is absent or replaced during a request; the call fails with a
+  structured target/protocol result and no mutation is reported.
+- Bad: Main executes a chart mutation, trusts a Renderer-provided success
+  string, reuses a response from another host generation, or retries a write
+  without the canonical idempotency key.
 
 ## 6. Tests Required
 
@@ -202,6 +266,13 @@ once at the adapter boundary and returned without raw Provider details.
   unique chart session appears or disappears; a pre-aborted signal never invokes
   the host; each adapter forces its own audience even if a stale context carries
   another audience.
+- Renderer protocol/host: strict parse, byte limit, target generation,
+  cancellation, port replacement, controller disposal, exact allowlist,
+  revision conflicts, output-before-postcondition ordering, and structured
+  verification failure.
+- Tool coordinator: read-only filtering, confirmation once/session/expiry,
+  canonical-input replay and mismatch, persisted replay after reconnect,
+  reverse-order turn undo, repeated undo, partial undo, and `UNDO_CONFLICT`.
 
 ## 7. Wrong vs Correct
 
@@ -270,4 +341,15 @@ rank('gpt-5.6-luna') ?? rank('gpt-5.6-luna-xhigh')
 // Correct: current-candidate and exact Arena evidence remain separate.
 currentCandidates = [{ modelId: 'gpt-5.6-luna', source: 'official-model-catalog' }]
 arenaPriors = [{ modelId: 'gpt-5.6-luna-xhigh', overallRank: 63 }]
+```
+
+Chart behavior follows the same ownership rule:
+
+```typescript
+// Wrong: Electron Main reaches into chart state.
+ipcMain.handle('chart:set-theme', () => controller.setTheme('dark'))
+
+// Correct: Main owns only versioned transport and runtime coordination.
+rendererToolProxy.attach(messagePortTransport)
+const planWithTools = await agentToolRuntime.composePlan(context, providerPlan, hooks)
 ```

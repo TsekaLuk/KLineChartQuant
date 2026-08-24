@@ -12,6 +12,8 @@ implementation paths.
 ```ts
 interface ChartAgentController {
   getContext(): ChartAgentContextSnapshot
+  getState(): ChartAgentStateSnapshot
+  setVisibleRange(input: ChartAgentTimeRange): ChartAgentVisibleRangeResult
   queryIndicator(input: IndicatorQueryInput): Promise<string>
 }
 
@@ -39,6 +41,18 @@ Unavailable optional metadata is `null`; do not infer timezone or market.
 `dataRevision` comes from the active `DataState` snapshot. Context reads and
 indicator queries are read-only and must not advance either revision themselves.
 
+`getState()` is the bounded postcondition and undo projection. It contains
+theme, zoom, actual visible range, active indicator instances, comparison
+identities, drawing IDs, and authorized marker IDs, but never bars or private
+engine state.
+
+`setVisibleRange({ from, to })` validates finite ordered timestamps, maps the
+request to loaded-bar indexes, selects the closest supported candlestick zoom,
+and updates zoom plus scroll as one deterministic transaction. The result
+returns the actual range, zoom, revision, and explicit boundary-clamping flags.
+A fully loaded request must be contained by the actual range with each boundary
+within one adjacent bar; clamped requests are never described as exact.
+
 ## 4. Validation & Error Matrix
 
 | Condition                                     | `KLineChartError.code`  |
@@ -46,6 +60,9 @@ indicator queries are read-only and must not advance either revision themselves.
 | Empty definition, invalid params/bounds/limit | `INVALID_ARGUMENTS`     |
 | Valid range contains no active bar            | `OUT_OF_RANGE`          |
 | Context has no data or query has non-bar data | `NO_DATA`               |
+| Reversed/non-finite visible range             | `INVALID_ARGUMENTS`     |
+| Visible range outside loaded data             | `OUT_OF_RANGE`          |
+| Timeshare or unready candlestick viewport     | `INVALID_ARGUMENTS`     |
 | Definition lacks a registered calculator      | `INDICATOR_NOT_FOUND`   |
 | Data changes during both query attempts       | `DATA_REVISION_CHANGED` |
 
@@ -62,6 +79,12 @@ source of truth.
   against the full series for lookback correctness.
 - Bad: import `engine/state/dataState`, parse Markdown with a regex, fabricate a
   numeric DTO, guess missing metadata, or write query output to a result pool.
+- Good: call `setVisibleRange`, then compare the returned actual range and
+  revision with a fresh detached `getState()` snapshot.
+- Base: a request overlaps only one loaded edge; return the clamped actual range
+  with the corresponding flag set.
+- Bad: synthesize wheel/drag DOM events, assume equally spaced timestamps, or
+  report the requested range without reading the resulting viewport.
 
 ## 6. Tests Required
 
@@ -71,6 +94,9 @@ source of truth.
   one successful revision retry, and continuous revision failure.
 - Integration: two real controllers have distinct IDs; custom data and a built-in
   indicator flow through the facade; read-only query preserves chart revision.
+- Navigation: irregular timestamps, first/last/one-bar ranges, partial and
+  no-overlap requests, DPR rounding, closest-zoom containment, timeshare/no-data,
+  actual-range tolerance, and monotonic revision after mutation.
 - Package: Core build and strict publint pass; `./agent` direct Node ESM import
   and bundler type resolution pass; public declarations contain no `DataState`.
 
@@ -98,3 +124,14 @@ const content = await controller.agent.queryIndicator(input)
 
 The adapter keeps `content` opaque and records `observed.chartRevision` and
 `observed.dataRevision` in its own typed tool-result envelope.
+
+Exact navigation also stays on the public facade:
+
+```ts
+// Wrong: a host simulates pointer input and assumes the requested range won.
+canvas.dispatchEvent(new WheelEvent('wheel'))
+
+// Correct: Core owns geometry and reports the actual viewport.
+const result = controller.agent.setVisibleRange({ from, to })
+const verified = controller.agent.getState()
+```

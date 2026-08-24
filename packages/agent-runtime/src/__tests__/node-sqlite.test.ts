@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { AGENT_UI_PROTOCOL_VERSION } from '../index'
 import { createNodeRuntimeSessions, type NodeRuntimeSessions } from '../node'
 
 const [major = 0, minor = 0] = process.versions.node.split('.').map(Number)
@@ -45,7 +46,7 @@ describeSqlite('Node SQLite runtime sessions', () => {
         sessionId: session.id,
         startedAt: 1_000,
         sequence: 1,
-        protocolVersion: 1,
+        protocolVersion: AGENT_UI_PROTOCOL_VERSION,
       },
     })
     await runtime.sessions.finishRun(first, { status: 'completed', endedAt: 1_100 })

@@ -11,6 +11,7 @@ describe('createMcpServer', () => {
     expect(instance.server).toBeDefined()
     expect(instance.registry).toBeDefined()
     expect(instance.wss).toBeDefined()
+    expect(instance.adapter.listTools().tools).toEqual([])
     expect(typeof instance.start).toBe('function')
     expect(typeof instance.stop).toBe('function')
   })

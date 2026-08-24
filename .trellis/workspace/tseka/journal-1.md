@@ -73,3 +73,37 @@ Added the persistent Pi runtime, durable SQLite sessions, typed Electron IPC and
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Canonical tool registry
+
+**Date**: 2026-08-24
+**Task**: Canonical tool registry
+**Branch**: `refactor/canonical-tool-registry`
+
+### Summary
+
+Added one immutable TypeBox registry, strict canonical executor, capability-aware Pi/MCP adapters, compatibility validation, parity tests, schema snapshot, and runtime contract documentation.
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dd2beb0` | (see git log) |
+| `19d4ceb` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

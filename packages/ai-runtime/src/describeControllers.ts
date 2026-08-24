@@ -1,4 +1,4 @@
-import type { ControllerDescription } from './types'
+import type { ControllerDescription } from './types.js'
 
 export interface VolumeProfileSnapshot {
   poc: number

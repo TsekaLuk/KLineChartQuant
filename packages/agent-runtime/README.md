@@ -20,3 +20,13 @@ contacts a network service.
 Renderer code consumes `AgentBridgeClient` and `AgentUiEvent`; Pi events,
 Provider payloads, credentials, Electron objects, and raw tool results remain
 behind the runtime and host adapters.
+
+`createPiTools` is the first-party adapter for the canonical registry exported
+by `@363045841yyt/klinechart-ai-runtime/browser`. Call it when constructing each
+run/turn so capabilities are probed again. It generates Pi parameters and
+policy metadata from the registry and invokes `executeToolAsync` directly in
+process; no local MCP, WebSocket, or stdio loopback is involved.
+
+Canonical failures are thrown as `CanonicalPiToolError` with a structured,
+retry-aware `result`. Raw data mutation, arbitrary settings, and unavailable
+alert/replay contracts are absent from the generated first-party tool list.

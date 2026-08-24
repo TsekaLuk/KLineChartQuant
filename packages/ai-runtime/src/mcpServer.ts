@@ -1,22 +1,24 @@
-import type { ControllerDescription } from '@363045841yyt/klinechart-core'
-import { generateUUID } from '@363045841yyt/klinechart-core'
-import type { WebSocket } from 'ws'
+import { createMcpToolAdapter, type McpToolAdapter } from './mcpAdapter.js'
+import { createMcpProtocol } from './mcpProtocol.js'
+import { SessionRegistry } from './sessionRegistry.js'
+import type { ToolCapabilityContext, ToolError } from './toolRegistry.js'
+import { createWsTransport, WsSessionHandle } from './wsTransport.js'
 
-import { createMcpProtocol } from './mcpProtocol'
-import { SessionRegistry } from './sessionRegistry'
-import { ALL_TOOLS } from './toolSchemas'
-import { createWsTransport, WsSessionHandle } from './wsTransport'
+import type { ControllerDescription } from '@363045841yyt/klinechart-core'
+import type { WebSocket } from 'ws'
 
 export interface McpServerOptions {
   serverInfo?: { name?: string; version?: string }
   ws?: { port?: number; host?: string }
   registry?: SessionRegistry
+  capability?: Omit<ToolCapabilityContext, 'audience' | 'chartReady'>
 }
 
 export interface McpServerInstance {
   server: ReturnType<typeof createMcpProtocol>['server']
   registry: SessionRegistry
   wss: ReturnType<typeof createWsTransport>['wss']
+  adapter: McpToolAdapter
   start(): Promise<void>
   stop(): Promise<void>
 }
@@ -34,7 +36,7 @@ function handleWsConnection(ws: WebSocket, registry: SessionRegistry): void {
     }
 
     if (msg.type === 'register') {
-      const sessionId = (msg.sessionId as string) ?? generateUUID()
+      const sessionId = (msg.sessionId as string) ?? globalThis.crypto.randomUUID()
       handle = new WsSessionHandle(sessionId, ws)
       registry.register(sessionId, handle)
       console.error(
@@ -70,68 +72,8 @@ function handleWsConnection(ws: WebSocket, registry: SessionRegistry): void {
   })
 }
 
-function createCallToolHandler(registry: SessionRegistry) {
-  return async (name: string, args: Record<string, unknown>) => {
-    const schema = ALL_TOOLS.find((t) => t.name === name)
-    if (!schema) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              success: false,
-              error: `Unknown tool: ${name}`,
-            }),
-          },
-        ],
-        isError: true,
-      }
-    }
-
-    const sessions = registry.getActiveSessionIds()
-    if (sessions.length === 0) {
-      console.warn(`[MCP] CallTool "${name}" but no sessions registered`)
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              success: false,
-              error: 'No browser chart session connected.',
-            }),
-          },
-        ],
-        isError: true,
-      }
-    }
-
-    const sessionId = sessions[0]!
-    const handle = registry.get(sessionId)
-    if (!handle) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              success: false,
-              error: `Session ${sessionId} not found.`,
-            }),
-          },
-        ],
-        isError: true,
-      }
-    }
-
-    const result = await handle.executeTool({ name, input: args })
-    const summary = registry.getSummary(sessionId)
-    const texts: string[] = [JSON.stringify(result)]
-    if (summary) texts.push(`Chart state: ${summary}`)
-
-    return {
-      content: texts.map((text) => ({ type: 'text' as const, text })),
-      isError: !result.success,
-    }
-  }
+function hostError(code: string, message: string, retryable: boolean): ToolError {
+  return { code, message, retryable }
 }
 
 export function createMcpServer(options: McpServerOptions = {}): McpServerInstance {
@@ -142,16 +84,56 @@ export function createMcpServer(options: McpServerOptions = {}): McpServerInstan
   const transport = createWsTransport({ port: wsPort, host: wsHost })
   transport.wss.on('connection', (ws) => handleWsConnection(ws, registry))
 
+  const adapter = createMcpToolAdapter({
+    capabilityContext: () => ({
+      ...options.capability,
+      chartReady: registry.getActiveSessionIds().length === 1,
+    }),
+    async execute(name, input, context) {
+      const sessionId = context.identity.sessionId
+      const handle = registry.get(sessionId)
+      if (!handle) {
+        return {
+          ok: false,
+          error: hostError('TARGET_GONE', 'The selected chart session is no longer active.', true),
+        }
+      }
+      const result = await handle.executeTool({ name, input: input as Record<string, unknown> })
+      return result.success
+        ? { ok: true, data: result.data ?? {} }
+        : {
+            ok: false,
+            error: hostError(
+              'TOOL_EXECUTION_FAILED',
+              result.error ?? 'The chart tool failed.',
+              false,
+            ),
+          }
+    },
+  })
+
   const protocol = createMcpProtocol({
     serverInfo: options.serverInfo,
-    toolCatalog: ALL_TOOLS,
-    handleCallTool: createCallToolHandler(registry),
+    toolCatalog: () => adapter.listTools().tools,
+    async handleCallTool(name, args) {
+      const sessions = registry.getActiveSessionIds()
+      const sessionId = sessions.length === 1 ? sessions[0]! : 'mcp-unrouted'
+      const requestId = globalThis.crypto.randomUUID()
+      return adapter.callTool(name, args, {
+        requestId,
+        sessionId,
+        runId: `mcp:${requestId}`,
+        turnId: requestId,
+        toolCallId: requestId,
+      })
+    },
   })
 
   return {
     server: protocol.server,
     registry,
     wss: transport.wss,
+    adapter,
     start: protocol.start,
     async stop() {
       await protocol.stop()

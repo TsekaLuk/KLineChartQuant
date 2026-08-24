@@ -9,6 +9,12 @@ MCP (Model Context Protocol) server and AI tool schemas for
 
 Optional addon — install only if you need AI agent / MCP control of your charts.
 
+Tool contracts come from one versioned `CANONICAL_TOOL_REGISTRY`. It owns
+TypeBox input/output schemas, compiled strict validation, capability probes,
+policy metadata, timeouts, structured errors, and adapter projections. Build a
+fresh projection for each run or turn; do not send `ALL_TOOLS` directly to a
+model.
+
 Provides a WebSocket-bridged MCP server that enables AI agents (via MCP Inspector
 or any MCP client) to control K-line chart operations — zoom, pan, add/remove
 indicators, change theme, and more.
@@ -82,18 +88,21 @@ Then call tools like `chart.zoomToLevel` with `{ "level": 5 }`.
 
 ### Main entry (`@363045841yyt/klinechart-ai-runtime`)
 
-| Export                       | Description                                |
-| ---------------------------- | ------------------------------------------ |
-| `executeTool`                | Dispatch a tool call to a chart controller |
-| `ALL_TOOLS`                  | Array of all supported tool schemas        |
-| `TOOL_GROUPS`                | Grouped tool definitions                   |
-| `findTool(name)`             | Look up a tool schema by name              |
-| `describeVolumeProfileState` | Generate VP state summary                  |
-| `describeAnchoredVwap`       | Generate anchored VWAP summary             |
-| `describeFootprintLatestBar` | Generate footprint summary                 |
-| `describeAlerts`             | Generate alerts summary                    |
-| `serialize` / `deserialize`  | Chart state serialization                  |
-| `SessionRegistry`            | WebSocket session manager                  |
+| Export                       | Description                                   |
+| ---------------------------- | --------------------------------------------- |
+| `executeToolAsync`           | Canonical async validation/execution path     |
+| `CANONICAL_TOOL_REGISTRY`    | Versioned contract and capability owner       |
+| `createMcpToolAdapter`       | Capability-filtered MCP projection            |
+| `executeTool`                | Deprecated sync-compatible chart dispatcher   |
+| `ALL_TOOLS`                  | Deprecated registry view, not a model catalog |
+| `TOOL_GROUPS`                | Grouped compatibility views                   |
+| `findTool(name)`             | Deprecated compatibility lookup               |
+| `describeVolumeProfileState` | Generate VP state summary                     |
+| `describeAnchoredVwap`       | Generate anchored VWAP summary                |
+| `describeFootprintLatestBar` | Generate footprint summary                    |
+| `describeAlerts`             | Generate alerts summary                       |
+| `serialize` / `deserialize`  | Chart state serialization                     |
+| `SessionRegistry`            | WebSocket session manager                     |
 
 ### MCP Server (`@363045841yyt/klinechart-ai-runtime/mcp-server`)
 
@@ -123,6 +132,17 @@ Legacy helper — prefer `executeTool` + `mcp` prop pattern above.
                                                │  (Inspector / AI)  │
                                                └────────────────────┘
 ```
+
+First-party Pi execution imports the browser-safe canonical contract and calls
+`executeToolAsync` in process. It does not connect back to this MCP server.
+The MCP server is an external adapter over the same registry and refuses to
+publish chart tools unless exactly one chart session is ready. Raw K-line
+mutators and arbitrary settings require an explicit trusted MCP capability;
+unimplemented alert and replay contracts are never published.
+
+The legacy synchronous `executeTool` remains for compatible SDK integrations.
+It performs the same strict input/output validation, rejects async-only tools,
+and never supplies an implicit market for ambiguous instruments.
 
 ## Available Tools
 

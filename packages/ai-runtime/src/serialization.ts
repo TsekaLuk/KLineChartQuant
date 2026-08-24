@@ -1,4 +1,4 @@
-import type { ChartAlertsEntry, SerializedChartState } from './types'
+import type { ChartAlertsEntry, SerializedChartState } from './types.js'
 
 const SCHEMA_VERSION = 1 as const
 

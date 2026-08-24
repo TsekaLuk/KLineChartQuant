@@ -3,9 +3,12 @@ import {
   executeToolAsync,
   type CanonicalToolResult,
   type ToolCapabilityContext,
+  type ToolDefinition,
   type ToolHostExecutor,
+  type ToolPostconditionVerifier,
   type ToolPolicyEvaluator,
   type ToolRegistry,
+  type ToolReplayResolver,
   type ToolSafety as CanonicalToolSafety,
 } from '@363045841yyt/klinechart-ai-runtime/browser'
 
@@ -34,6 +37,13 @@ export interface PiToolAdapterOptions {
   }
   execute: ToolHostExecutor
   policy?: ToolPolicyEvaluator
+  verify?: ToolPostconditionVerifier
+  replay?: ToolReplayResolver
+  record?: (
+    definition: ToolDefinition,
+    input: unknown,
+    result: CanonicalToolResult,
+  ) => Promise<void>
 }
 
 function piSafety(safety: CanonicalToolSafety): ToolSafety {
@@ -77,9 +87,12 @@ export function createPiTools(options: PiToolAdapterOptions): readonly RuntimeTo
           capabilityContext,
           execute: options.execute,
           policy: options.policy,
+          verify: options.verify,
+          replay: options.replay,
           signal: context.signal,
         },
       )
+      await options.record?.(definition, input, result)
       if (!result.ok) throw new CanonicalPiToolError(result)
       return {
         content: stringifyResult(result),

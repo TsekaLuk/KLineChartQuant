@@ -4,16 +4,17 @@
  * indicator toggle/update/reorder logic. Indicator state is read directly
  * from Core controller signals; Vue keeps no business-state mirror.
  */
+import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
+import { computed, type Ref } from 'vue'
+
+import { useControllerSignal } from './useControllerSignal'
+
 import type {
   ChartController,
   PaneSpec,
   IndicatorInstance,
   SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core/indicators'
-import { computed, type Ref } from 'vue'
-
-import { useControllerSignal } from './useControllerSignal'
 
 interface SubPaneSlot {
   id: string
@@ -105,8 +106,8 @@ export function useIndicatorManager(
   ): Record<string, number | boolean | string> {
     if (indicatorId === 'VOLUME') return {}
     const meta = getRegisteredIndicatorDefinition(indicatorId)
-    if (meta?.runtime?.defaultConfig) {
-      return { ...meta.runtime.defaultConfig } as Record<string, number | boolean | string>
+    if (meta?.runtime?.defaultParams) {
+      return { ...meta.runtime.defaultParams } as Record<string, number | boolean | string>
     }
     return {}
   }

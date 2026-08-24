@@ -1,5 +1,5 @@
 <template>
-  <section ref="workspace" class="agent-workspace" aria-label="Agent Alpha">
+  <section ref="workspace" class="agent-workspace" :data-theme="theme" aria-label="Agent Alpha">
     <AgentHeader
       :sessions="state.sessions"
       :active-session-id="state.activeSessionId"
@@ -43,9 +43,14 @@
     <AgentSettingsDialog
       :open="settingsOpen"
       :status="state.provider"
+      :models="providerModels"
+      :models-loading="providerModelsLoading"
+      :test-result="providerTestResult"
+      :operation-error="providerOperationError"
       :locale="locale"
       @close="settingsOpen = false"
       @test="testProvider"
+      @refresh-models="refreshProviderModels"
       @delete="deleteProvider"
     />
   </section>
@@ -64,7 +69,7 @@
 
   import type { AgentBridgeClient } from '../agent-contracts'
 
-  const props = defineProps<{ bridge: AgentBridgeClient }>()
+  const props = defineProps<{ bridge: AgentBridgeClient; theme?: 'light' | 'dark' }>()
   defineEmits<{ close: [] }>()
 
   const workspace = ref<HTMLElement | null>(null)
@@ -76,6 +81,10 @@
     draft,
     settingsOpen,
     locale,
+    providerModels,
+    providerModelsLoading,
+    providerTestResult,
+    providerOperationError,
     isRunning,
     createSession,
     selectSession,
@@ -88,6 +97,7 @@
     undoTurn,
     setReadOnly,
     testProvider,
+    refreshProviderModels,
     deleteProvider,
   } = useAgentWorkspace(props.bridge)
 
@@ -192,8 +202,27 @@
     white-space: nowrap;
   }
 
+  .agent-workspace[data-theme='dark'] {
+    --agent-bg: #151a1d;
+    --agent-surface: #1b2125;
+    --agent-card: #20272b;
+    --agent-input: #232b30;
+    --agent-hover: #2a3338;
+    --agent-user-message: #17312e;
+    --agent-border: #323c41;
+    --agent-border-strong: #526169;
+    --agent-text: #edf2f3;
+    --agent-text-soft: #839198;
+    --agent-muted: #a4b0b5;
+    --agent-accent: #2d948a;
+    --agent-accent-strong: #247c74;
+    --agent-focus: #48b0a6;
+    --agent-warning-bg: #302717;
+    --agent-danger-bg: #351d1f;
+  }
+
   @media (prefers-color-scheme: dark) {
-    .agent-workspace {
+    .agent-workspace:not([data-theme]) {
       --agent-bg: #151a1d;
       --agent-surface: #1b2125;
       --agent-card: #20272b;

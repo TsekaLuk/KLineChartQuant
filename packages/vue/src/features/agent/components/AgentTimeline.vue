@@ -79,6 +79,7 @@
     AgentMessageView,
     AgentRunView,
     ConfirmationView,
+    ToolConfirmationDecision,
     ToolCallView,
   } from '../agent-contracts'
 
@@ -107,7 +108,7 @@
 
   defineEmits<{
     prompt: [prompt: string]
-    confirm: [confirmationId: string, decision: 'confirmed' | 'rejected']
+    confirm: [confirmationId: string, decision: ToolConfirmationDecision]
     retry: []
     undo: []
     locate: [toolCallId: string]

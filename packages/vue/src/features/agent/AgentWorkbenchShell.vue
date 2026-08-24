@@ -2,6 +2,7 @@
   <div
     ref="shell"
     class="agent-workbench-shell"
+    :data-theme="theme"
     :class="{
       'agent-workbench-shell--resizing': resizing,
       'agent-workbench-shell--panel-open': panelOpen,
@@ -52,7 +53,7 @@
     ></button>
 
     <aside v-show="panelOpen" class="agent-panel" data-testid="agent-panel">
-      <AgentWorkspace :bridge="bridge" @close="panelOpen = false" />
+      <AgentWorkspace :bridge="bridge" :theme="theme" @close="panelOpen = false" />
     </aside>
   </div>
 </template>
@@ -76,8 +77,9 @@
       bridge: AgentBridgeClient
       panelWidthStorage?: AgentPanelWidthStorage
       initialPanelOpen?: boolean
+      theme?: 'light' | 'dark'
     }>(),
-    { initialPanelOpen: true, panelWidthStorage: undefined },
+    { initialPanelOpen: true, panelWidthStorage: undefined, theme: undefined },
   )
 
   const shell = ref<HTMLElement | null>(null)
@@ -307,27 +309,51 @@
     box-shadow: -12px 0 32px rgba(0, 0, 0, 0.2);
   }
 
+  .agent-workbench-shell[data-theme='dark'] {
+    --agent-bg: #151a1d;
+    --agent-text: #edf2f3;
+    --agent-focus: #48b0a6;
+    background: #151a1d;
+  }
+
+  .agent-workbench-shell[data-theme='dark'] .agent-panel {
+    border-color: #323c41;
+  }
+
+  .agent-workbench-shell[data-theme='dark'] .panel-resizer {
+    background: #293136;
+  }
+
+  .agent-workbench-shell[data-theme='dark'] .panel-resizer span {
+    background: #66747b;
+  }
+
+  .agent-workbench-shell[data-theme='dark'] .agent-launcher {
+    border-color: #526169;
+    background: rgba(27, 33, 37, 0.94);
+  }
+
   @media (prefers-color-scheme: dark) {
-    .agent-workbench-shell {
+    .agent-workbench-shell:not([data-theme]) {
       --agent-bg: #151a1d;
       --agent-text: #edf2f3;
       --agent-focus: #48b0a6;
       background: #151a1d;
     }
 
-    .agent-panel {
+    .agent-workbench-shell:not([data-theme]) .agent-panel {
       border-color: #323c41;
     }
 
-    .panel-resizer {
+    .agent-workbench-shell:not([data-theme]) .panel-resizer {
       background: #293136;
     }
 
-    .panel-resizer span {
+    .agent-workbench-shell:not([data-theme]) .panel-resizer span {
       background: #66747b;
     }
 
-    .agent-launcher {
+    .agent-workbench-shell:not([data-theme]) .agent-launcher {
       border-color: #526169;
       background: rgba(27, 33, 37, 0.94);
     }

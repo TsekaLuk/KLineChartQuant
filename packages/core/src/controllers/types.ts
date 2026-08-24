@@ -8,20 +8,21 @@
  * Mutation methods are imperative — adapters call them in event handlers.
  */
 
-import type { AlertController } from '../features/alerts/types'
 import type {
   AssetClass,
   InstrumentCapabilities,
   InstrumentDescriptor,
 } from '../data/provider/types'
-import type { ChartSettings } from '../foundation/config/chartSettings'
-import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 import type { InteractionSnapshot } from '../engine/chart'
 import type { PaneSpec } from '../engine/chartTypes'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
-import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
-import type { DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
 import type { DrawingToolId } from '../engine/drawing/toolConfig'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
+import type { ChartAgentController } from '../features/agent/types'
+import type { AlertController } from '../features/alerts/types'
+import type { ChartSettings } from '../foundation/config/chartSettings'
+import type { DrawingObject as PluginDrawingObject } from '../foundation/plugin/index'
+import type { ReadonlySignal, Signal } from '../foundation/reactivity/index'
+import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -313,6 +314,8 @@ export interface ChartMountOptions {
 }
 
 export interface ChartController extends DrawingChartAdapter {
+  /** Stable, serializable Agent context and deterministic query facade. */
+  readonly agent: ChartAgentController
   // ---- Signals ----
   readonly viewport: ReadonlySignal<ChartViewport>
   readonly data: ReadonlySignal<ReadonlyArray<KLineData>>
@@ -338,6 +341,8 @@ export interface ChartController extends DrawingChartAdapter {
   /** 当前绘图工具（DrawingToolId，默认 cursor） */
   readonly drawingTool: ReadonlySignal<import('../engine/drawing/toolConfig').DrawingToolId>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>
+  /** Detached custom-marker map used by shared browser hosts to preserve user markers. */
+  readonly customMarkers: ReadonlySignal<ReadonlyMap<string, CustomMarkerEntity>>
   /** 当前选中绘图 id（kernel.drawing SSOT） */
   readonly selectedDrawingId: ReadonlySignal<string | null>
   readonly paneRatios: ReadonlySignal<Readonly<Record<string, number>>>

@@ -1,4 +1,5 @@
 import type { AgentUiEvent, AgentUiEventInput } from '../contracts/ui.js'
+import type { CanonicalToolResult } from '@363045841yyt/klinechart-ai-runtime/browser'
 
 export const KQ_SESSION_SCHEMA_VERSION = 1 as const
 export const KQ_CUSTOM_ENTRY = {
@@ -37,6 +38,17 @@ export interface KqRunTerminalEntry {
 export interface PersistedAgentEvent {
   schemaVersion: typeof KQ_SESSION_SCHEMA_VERSION
   event: AgentUiEvent
+}
+
+export interface KqToolTraceEntry {
+  schemaVersion: typeof KQ_SESSION_SCHEMA_VERSION
+  key: string
+  inputHash: string
+  toolName: string
+  toolVersion: string
+  result: CanonicalToolResult
+  target?: { windowId: string; chartId: string; hostGeneration: number }
+  createdAt: number
 }
 
 export interface BeginRunInput {

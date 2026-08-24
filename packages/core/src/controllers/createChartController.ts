@@ -12,20 +12,20 @@
  *   - Tear down DOM + listeners on dispose().
  */
 
-import { resolveSettings } from '../foundation/config/chartSettings'
 import { Chart } from '../engine/chart'
-import type {
-  ChartOptions,
-  ViewportState as LegacyViewportState,
-  IndicatorInstance as LegacyIndicatorInstance,
-  SubPaneInfo as LegacySubPaneInfo,
-} from '../engine/chartTypes'
 import { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins'
-import type { CustomMarkerEntity } from '../engine/marker/registry'
 import { zoomLevelToKWidth, kGapFromKWidth } from '../engine/utils/zoom'
 import { KLineChartError } from '../errors'
+import {
+  createChartAgentController,
+  createChartRevisionTracker,
+} from '../features/agent/chartAgentController'
+import { createIndicatorQuery } from '../features/agent/indicator/indicatorQuery'
+import { planVisibleRangeNavigation } from '../features/agent/visibleRangeNavigation'
 import { ChartBridge } from '../features/mcp/chartBridge'
+import { resolveSettings } from '../foundation/config/chartSettings'
 import { computed, type ReadonlySignal } from '../foundation/reactivity/index'
+import { generateUUID } from '../foundation/utils/uuid'
 import { createDefaultRendererHost, type RendererBackend } from '../rendering/render/index'
 
 import type {
@@ -44,6 +44,13 @@ import type {
   SymbolInfo,
   CustomDataSource,
 } from './types'
+import type {
+  ChartOptions,
+  ViewportState as LegacyViewportState,
+  IndicatorInstance as LegacyIndicatorInstance,
+  SubPaneInfo as LegacySubPaneInfo,
+} from '../engine/chartTypes'
+import type { CustomMarkerEntity } from '../engine/marker/registry'
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -430,6 +437,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const lastBarPeriodSignal = chart.kernel.mode.readonly.lastBarPeriod
   const drawingTool = chart.drawingTool
   const drawings = chart.drawings
+  const customMarkers = chart.kernel.marker.readonly.customMarkers
   const selectedDrawingId: ReadonlySignal<string | null> =
     chart.kernel.drawing.readonly.selectedDrawingId
   const paneRatios: ReadonlySignal<Readonly<Record<string, number>>> = chart.paneRatios
@@ -471,10 +479,97 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // -------------------------------------------------------------------
-  // Apply initial render state + seed data
+  // Agent facade and controller-level revision
   // -------------------------------------------------------------------
 
   let disposed = false
+  const chartRevisionTracker = createChartRevisionTracker([
+    chart.kernel.dataManager.readonly.currentSpec,
+    viewport,
+    symbols,
+    settingsSignal,
+    chartModeSignal,
+    indicators,
+    subPanes,
+    drawingTool,
+    drawings,
+    selectedDrawingId,
+    paneRatios,
+    paneLayout,
+    comparisonColors,
+    customMarkers,
+  ])
+
+  function setVisibleRangeForAgent(input: {
+    readonly from: number
+    readonly to: number
+  }): import('../features/agent/types').ChartAgentVisibleRangeResult {
+    if (disposed) {
+      throw new KLineChartError('NO_DATA', 'Cannot navigate a disposed chart')
+    }
+    const activeBuffer = chart.kernel.data.readonly.activeBuffer.peek()
+    if (activeBuffer.kind === 'empty' || activeBuffer.data.length === 0) {
+      throw new KLineChartError('NO_DATA', 'Exact visible-range navigation requires active data')
+    }
+    const period =
+      activeBuffer.selection.kind === 'bars' ? activeBuffer.selection.period : 'timeshare'
+    const currentViewport = viewport.peek()
+    const options = chart.kernel.options.readonly.options.peek()
+    const plan = planVisibleRangeNavigation({
+      timestamps: activeBuffer.data.map((item) => item.timestamp),
+      from: input.from,
+      to: input.to,
+      period,
+      plotWidth: currentViewport.plotWidth,
+      viewWidth: chart.kernel.viewport.readonly.viewWidth.peek(),
+      dpr: currentViewport.dpr,
+      leftLoadBufferWidth: chart.kernel.viewport.readonly.leftLoadBufferWidth.peek(),
+      minKWidth: options.minKWidth,
+      maxKWidth: options.maxKWidth,
+      zoomLevelCount: options.zoomLevelCount,
+    })
+
+    chart.zoomToLevel(plan.zoomLevel)
+    chart.kernel.viewport.actions.scrollTo(plan.domScrollLeft)
+
+    const actualViewport = viewport.peek()
+    const visibleFromIndex = Math.max(
+      0,
+      Math.min(activeBuffer.data.length - 1, Math.floor(actualViewport.visibleFrom)),
+    )
+    const visibleToIndex = Math.max(
+      visibleFromIndex,
+      Math.min(activeBuffer.data.length - 1, Math.ceil(actualViewport.visibleTo) - 1),
+    )
+    const first = activeBuffer.data[visibleFromIndex]
+    const last = activeBuffer.data[visibleToIndex]
+    if (!first || !last) {
+      throw new KLineChartError('OUT_OF_RANGE', 'The resulting visible range is unavailable')
+    }
+
+    return Object.freeze({
+      visibleRange: Object.freeze({ from: first.timestamp, to: last.timestamp }),
+      clampedFrom: plan.clampedFrom,
+      clampedTo: plan.clampedTo,
+      zoomLevel: actualViewport.zoomLevel,
+      chartRevision: chartRevisionTracker.revision.peek(),
+    })
+  }
+
+  const agent = createChartAgentController({
+    chartId: generateUUID(),
+    dataState: chart.kernel.data,
+    currentSpec: chart.kernel.dataManager.readonly.currentSpec,
+    viewport,
+    indicators,
+    theme: themeSignal,
+    symbols,
+    drawings,
+    customMarkers,
+    chartRevision: chartRevisionTracker.revision,
+    indicatorQuery: createIndicatorQuery({ dataState: chart.kernel.data }),
+    setVisibleRange: setVisibleRangeForAgent,
+  })
 
   // -------------------------------------------------------------------
   // Public methods — delegate to Chart facade
@@ -841,6 +936,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   function dispose(): void {
     if (disposed) return
     disposed = true
+    chartRevisionTracker.dispose()
     bridge?.destroy()
     try {
       void chart.destroy()
@@ -889,6 +985,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   return {
+    agent,
     viewport,
     data,
     dataLoading,
@@ -903,6 +1000,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     subPanes,
     drawingTool,
     drawings,
+    customMarkers,
     selectedDrawingId,
     paneRatios,
     paneLayout,

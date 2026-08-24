@@ -179,6 +179,34 @@ describe('executeToolAsync', () => {
     expect(postcondition).not.toHaveBeenCalled()
   })
 
+  it('runs live host verification after output validation and before definition verification', async () => {
+    const order: string[] = []
+    const result = await executeToolAsync(
+      { name: 'fixture.echo', input: { value: 'x' } },
+      identity,
+      {
+        registry: fixtureRegistry({
+          verifyPostcondition: async () => {
+            order.push('definition-verify')
+            return { ok: true }
+          },
+        }),
+        capabilityContext: { audience: 'first-party' },
+        execute: async () => {
+          order.push('host')
+          return { ok: true, data: { value: 'x' } }
+        },
+        verify: async () => {
+          order.push('live-verify')
+          return { ok: true }
+        },
+      },
+    )
+
+    expect(result.ok).toBe(true)
+    expect(order).toEqual(['host', 'live-verify', 'definition-verify'])
+  })
+
   it('maps failed postconditions and preserves host metadata on success', async () => {
     const failed = await executeToolAsync(
       { name: 'fixture.echo', input: { value: 'x' } },

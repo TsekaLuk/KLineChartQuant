@@ -14,6 +14,7 @@ import {
   type KqRunStartedEntry,
   type KqRunTerminalEntry,
   type KqSessionMetadataEntry,
+  type KqToolTraceEntry,
   type PersistEventInput,
   type RetryRunInput,
   type RunPersistenceContext,
@@ -94,6 +95,22 @@ function requireRunTerminal(value: unknown): KqRunTerminalEntry {
     throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent terminal run record is invalid.')
   }
   return value as unknown as KqRunTerminalEntry
+}
+
+function requireToolTrace(value: unknown): KqToolTraceEntry {
+  if (
+    !isObject(value) ||
+    value.schemaVersion !== KQ_SESSION_SCHEMA_VERSION ||
+    typeof value.key !== 'string' ||
+    typeof value.inputHash !== 'string' ||
+    typeof value.toolName !== 'string' ||
+    typeof value.toolVersion !== 'string' ||
+    !isObject(value.result) ||
+    typeof value.createdAt !== 'number'
+  ) {
+    throw new AgentRuntimeError('SESSION_CORRUPT', 'The Agent tool trace is invalid.')
+  }
+  return value as unknown as KqToolTraceEntry
 }
 
 function replaySnapshot(session: AgentSessionView, events: AgentUiEvent[]): AgentSessionSnapshot {
@@ -353,6 +370,30 @@ export class RuntimeSessionService {
       stopReason: 'stop',
       timestamp,
     })
+  }
+
+  async appendToolTrace(
+    context: RunPersistenceContext,
+    trace: Omit<KqToolTraceEntry, 'schemaVersion'>,
+  ): Promise<KqToolTraceEntry> {
+    const session = await this.requireSession(context.sessionId)
+    const safe = redactValue(
+      { schemaVersion: KQ_SESSION_SCHEMA_VERSION, ...trace },
+      this.redaction,
+    ) as KqToolTraceEntry
+    await session.view(context.lane).appendCustomEntry(KQ_CUSTOM_ENTRY.toolTrace, safe)
+    return safe
+  }
+
+  async listToolTraces(sessionId: string, limit = 1_000): Promise<KqToolTraceEntry[]> {
+    const session = await this.requireSession(sessionId)
+    const entries = await session.findEntries({
+      customType: KQ_CUSTOM_ENTRY.toolTrace,
+      order: 'oldestFirst',
+    })
+    return entries
+      .slice(-Math.max(1, Math.min(10_000, Math.round(limit))))
+      .map((entry) => requireToolTrace((entry as CustomEntry).data))
   }
 
   async finishRun(

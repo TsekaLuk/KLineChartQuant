@@ -352,7 +352,7 @@ const indicatorInstance = strictObject({
 })
 
 const definitions: ToolDefinition[] = [
-  forwardTool({
+  defineTool({
     name: 'agent.capabilities',
     version,
     title: 'List Agent capabilities',
@@ -373,7 +373,7 @@ const definitions: ToolDefinition[] = [
     audiences: audienceAll,
     policy: readPolicy(),
   }),
-  forwardTool({
+  defineTool({
     name: 'chart.getContext',
     version,
     title: 'Get chart context',
@@ -394,7 +394,7 @@ const definitions: ToolDefinition[] = [
     audiences: audienceAll,
     policy: readPolicy(),
   }),
-  forwardTool({
+  defineTool({
     name: 'chart.getState',
     version,
     title: 'Get chart state',
@@ -405,6 +405,7 @@ const definitions: ToolDefinition[] = [
       chartRevision: Type.Number({ minimum: 0 }),
       dataRevision: Type.Number({ minimum: 0 }),
       theme: Type.Optional(Type.Enum(['light', 'dark'])),
+      zoomLevel: Type.Integer({ minimum: 1 }),
       visibleRange: Type.Optional(contextRange),
       activeIndicators: Type.Array(indicatorInstance),
       comparisonSymbols: Type.Array(Type.String()),
@@ -655,7 +656,7 @@ const definitions: ToolDefinition[] = [
     audiences: audienceAll,
     policy: writePolicy(),
   }),
-  forwardTool({
+  defineTool({
     name: 'indicators.listActive',
     version,
     title: 'List active indicators',
@@ -666,7 +667,7 @@ const definitions: ToolDefinition[] = [
     audiences: audienceAll,
     policy: readPolicy(),
   }),
-  forwardTool({
+  defineTool({
     name: 'indicators.query',
     version,
     title: 'Query indicator evidence',
@@ -743,14 +744,18 @@ const definitions: ToolDefinition[] = [
     audiences: audienceAll,
     policy: writePolicy(),
   }),
-  forwardTool({
+  defineTool({
     name: 'navigation.setVisibleRange',
     version,
     title: 'Set exact visible range',
     description:
       'Set an exact requested time range and later verify the resulting visible chart range.',
     inputSchema: strictObject({ from: Type.Number(), to: Type.Number() }),
-    outputSchema: strictObject({ visibleRange: contextRange }),
+    outputSchema: strictObject({
+      visibleRange: contextRange,
+      clampedFrom: Type.Boolean(),
+      clampedTo: Type.Boolean(),
+    }),
     audiences: audienceAll,
     policy: writePolicy({ syncCompatible: false }),
   }),

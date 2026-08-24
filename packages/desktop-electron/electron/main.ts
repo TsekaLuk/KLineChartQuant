@@ -3,21 +3,28 @@ import { fileURLToPath } from 'node:url'
 
 import {
   AgentApplicationService,
-  createUnavailableRuntimeSupport,
+  AgentToolRuntime,
+  RendererToolProxy,
+  create302AiRuntimeSupport,
   type RuntimeSupport,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
   createNodeRuntimeSessions,
   type NodeRuntimeSessions,
 } from '@363045841yyt/klinechart-agent-runtime/node'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, safeStorage, shell } from 'electron'
 
 import { registerAgentIpc, type RegisteredAgentIpc } from './agent-ipc'
 import { registerIpcHandlers } from './ipc-handlers'
+import {
+  ElectronProviderSettingsStore,
+  ElectronSafeStorageCredentialStore,
+} from './provider-storage'
 
 let mainWindow: BrowserWindow | null = null
 let nodeRuntime: NodeRuntimeSessions | undefined
 let agentIpc: RegisteredAgentIpc | undefined
+let agentToolRuntime: AgentToolRuntime | undefined
 let shutdownStarted = false
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 
@@ -64,14 +71,25 @@ app.whenReady().then(async () => {
   const support: RuntimeSupport =
     import.meta.env.MODE === 'e2e'
       ? (await import('@363045841yyt/klinechart-agent-runtime/testing')).createFauxRuntimeSupport()
-      : createUnavailableRuntimeSupport()
+      : create302AiRuntimeSupport({
+          credentials: new ElectronSafeStorageCredentialStore({
+            filePath: join(userData, 'agent-provider-302ai-credential.json'),
+            safeStorage,
+          }),
+          settings: new ElectronProviderSettingsStore(
+            join(userData, 'agent-provider-302ai-settings.json'),
+          ),
+        })
+  const rendererProxy = new RendererToolProxy()
+  agentToolRuntime = new AgentToolRuntime({ proxy: rendererProxy, sessions: nodeRuntime.sessions })
   const application = new AgentApplicationService({
     sessions: nodeRuntime.sessions,
     createPlan: support.createPlan,
     provider: support.provider,
+    toolRuntime: agentToolRuntime,
   })
   await application.initialize()
-  agentIpc = registerAgentIpc(application)
+  agentIpc = registerAgentIpc(application, rendererProxy)
   createWindow()
 
   app.on('activate', () => {
@@ -93,6 +111,7 @@ app.on('before-quit', (event) => {
   shutdownStarted = true
   void (async () => {
     await agentIpc?.close()
+    await agentToolRuntime?.close()
     await nodeRuntime?.close()
     app.quit()
   })()

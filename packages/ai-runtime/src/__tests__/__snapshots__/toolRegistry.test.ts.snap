@@ -11,9 +11,7 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         "sdk",
       ],
       "availability": {
-        "available": false,
-        "reason": "The host implementation is not available yet.",
-        "reasonCode": "NOT_IMPLEMENTED",
+        "available": true,
       },
       "description": "List the current canonical tool capabilities and their availability reasons.",
       "inputSchema": {
@@ -259,9 +257,7 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         "sdk",
       ],
       "availability": {
-        "available": false,
-        "reason": "The host implementation is not available yet.",
-        "reasonCode": "NOT_IMPLEMENTED",
+        "available": true,
       },
       "description": "Read the minimum serializable chart context and its current revision identifiers.",
       "inputSchema": {
@@ -344,9 +340,7 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         "sdk",
       ],
       "availability": {
-        "available": false,
-        "reason": "The host implementation is not available yet.",
-        "reasonCode": "NOT_IMPLEMENTED",
+        "available": true,
       },
       "description": "Read a bounded chart state summary suitable for deterministic postcondition checks.",
       "inputSchema": {
@@ -445,10 +439,15 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
             ],
             "type": "object",
           },
+          "zoomLevel": {
+            "minimum": 1,
+            "type": "integer",
+          },
         },
         "required": [
           "chartRevision",
           "dataRevision",
+          "zoomLevel",
           "activeIndicators",
           "comparisonSymbols",
           "drawingIds",
@@ -1271,9 +1270,7 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         "sdk",
       ],
       "availability": {
-        "available": false,
-        "reason": "The host implementation is not available yet.",
-        "reasonCode": "NOT_IMPLEMENTED",
+        "available": true,
       },
       "description": "List active indicator instances with their definitions and validated parameter values.",
       "inputSchema": {
@@ -1349,9 +1346,7 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         "sdk",
       ],
       "availability": {
-        "available": false,
-        "reason": "The host implementation is not available yet.",
-        "reasonCode": "NOT_IMPLEMENTED",
+        "available": true,
       },
       "description": "Query compact semantic indicator evidence through the stable asynchronous core facade.",
       "inputSchema": {
@@ -1687,9 +1682,7 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         "sdk",
       ],
       "availability": {
-        "available": false,
-        "reason": "The host implementation is not available yet.",
-        "reasonCode": "NOT_IMPLEMENTED",
+        "available": true,
       },
       "description": "Set an exact requested time range and later verify the resulting visible chart range.",
       "inputSchema": {
@@ -1712,6 +1705,12 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
       "outputSchema": {
         "additionalProperties": false,
         "properties": {
+          "clampedFrom": {
+            "type": "boolean",
+          },
+          "clampedTo": {
+            "type": "boolean",
+          },
           "visibleRange": {
             "additionalProperties": false,
             "properties": {
@@ -1731,6 +1730,8 @@ exports[`canonical tool registry > serializes a deterministic contract snapshot 
         },
         "required": [
           "visibleRange",
+          "clampedFrom",
+          "clampedTo",
         ],
         "type": "object",
       },

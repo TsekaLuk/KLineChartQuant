@@ -9,6 +9,14 @@ export type AgentRuntimeErrorCode =
   | 'INVALID_PROTOCOL'
   | 'PAYLOAD_TOO_LARGE'
   | 'PROVIDER_ERROR'
+  | 'PROVIDER_AUTHENTICATION'
+  | 'PROVIDER_PERMISSION'
+  | 'PROVIDER_MODEL_NOT_FOUND'
+  | 'PROVIDER_RATE_LIMITED'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'PROVIDER_TIMEOUT'
+  | 'PROVIDER_MALFORMED_RESPONSE'
+  | 'PROVIDER_INCOMPATIBLE_TOOLS'
   | 'PROVIDER_NOT_CONFIGURED'
   | 'RUN_ACTIVE'
   | 'RUN_INTERRUPTED'
@@ -20,6 +28,7 @@ export type AgentRuntimeErrorCode =
   | 'TARGET_MISMATCH'
   | 'TOOL_ERROR'
   | 'TOOL_LOOP_LIMIT'
+  | 'UNDO_CONFLICT'
 
 export class AgentRuntimeError extends Error {
   readonly code: AgentRuntimeErrorCode

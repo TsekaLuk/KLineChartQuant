@@ -84,6 +84,7 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
         'deleteProviderCredential',
         'deleteSession',
         'getProviderStatus',
+        'listProviderModels',
         'listSessions',
         'openSession',
         'renameSession',
@@ -94,8 +95,11 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
         'undoTurn',
       ],
     )
-    expect(Object.values(agentApiShape)).toEqual(Array(14).fill('function'))
+    expect(Object.values(agentApiShape)).toEqual(Array(15).fill('function'))
     expect(await page.evaluate(() => 'ipcRenderer' in (window.desktopAPI?.agent ?? {}))).toBe(false)
+    expect(
+      await page.evaluate(() => typeof window.desktopAPI?.chartTools.registerChartToolHost),
+    ).toBe('function')
     expect(
       await page.evaluate(async () => {
         try {
@@ -114,6 +118,9 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     await expect(page.locator('.chart-surface')).toBeVisible()
     await expect(page.locator('.agent-panel')).toBeVisible()
     await expect(page.locator('.panel-resizer')).toHaveAttribute('aria-valuenow', '420')
+    await expect(page.locator('.chart-wrapper')).toHaveAttribute('data-theme', 'dark')
+    await expect(page.locator('.agent-workbench-shell')).toHaveAttribute('data-theme', 'dark')
+    await expect(page.locator('.agent-workspace')).toHaveAttribute('data-theme', 'dark')
     const chartLayout = await page.evaluate(() => {
       const shell = document.querySelector<HTMLElement>('.agent-workbench-shell')
       const surface = document.querySelector<HTMLElement>('.chart-surface')
@@ -132,7 +139,7 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     expect(chartLayout?.gutterBackground).toBe(chartLayout?.shellBackground)
     expect(chartLayout?.topGutter).toBeCloseTo(16, 0)
     expect(chartLayout?.bottomGutter).toBeCloseTo(16, 0)
-    await page.screenshot({ path: testInfo.outputPath('agent-initial.png') })
+    await page.screenshot({ path: testInfo.outputPath('agent-dark-wide.png') })
     await expectNonBlankCanvas(page)
 
     await page.locator('.panel-resizer').focus()
@@ -153,6 +160,8 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     await settingsInputs.nth(1).fill('e2e-placeholder-key')
     await settingsInputs.nth(2).fill('fast-sota-model')
     await page.locator('.settings-dialog .primary-button').click()
+    await expect(page.locator('.settings-dialog__stages li')).toHaveCount(3)
+    await page.locator('.settings-dialog > header .icon-button').click()
     await expect(page.locator('.settings-dialog')).toBeHidden()
     await expect(textarea).toHaveValue(preservedPrompt)
 
@@ -160,11 +169,15 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
     await expect(page.locator('.run-summary[data-status="completed"]')).toBeVisible()
     await expect(page.locator('.tool-card[data-status="succeeded"]')).toBeVisible()
 
-    await textarea.fill('Add EMA 20')
+    await textarea.fill('Switch chart to light theme')
     await textarea.press('Enter')
     await expect(page.locator('.composer__primary--stop')).toBeVisible()
     await expect(page.locator('.tool-card')).toHaveCount(2)
     await expect(page.locator('.tool-card').nth(1)).toHaveAttribute('data-status', 'succeeded')
+    await expect(page.locator('.chart-wrapper')).toHaveAttribute('data-theme', 'light')
+    await expect(page.locator('.agent-workbench-shell')).toHaveAttribute('data-theme', 'light')
+    await expect(page.locator('.agent-workspace')).toHaveAttribute('data-theme', 'light')
+    await page.screenshot({ path: testInfo.outputPath('agent-light-wide.png') })
     await page.locator('.composer__primary--stop').click()
     await expect(page.locator('.run-summary[data-status="partial"]')).toBeVisible()
 
@@ -212,6 +225,8 @@ test('reopens the persisted native Agent session after an app restart', async ({
     await inputs.nth(1).fill('ephemeral-e2e-key')
     await inputs.nth(2).fill('faux-fast')
     await page.locator('.settings-dialog .primary-button').click()
+    await expect(page.locator('.settings-dialog__stages li')).toHaveCount(3)
+    await page.locator('.settings-dialog > header .icon-button').click()
     await expect(page.locator('.settings-dialog')).toBeHidden()
     await textarea.press('Enter')
     await expect(page.locator('.run-summary[data-status="completed"]')).toBeVisible()

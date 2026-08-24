@@ -10,6 +10,9 @@ import {
   AGENT_CONNECT_CHANNEL,
   AGENT_IDENTITY_CHANNEL,
   AGENT_PORT_CHANNEL,
+  AGENT_PORT_TOOL_REQUEST,
+  AGENT_PORT_TOOL_RESPONSE,
+  AGENT_PORT_UI_MESSAGE,
 } from './agent-ipc-channels'
 
 import type {
@@ -18,11 +21,18 @@ import type {
   AgentSessionView,
   AgentSessionSnapshot,
   AgentUiEvent,
+  ProviderModelsInput,
+  ProviderModelsResult,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
   StartRunInput,
 } from '@363045841yyt/klinechart-agent-runtime'
+import type {
+  RendererToolMessage,
+  RendererToolResponse,
+  RendererToolTarget,
+} from '@363045841yyt/klinechart-ai-runtime/browser'
 
 interface AgentIdentity {
   windowId: string
@@ -38,6 +48,10 @@ type AgentPayload<Command extends AgentCommand> = Extract<
 const identity = ipcRenderer.sendSync(AGENT_IDENTITY_CHANNEL) as AgentIdentity | null
 const agentListeners = new Set<(event: AgentUiEvent) => void>()
 let agentPort: MessagePort | undefined
+let rendererTarget: RendererToolTarget | undefined
+let chartToolHandler:
+  | ((message: unknown, target: RendererToolTarget) => Promise<RendererToolResponse | undefined>)
+  | undefined
 
 function requireIdentity(): AgentIdentity {
   if (!identity || !identity.windowId || identity.chartId !== AGENT_CHART_ID) {
@@ -76,6 +90,8 @@ const nativeAgent: AgentBridgeClient = {
     invokeAgent<'session.open', AgentSessionSnapshot>('session.open', { sessionId }),
   getProviderStatus: () =>
     invokeAgent<'provider.status', ProviderStatusView>('provider.status', {}),
+  listProviderModels: (input: ProviderModelsInput) =>
+    invokeAgent<'provider.models', ProviderModelsResult>('provider.models', input),
   createSession: () => invokeAgent<'session.create', AgentSessionView>('session.create', {}),
   renameSession: (sessionId, title) =>
     invokeAgent<'session.rename', void>('session.rename', { sessionId, title }),
@@ -97,13 +113,87 @@ const nativeAgent: AgentBridgeClient = {
   },
 }
 
-ipcRenderer.on(AGENT_PORT_CHANNEL, (event) => {
+function isRendererTarget(value: unknown): value is RendererToolTarget {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'windowId' in value &&
+    value.windowId === identity?.windowId &&
+    'chartId' in value &&
+    value.chartId === identity?.chartId &&
+    'hostGeneration' in value &&
+    typeof value.hostGeneration === 'number' &&
+    Number.isInteger(value.hostGeneration) &&
+    value.hostGeneration >= 0
+  )
+}
+
+function toolError(message: RendererToolMessage, code: string, text: string) {
+  return {
+    protocolVersion: message.protocolVersion,
+    requestId: message.requestId,
+    target: message.target,
+    kind: 'tool.error' as const,
+    error: { code, message: text, retryable: true },
+  }
+}
+
+async function routeChartTool(message: RendererToolMessage): Promise<void> {
+  const port = agentPort
+  const target = rendererTarget
+  if (!port || !target) return
+  let response: RendererToolResponse | undefined
+  try {
+    response = chartToolHandler
+      ? await chartToolHandler(message, target)
+      : toolError(message, 'TARGET_GONE', 'No shared chart tool host is registered.')
+  } catch {
+    response = toolError(
+      message,
+      'TOOL_EXECUTION_FAILED',
+      'The shared chart tool host could not handle the request.',
+    )
+  }
+  if (!response) {
+    response = toolError(message, 'INVALID_PROTOCOL', 'The chart tool host returned no response.')
+  }
+  if (agentPort === port && rendererTarget === target) {
+    port.postMessage({ channel: AGENT_PORT_TOOL_RESPONSE, message: response })
+  }
+}
+
+ipcRenderer.on(AGENT_PORT_CHANNEL, (event, payload: unknown) => {
+  const nextTarget =
+    typeof payload === 'object' && payload !== null && 'target' in payload
+      ? payload.target
+      : undefined
+  if (!isRendererTarget(nextTarget)) return
   agentPort?.close()
   agentPort = event.ports[0]
+  rendererTarget = nextTarget
   if (!agentPort) return
   agentPort.addEventListener('message', (message) => {
-    const value = message.data as AgentUiEvent
-    for (const listener of agentListeners) listener(value)
+    const value = message.data
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'channel' in value &&
+      value.channel === AGENT_PORT_UI_MESSAGE &&
+      'event' in value
+    ) {
+      const agentEvent = value.event as AgentUiEvent
+      for (const listener of agentListeners) listener(agentEvent)
+      return
+    }
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'channel' in value &&
+      value.channel === AGENT_PORT_TOOL_REQUEST &&
+      'message' in value
+    ) {
+      void routeChartTool(value.message as RendererToolMessage)
+    }
   })
   agentPort.start()
 })
@@ -118,6 +208,14 @@ if (identity) {
 
 const api = {
   agent: nativeAgent,
+  chartTools: {
+    registerChartToolHost(handler: typeof chartToolHandler): () => void {
+      chartToolHandler = handler
+      return () => {
+        if (chartToolHandler === handler) chartToolHandler = undefined
+      }
+    },
+  },
   store: {
     get(key: string): unknown {
       return ipcRenderer.sendSync('store:get', key)

@@ -3,10 +3,13 @@ import type {
   AgentSessionSnapshot,
   AgentSessionView,
   AgentUiEvent,
+  ProviderModelsInput,
+  ProviderModelsResult,
   ProviderStatusView,
   ProviderTestInput,
   ProviderTestResult,
   StartRunInput,
+  ToolConfirmationDecision,
 } from '@363045841yyt/klinechart-agent-runtime/contracts/ui'
 
 /** Renderer adapter with no knowledge of IPC channels or Electron primitives. */
@@ -21,6 +24,9 @@ export class NativeAgentBridgeClient implements AgentBridgeClient {
   }
   getProviderStatus(): Promise<ProviderStatusView> {
     return this.native.getProviderStatus()
+  }
+  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult> {
+    return this.native.listProviderModels(input)
   }
   createSession(): Promise<AgentSessionView> {
     return this.native.createSession()
@@ -40,7 +46,7 @@ export class NativeAgentBridgeClient implements AgentBridgeClient {
   retryRun(runId: string): Promise<{ runId: string }> {
     return this.native.retryRun(runId)
   }
-  confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
+  confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void> {
     return this.native.confirmTool(confirmationId, decision)
   }
   undoTurn(runId: string): Promise<void> {

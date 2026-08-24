@@ -1,5 +1,5 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
-export const AGENT_UI_PROTOCOL_VERSION = 1 as const
+export const AGENT_UI_PROTOCOL_VERSION = 2 as const
 
 export type AgentRunStatus =
   | 'idle'
@@ -74,7 +74,8 @@ export interface ToolCallView {
   evidence?: EvidenceView
 }
 
-export type ConfirmationStatus = 'pending' | 'confirmed' | 'rejected' | 'expired'
+export type ToolConfirmationDecision = 'confirmed' | 'rejected' | 'allow-session'
+export type ConfirmationStatus = 'pending' | ToolConfirmationDecision | 'expired'
 export interface ConfirmationView {
   id: string
   toolCallId: string
@@ -102,11 +103,30 @@ export interface ChartContextView {
 }
 
 export type ProviderConnectionState = 'not-configured' | 'testing' | 'connected' | 'error'
+export type ProviderPersistenceMode = 'encrypted' | 'memory-only'
+export type ProviderCompatibility = 'unknown' | 'testing' | 'incompatible' | 'compatible'
 export interface ProviderStatusView {
   state: ProviderConnectionState
   providerLabel: string
+  configured?: boolean
+  baseUrl?: string
+  modelId?: string
   modelLabel?: string
+  fingerprint?: string
+  persistenceMode?: ProviderPersistenceMode
+  compatibility?: ProviderCompatibility
+  lastTestedAt?: number
+  lastModelsRefreshAt?: number
+  warning?: string
   error?: AgentErrorView
+}
+
+export interface ProviderModelView {
+  id: string
+  name: string
+  compatibility: Exclude<ProviderCompatibility, 'testing'>
+  latencyMs?: number
+  ttftMs?: number
 }
 
 export interface AgentSessionView {
@@ -163,7 +183,7 @@ export type AgentUiEvent =
   | (RunEventEnvelope & {
       type: 'tool.confirmation.resolved'
       confirmationId: string
-      decision: 'confirmed' | 'rejected'
+      decision: Exclude<ConfirmationStatus, 'pending'>
     })
   | (RunEventEnvelope & { type: 'tool.finished'; result: ToolCallView })
   | (RunEventEnvelope & { type: 'tool.undone'; toolCallId: string; undoneAt: number })
@@ -198,13 +218,29 @@ export interface StartRunInput {
 }
 export interface ProviderTestInput {
   baseUrl: string
-  apiKey: string
+  apiKey?: string
   model: string
+}
+export interface ProviderModelsInput {
+  baseUrl: string
+  apiKey?: string
+}
+export interface ProviderModelsResult {
+  models: ProviderModelView[]
+  refreshedAt: number
+}
+export interface ProviderProbeStageResult {
+  stage: 'catalog' | 'text' | 'tool'
+  ok: boolean
+  latencyMs: number
+  ttftMs?: number
 }
 export interface ProviderTestResult {
   compatible: boolean
   model: string
   latencyMs: number
+  ttftMs?: number
+  stages: ProviderProbeStageResult[]
 }
 
 export interface AgentBridgeClient {
@@ -217,8 +253,9 @@ export interface AgentBridgeClient {
   startRun(input: StartRunInput): Promise<{ runId: string }>
   cancelRun(runId: string): Promise<void>
   retryRun(runId: string): Promise<{ runId: string }>
-  confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void>
+  confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void>
   undoTurn(runId: string): Promise<void>
+  listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>
   subscribe(listener: (event: AgentUiEvent) => void): () => void

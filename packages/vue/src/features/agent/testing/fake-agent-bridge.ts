@@ -8,10 +8,13 @@ import {
   type AgentUiEvent,
   type AgentUiEventInput,
   type ConfirmationView,
+  type ProviderModelsInput,
+  type ProviderModelsResult,
   type ProviderStatusView,
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
+  type ToolConfirmationDecision,
   type ToolCallView,
 } from '../agent-contracts'
 
@@ -53,9 +56,21 @@ export class FakeAgentBridge implements AgentBridgeClient {
       ? {
           state: 'connected',
           providerLabel: '302.ai',
+          configured: true,
+          baseUrl: 'https://api.302.ai/v1',
+          modelId: 'Scripted Alpha',
           modelLabel: 'Scripted Alpha',
+          persistenceMode: 'encrypted',
+          compatibility: 'compatible',
         }
-      : { state: 'not-configured', providerLabel: '302.ai' }
+      : {
+          state: 'not-configured',
+          providerLabel: '302.ai',
+          configured: false,
+          baseUrl: 'https://api.302.ai/v1',
+          persistenceMode: 'encrypted',
+          compatibility: 'unknown',
+        }
   }
 
   async listSessions(): Promise<AgentSessionView[]> {
@@ -70,6 +85,26 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async getProviderStatus(): Promise<ProviderStatusView> {
     return this.provider
+  }
+
+  async listProviderModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
+    return {
+      models: [
+        {
+          id: 'gemini-3.7-flash-high',
+          name: 'Gemini 3.7 Flash High',
+          compatibility: 'compatible',
+          latencyMs: 84,
+          ttftMs: 31,
+        },
+        {
+          id: 'gpt-5.6-luna',
+          name: 'GPT-5.6 Luna',
+          compatibility: 'unknown',
+        },
+      ],
+      refreshedAt: Date.now(),
+    }
   }
 
   async createSession(): Promise<AgentSessionView> {
@@ -128,7 +163,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return this.startRun({ sessionId: run.sessionId, prompt: run.prompt, readOnly: run.readOnly })
   }
 
-  async confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
+  async confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void> {
     const pending = this.confirmations.get(confirmationId)
     if (!pending) return
     const run = this.runs.get(pending.runId)
@@ -141,7 +176,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     })
     this.confirmations.delete(confirmationId)
 
-    if (decision === 'confirmed') {
+    if (decision === 'confirmed' || decision === 'allow-session') {
       run.hasMutation = true
       const finished = {
         ...run.tool!,
@@ -165,20 +200,50 @@ export class FakeAgentBridge implements AgentBridgeClient {
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
-    this.provider = { state: 'testing', providerLabel: '302.ai', modelLabel: input.model }
+    this.provider = {
+      ...this.provider,
+      state: 'testing',
+      modelId: input.model,
+      modelLabel: input.model,
+      compatibility: 'testing',
+    }
     this.emit({ type: 'provider.status.changed', status: this.provider })
     await new Promise<void>((resolve) => setTimeout(resolve, this.stepDelayMs))
     this.provider = {
       state: 'connected',
       providerLabel: '302.ai',
+      configured: true,
+      baseUrl: input.baseUrl,
+      modelId: input.model,
       modelLabel: input.model || 'Scripted Alpha',
+      persistenceMode: 'encrypted',
+      compatibility: 'compatible',
     }
     this.emit({ type: 'provider.status.changed', status: this.provider })
-    return { compatible: true, model: this.provider.modelLabel!, latencyMs: 84 }
+    return {
+      compatible: true,
+      model: this.provider.modelLabel!,
+      latencyMs: 84,
+      ttftMs: 31,
+      stages: [
+        { stage: 'catalog', ok: true, latencyMs: 8 },
+        { stage: 'text', ok: true, latencyMs: 42, ttftMs: 31 },
+        { stage: 'tool', ok: true, latencyMs: 34 },
+      ],
+    }
   }
 
   async deleteProviderCredential(): Promise<void> {
-    this.provider = { state: 'not-configured', providerLabel: '302.ai' }
+    this.provider = {
+      state: 'not-configured',
+      providerLabel: '302.ai',
+      configured: false,
+      baseUrl: this.provider.baseUrl,
+      modelId: this.provider.modelId,
+      modelLabel: this.provider.modelLabel,
+      persistenceMode: this.provider.persistenceMode,
+      compatibility: 'unknown',
+    }
     this.emit({ type: 'provider.status.changed', status: this.provider })
   }
 

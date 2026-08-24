@@ -3,6 +3,8 @@ import { Agent, type AgentEvent, type AgentTool } from '@earendil-works/pi-agent
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 import { redactString, redactValue, type RedactionOptions } from '../security/redaction.js'
 
+import { CanonicalPiToolError } from './pi-tool-adapter.js'
+
 import type {
   PiRunEventSink,
   PiRunPlan,
@@ -122,7 +124,7 @@ export class PiRunDriver {
     let completedToolCount = 0
     let toolTurns = 0
     let loopLimitReached = false
-    let providerError: string | undefined
+    let providerError: AssistantMessage | undefined
     let aborted = false
     let usage: Usage | undefined
 
@@ -176,8 +178,7 @@ export class PiRunDriver {
       }
       if (event.type === 'message_end' && isAssistant(event.message)) {
         usage = addUsage(usage, event.message.usage)
-        if (event.message.stopReason === 'error')
-          providerError = event.message.errorMessage ?? 'Provider request failed.'
+        if (event.message.stopReason === 'error') providerError = event.message
         if (event.message.stopReason === 'aborted') aborted = true
         if (assistantMessageId && assistantStarted) {
           await emit({
@@ -220,7 +221,9 @@ export class PiRunDriver {
         )
       }
       if (providerError) {
-        throw new AgentRuntimeError('PROVIDER_ERROR', redactString(providerError, this.redaction), {
+        const classified = plan.classifyProviderError?.(providerError)
+        if (classified) throw classified
+        throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider request failed.', {
           retryable: true,
           recommendedAction: 'Retry the run or select another model.',
         })
@@ -270,21 +273,36 @@ export class PiRunDriver {
         if (!signal)
           throw new AgentRuntimeError('INTERNAL_ERROR', 'Pi did not provide a tool AbortSignal.')
         const toolCallId = publicToolCallId(plan.runId, rawId)
-        const result = await definition.execute(input, {
-          runId: plan.runId,
-          toolCallId,
-          signal,
-          progress: (progress) => {
-            onUpdate?.({ content: [{ type: 'text', text: progress.label }], details: { progress } })
-          },
-        })
-        results.set(toolCallId, result)
-        return {
-          content: [{ type: 'text', text: redactString(result.content, this.redaction) }],
-          details: redactValue(
-            { summary: result.summary, evidence: result.evidence, undoToken: result.undoToken },
-            this.redaction,
-          ),
+        try {
+          const result = await definition.execute(input, {
+            runId: plan.runId,
+            toolCallId,
+            signal,
+            progress: (progress) => {
+              onUpdate?.({
+                content: [{ type: 'text', text: progress.label }],
+                details: { progress },
+              })
+            },
+          })
+          results.set(toolCallId, result)
+          return {
+            content: [{ type: 'text', text: redactString(result.content, this.redaction) }],
+            details: redactValue(
+              { summary: result.summary, evidence: result.evidence, undoToken: result.undoToken },
+              this.redaction,
+            ),
+          }
+        } catch (error) {
+          if (error instanceof CanonicalPiToolError) {
+            results.set(toolCallId, {
+              content: JSON.stringify(error.result.error),
+              summary: error.result.error.message,
+              undoToken: error.result.meta.undoToken,
+              canonicalResult: error.result,
+            })
+          }
+          throw error
         }
       },
     }
@@ -333,6 +351,8 @@ export class PiRunDriver {
       if (!started) return
       const result = toolResults.get(id)
       const finishedAt = this.now()
+      const canonical = result?.canonicalResult
+      const canonicalFailure = canonical && !canonical.ok ? canonical : undefined
       const view: ToolCallView = event.isError
         ? {
             ...started,
@@ -340,10 +360,12 @@ export class PiRunDriver {
             finishedAt,
             durationMs: Math.max(0, finishedAt - (started.startedAt ?? finishedAt)),
             error: {
-              code: 'TOOL_ERROR',
-              message: 'The chart tool could not complete the request.',
-              retryable: true,
+              code: canonicalFailure?.error.code ?? 'TOOL_ERROR',
+              message:
+                canonicalFailure?.error.message ?? 'The chart tool could not complete the request.',
+              retryable: canonicalFailure?.error.retryable ?? true,
             },
+            undoToken: canonicalFailure?.meta.undoToken,
           }
         : {
             ...started,

@@ -152,6 +152,13 @@ root and `./mcp-server` entry.
   rank 63 belongs only to the exact `gpt-5.6-luna-xhigh` row. Never copy a
   variant's Arena rank onto the base model or infer 302.ai availability from
   either source.
+- Measured on 2026-08-24 against 302.ai (969 catalog entries, 929 non-legacy):
+  `gpt-5.6-luna` is present and Agent-compatible (three-stage probe, 3/3 runs,
+  median latency 8056 ms / TTFT 3522 ms), and **no** declared Arena prior matches
+  any catalog id — 302.ai ships `gemini-3.7-flash` and `gemini-3-flash-preview`,
+  not the exact ranked ids. `paretoModelIds` is therefore structurally empty for
+  this Provider. Treat that as correct exact-ID behavior, not a ranking bug; the
+  fix is new exact-ID Arena evidence, never a looser match.
 - Production packages exclude runtime source, coverage, tests, and
   `dist/testing`. Electron Main bundles Agent runtime, Pi AI/Core, and the
   SQLite backend; `node:sqlite` remains a system import. Because the bundled

@@ -34,13 +34,49 @@ KQ Agent Workbench P0 的全部子任务至此完成。
   `accessToken` 等真实凭证仍然脱敏。
 - `shell.openExternal` 接受任意协议与域名，`will-navigate` 完全没有限制。
 
+## 302.ai Live Evaluation（2026-08-24 已执行）
+
+以 `gpt-5.6-luna` 运行 `live:302ai`，3 次重复，全部通过 catalog / text completion /
+tool-call 三层探测：
+
+| 项 | 值 |
+|---|---|
+| status | `completed` |
+| modelId | `gpt-5.6-luna`（evidence `current-unranked`） |
+| compatible | `true`，3/3 次通过 |
+| medianLatencyMs | 8056 |
+| medianTtftMs | 3522 |
+| failures | 空 |
+| catalogSize | 969（非 legacy 929） |
+
+结论：`gpt-5.6-luna` 在 302.ai 上可用且是 Agent compatible（第 3 层 tool-call 探测通过）。
+延迟偏高，作为"fast candidate"需要在真实交互中再评估，但不影响功能门禁。
+
+### 发现：arena priors 与 302.ai 目录零重叠
+
+对 929 个非 legacy 目录条目做 `findArenaPrior` 匹配，命中数为 **0**：
+
+- `gemini-3.7-flash-high` — 目录只有 `gemini-3.7-flash`
+- `gemini-3-flash` — 目录只有 `gemini-3-flash-preview`
+- `gpt-5.6-luna-xhigh` — 目录中不存在
+
+`rankProviderParetoFrontier` 只接收 `arenaOverallRank !== null` 的评估，因此针对
+302.ai 时 `paretoModelIds` 恒为 `[]`。这是精确 ID 证据规则的**正确结果**，不是 bug：
+把 `gpt-5.6-luna-xhigh` 的 rank 63 套到 `gpt-5.6-luna` 上正是规范明令禁止的行为。
+但空数组在报告里语义含糊（"评估过但无优势" vs "没有可比证据"），已记入待办。
+
+### 凭据处置
+
+Key 只存在于一次性 shell 会话的环境变量中，运行后立即 `unset`。已验证：
+生成的报告与目录响应均不含 Key，工作树与全部 git 历史（`git log --all -S`）
+均无匹配。临时文件已删除。
+
 ## Explicitly Not Run
 
-- 302.ai live 评估：需要 `KQ_302AI_API_KEY`，未在本地环境导出，也未写入任何命令、
-  文件、日志或提交。该套件由 `provider-302ai-live.yml` 在 workflow_dispatch、
-  nightly 与 `v*-rc*` 标签上独立运行。
 - 三平台打包冒烟：本地只验证了 macOS 上的 `electron-vite build` 产物；Windows /
   Linux 由 CI 承担。
+- PRD §19 的黄金场景 live 评估（`C_state` / `C_tool` / `C_evidence` 打分）尚无脚本
+  实现；当前 `live:302ai` 覆盖的是 §13.3 的三层连接探测，不是完整的场景套件。
 
 ## Existing Repository Baselines
 

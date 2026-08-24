@@ -120,6 +120,13 @@ once at the adapter boundary and returned without raw Provider details.
   separate from current model candidates; the opt-in live runner either emits
   a redacted availability/compatibility/latency report or proves a missing-key
   zero-request skip.
+- Node matrix: a suite skipped for unsupported Node versions must use a
+  type-only top-level import and dynamically import `./node` inside the gated
+  test. `describe.skip` runs after static module evaluation and cannot protect
+  Node 22.12 from an unavailable `node:sqlite` import.
+- Clean checkout: host Vitest configs resolve workspace runtime imports to the
+  runtime source, or explicitly build the dependency first. Unit tests must not
+  pass only because a developer has a stale `packages/agent-runtime/dist`.
 - Package: strict TypeScript, `publint --strict`, direct `.` / `./node` Node ESM
   imports, and declaration scans for Vue/Electron/Core internal types.
 

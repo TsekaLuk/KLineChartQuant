@@ -46,6 +46,18 @@ function requestHash(request: AgentIpcRequest): string {
   return createHash('sha256').update(JSON.stringify(request)).digest('hex')
 }
 
+// 从 session.open 的快照里取出历史 run id，快照结构由 agent-runtime 保证。
+function snapshotRunIds(value: unknown): string[] {
+  if (typeof value !== 'object' || value === null || !('runs' in value)) return []
+  const { runs } = value
+  if (!Array.isArray(runs)) return []
+  return runs.flatMap((run) =>
+    typeof run === 'object' && run !== null && 'id' in run && typeof run.id === 'string'
+      ? [run.id]
+      : [],
+  )
+}
+
 export class AgentIpcRouter {
   private readonly application: AgentApplicationApi
   private readonly now: () => number
@@ -142,6 +154,8 @@ export class AgentIpcRouter {
         )
       case 'turn.undo':
         return this.application.undoTurn(request.payload.runId)
+      case 'run.exportTrace':
+        return this.application.exportRunTrace(request.payload.runId)
       case 'provider.status':
         return this.application.getProviderStatus()
       case 'provider.models':
@@ -197,8 +211,12 @@ export class AgentIpcRouter {
     ) {
       this.sessionOwners.set(value.id, senderId)
     }
-    if (request.command === 'session.open')
+    // 打开会话时把快照里的历史 run 一并登记，否则应用重启后恢复出来的 run
+    // 在 retry / undo / exportTrace 时会被误判为其他窗口的目标。
+    if (request.command === 'session.open') {
       this.sessionOwners.set(request.payload.sessionId, senderId)
+      for (const runId of snapshotRunIds(value)) this.runOwners.set(runId, senderId)
+    }
     if (
       (request.command === 'run.start' || request.command === 'run.retry') &&
       typeof value === 'object' &&

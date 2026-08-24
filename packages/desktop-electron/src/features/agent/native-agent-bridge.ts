@@ -1,5 +1,6 @@
 import type {
   AgentBridgeClient,
+  AgentRunTraceExport,
   AgentSessionSnapshot,
   AgentSessionView,
   AgentUiEvent,
@@ -51,6 +52,9 @@ export class NativeAgentBridgeClient implements AgentBridgeClient {
   }
   undoTurn(runId: string): Promise<void> {
     return this.native.undoTurn(runId)
+  }
+  exportRunTrace(runId: string): Promise<AgentRunTraceExport> {
+    return this.native.exportRunTrace(runId)
   }
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
     return this.native.testProvider(input)

@@ -199,6 +199,14 @@ export default tseslint.config(
     },
   },
 
+  // Node CLI 与 Electron 主进程以 stdout/stderr 作为唯一输出通道，console 是它们的产物而非噪音。
+  {
+    files: ['scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'packages/*/electron/main.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   // ✅ Prettier 必须在所有规则之后 — 关闭与 Prettier 冲突的格式规则
   eslintConfigPrettier,
 )

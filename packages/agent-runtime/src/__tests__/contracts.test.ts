@@ -6,6 +6,7 @@ import {
   AgentRuntimeError,
   createUnavailableRuntimeSupport,
   parseAgentIpcRequest,
+  redactString,
   redactValue,
   type AgentRuntimeErrorCode,
 } from '../index'
@@ -106,6 +107,26 @@ describe('redaction', () => {
     expect(serialized).not.toContain('alice')
     expect(serialized).not.toContain('private reasoning')
     expect(serialized).not.toContain('sk-abcdefghijklmnop')
+  })
+
+  it('keeps the undo handle readable because it is not a credential', () => {
+    expect(redactValue({ undoToken: 'undo-42', accessToken: 'live-value' })).toEqual({
+      undoToken: 'undo-42',
+      accessToken: '[REDACTED]',
+    })
+  })
+
+  it('passes through non-string primitives and empty registered secrets untouched', () => {
+    expect(redactValue([1, true, null, 'plain'], { secretValues: [''] })).toEqual([
+      1,
+      true,
+      null,
+      'plain',
+    ])
+  })
+
+  it('honours a custom replacement token', () => {
+    expect(redactString('Bearer abc.def', { replacement: '<hidden>' })).toBe('<hidden>')
   })
 })
 

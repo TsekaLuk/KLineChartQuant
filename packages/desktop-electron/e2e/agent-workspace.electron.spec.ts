@@ -83,6 +83,7 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
         'createSession',
         'deleteProviderCredential',
         'deleteSession',
+        'exportRunTrace',
         'getProviderStatus',
         'listProviderModels',
         'listSessions',
@@ -95,7 +96,7 @@ test('launches the chart and exercises the complete Agent workspace shell', asyn
         'undoTurn',
       ],
     )
-    expect(Object.values(agentApiShape)).toEqual(Array(15).fill('function'))
+    expect(Object.values(agentApiShape)).toEqual(Array(16).fill('function'))
     expect(await page.evaluate(() => 'ipcRenderer' in (window.desktopAPI?.agent ?? {}))).toBe(false)
     expect(
       await page.evaluate(() => typeof window.desktopAPI?.chartTools.registerChartToolHost),
@@ -241,6 +242,18 @@ test('reopens the persisted native Agent session after an app restart', async ({
     await expect(page.locator('.message--user')).toContainText(prompt)
     await expect(page.locator('.run-summary[data-status="completed"]')).toBeVisible()
     await expect(page.locator('.tool-card[data-status="succeeded"]')).toBeVisible()
+
+    // 重启后恢复出来的 run 仍然属于本窗口，可以按 runId 导出脱敏审计包。
+    const exported = await page.evaluate(async () => {
+      const agent = window.desktopAPI!.agent
+      const sessions = await agent.listSessions()
+      const snapshot = await agent.openSession(sessions[0]!.id)
+      const runId = snapshot.runs.find((run) => run.status === 'completed')?.id
+      return runId ? await agent.exportRunTrace(runId) : null
+    })
+    expect(exported).toMatchObject({ exportVersion: 1, status: 'completed', readOnly: false })
+    expect(exported?.toolCalls.length).toBeGreaterThan(0)
+    expect(JSON.stringify(exported)).not.toContain('ephemeral-e2e-key')
   } finally {
     await application.close()
   }

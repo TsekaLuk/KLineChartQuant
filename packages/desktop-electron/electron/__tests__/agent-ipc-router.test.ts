@@ -1,13 +1,15 @@
 import {
   AGENT_IPC_PAYLOAD_VERSION,
   AGENT_IPC_PROTOCOL_VERSION,
+  KQ_TRACE_EXPORT_VERSION,
   type AgentApplicationApi,
+  type AgentRunView,
 } from '@363045841yyt/klinechart-agent-runtime'
 import { describe, expect, it, vi } from 'vitest'
 
 import { AgentIpcRouter, type AgentIpcSenderContext } from '../agent-ipc-router'
 
-function api(): AgentApplicationApi {
+function api(restoredRuns: AgentRunView[] = []): AgentApplicationApi {
   return {
     listSessions: vi.fn<AgentApplicationApi['listSessions']>(async () => [
       { id: 'session-1', title: 'One', updatedAt: 1 },
@@ -16,7 +18,7 @@ function api(): AgentApplicationApi {
       session: { id: sessionId, title: 'One', updatedAt: 1 },
       messages: [],
       toolCalls: [],
-      runs: [],
+      runs: restoredRuns,
       lastSequence: 0,
     })),
     getProviderStatus: vi.fn<AgentApplicationApi['getProviderStatus']>(async () => ({
@@ -39,6 +41,18 @@ function api(): AgentApplicationApi {
     retryRun: vi.fn<AgentApplicationApi['retryRun']>(async () => ({ runId: 'run-2' })),
     confirmTool: vi.fn<AgentApplicationApi['confirmTool']>(async () => undefined),
     undoTurn: vi.fn<AgentApplicationApi['undoTurn']>(async () => undefined),
+    exportRunTrace: vi.fn<AgentApplicationApi['exportRunTrace']>(async (runId) => ({
+      exportVersion: KQ_TRACE_EXPORT_VERSION,
+      exportedAt: 5,
+      sessionId: 'session-1',
+      runId,
+      turnId: 'turn-1',
+      readOnly: true,
+      startedAt: 1,
+      status: 'completed',
+      toolCalls: [],
+      events: [],
+    })),
     testProvider: vi.fn<AgentApplicationApi['testProvider']>(async (input) => ({
       compatible: true,
       model: input.model,
@@ -136,6 +150,33 @@ describe('AgentIpcRouter', () => {
       ok: false,
       error: { code: 'DUPLICATE_REQUEST' },
     })
+  })
+
+  it('claims restored runs on session.open so a relaunched window can audit them', async () => {
+    const application = api([{ id: 'run-restored', sessionId: 'session-1', status: 'completed' }])
+    const router = new AgentIpcRouter({ application, now: () => 1_000 })
+
+    expect(
+      await router.route(request('session.open', { sessionId: 'session-1' }), sender),
+    ).toMatchObject({ ok: true })
+    expect(
+      await router.route(request('run.exportTrace', { runId: 'run-restored' }), sender),
+    ).toMatchObject({ ok: true, value: { runId: 'run-restored', exportVersion: 1 } })
+    expect(
+      await router.route(request('turn.undo', { runId: 'run-restored' }), sender),
+    ).toMatchObject({ ok: true })
+    expect(application.exportRunTrace).toHaveBeenCalledWith('run-restored')
+  })
+
+  it('refuses to export a run that belongs to another Renderer', async () => {
+    const application = api()
+    const router = new AgentIpcRouter({ application, now: () => 1_000 })
+    await router.route(request('session.list', {}), sender)
+
+    expect(
+      await router.route(request('run.exportTrace', { runId: 'run-elsewhere' }), sender),
+    ).toMatchObject({ ok: false, error: { code: 'TARGET_MISMATCH' } })
+    expect(application.exportRunTrace).not.toHaveBeenCalled()
   })
 
   it('releases ownership when the port or Renderer closes', async () => {

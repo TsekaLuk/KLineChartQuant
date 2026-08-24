@@ -28,10 +28,12 @@ export interface KqRunStartedEntry {
   retryOfRunId?: string
 }
 
+export type KqRunTerminalStatus = 'completed' | 'failed' | 'cancelled' | 'partial' | 'interrupted'
+
 export interface KqRunTerminalEntry {
   schemaVersion: typeof KQ_SESSION_SCHEMA_VERSION
   runId: string
-  status: 'completed' | 'failed' | 'cancelled' | 'partial' | 'interrupted'
+  status: KqRunTerminalStatus
   endedAt: number
 }
 
@@ -42,6 +44,7 @@ export interface PersistedAgentEvent {
 
 export interface KqToolTraceEntry {
   schemaVersion: typeof KQ_SESSION_SCHEMA_VERSION
+  /** 幂等键 `sessionId/runId/toolCallId/toolVersion`；按 run 过滤请用 `result.meta.runId`。 */
   key: string
   inputHash: string
   toolName: string

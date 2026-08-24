@@ -76,6 +76,27 @@ executeToolAsync(
   identity: ToolExecutionIdentity,
   options: ExecuteToolOptions,
 ): Promise<CanonicalToolResult>
+
+interface AgentRunTraceExport {
+  exportVersion: 1
+  exportedAt: number
+  sessionId: string
+  runId: string
+  turnId: string
+  retryOfRunId?: string
+  readOnly: boolean
+  startedAt: number
+  status: AgentRunStatus
+  endedAt?: number
+  usage?: AgentUsageView
+  error?: AgentErrorView
+  toolCalls: AgentRunTraceToolCall[]
+  events: AgentUiEvent[]
+}
+
+type ExternalLinkDecision =
+  | { allowed: true; url: string }
+  | { allowed: false; reason: 'malformed' | 'protocol-not-allowed' | 'host-not-allowed' }
 ```
 
 Stable package entries are `.`, `./contracts`, `./contracts/ui`, `./node`, and
@@ -101,7 +122,26 @@ root and `./mcp-server` entry.
   `ipcRenderer`, channel names, MessagePorts, Pi payloads, and Electron events
   never cross into Renderer code.
 - Credentials and secret values are Main-only and pass through central
-  redaction before events, persistence, logs, and structured errors.
+  redaction before events, persistence, logs, and structured errors. The
+  key-name rule intentionally matches anything containing `token`; genuine
+  non-credential fields must be listed in `NON_SECRET_KEYS` rather than renamed
+  around the rule. `undoToken` is the only current exemption because turn undo
+  and FR-013 audit both require it verbatim.
+- `exportRunTrace(runId)` is the audit entry point. It joins the run start
+  record, terminal record, run-scoped UI events, and `kq.tool.trace` metadata,
+  keyed by `result.meta.runId` and `result.meta.toolCallId`. Never derive a run
+  from the composite idempotency key string; the key format is not a protocol.
+  A tool trace without a matching event is still exported so the audit package
+  cannot silently hide an executed tool.
+- Opening a session claims ownership of the runs in its snapshot. Without this,
+  a relaunched window cannot retry, undo, or export any run it restored, because
+  run ownership is otherwise only recorded when a run starts in that window.
+- The Electron Main process treats every Renderer-supplied URL as untrusted.
+  `shell.openExternal` runs only for URLs that parse, use `https:`, and match
+  `EXTERNAL_LINK_ALLOWED_HOSTS` exactly or as a subdomain. `will-navigate` is
+  permitted only for the exact application page: compare `pathname` for `file:`
+  pages (their origin is always `null`) and `origin` for the dev renderer.
+  Decisions live in pure functions so both sides are testable without Electron.
 - The 302.ai credential is accepted only by `provider.models` and
   `provider.test` request inputs. Renderer receives bounded model/status/test
   views and must never receive or persist the key. A configuration becomes
@@ -112,6 +152,13 @@ root and `./mcp-server` entry.
   rank 63 belongs only to the exact `gpt-5.6-luna-xhigh` row. Never copy a
   variant's Arena rank onto the base model or infer 302.ai availability from
   either source.
+- Measured on 2026-08-24 against 302.ai (969 catalog entries, 929 non-legacy):
+  `gpt-5.6-luna` is present and Agent-compatible (three-stage probe, 3/3 runs,
+  median latency 8056 ms / TTFT 3522 ms), and **no** declared Arena prior matches
+  any catalog id — 302.ai ships `gemini-3.7-flash` and `gemini-3-flash-preview`,
+  not the exact ranked ids. `paretoModelIds` is therefore structurally empty for
+  this Provider. Treat that as correct exact-ID behavior, not a ranking bug; the
+  fix is new exact-ID Arena evidence, never a looser match.
 - Production packages exclude runtime source, coverage, tests, and
   `dist/testing`. Electron Main bundles Agent runtime, Pi AI/Core, and the
   SQLite backend; `node:sqlite` remains a system import. Because the bundled
@@ -273,6 +320,15 @@ once at the adapter boundary and returned without raw Provider details.
 - Tool coordinator: read-only filtering, confirmation once/session/expiry,
   canonical-input replay and mismatch, persisted replay after reconnect,
   reverse-order turn undo, repeated undo, partial undo, and `UNDO_CONFLICT`.
+- Audit export: merged tool evidence, cross-run isolation, orphan traces kept,
+  unknown run rejected, and injected credentials/paths redacted in the export.
+- External navigation: every rejected protocol and look-alike host, the exact
+  application page allowed, sibling local files blocked, and no reporter wired.
+- Release gates: `agent-runtime` coverage thresholds live in `vitest.config.ts`
+  (statements/lines >= 90%, branches >= 85%, functions >= 90%; redaction at 100%
+  branches). `agent-ci.yml` runs static, unit/contract, Electron E2E, and package
+  smoke as required jobs with no `continue-on-error`; real 302.ai evaluation
+  stays in `provider-302ai-live.yml`.
 
 ## 7. Wrong vs Correct
 

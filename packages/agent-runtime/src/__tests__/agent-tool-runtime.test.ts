@@ -370,4 +370,89 @@ describe('AgentToolRuntime', () => {
         .map((event) => (event.type === 'tool.undone' ? event.toolCallId : '')),
     ).toEqual(['zoom-call', 'theme-call'])
   })
+
+  it('rejects undo for an unknown run and for a run with no reversible write', async () => {
+    const { sessions, context } = await sessionFixture()
+    const runtime = createRuntime(sessions, new FixtureTransport())
+    await runtime.composePlan(context, emptyPlan(context), {
+      emit: vi.fn<AgentToolRunHooks['emit']>(),
+    })
+
+    await expect(runtime.undoTurn('run-unknown')).rejects.toMatchObject({ code: 'RUN_NOT_ACTIVE' })
+    await expect(runtime.undoTurn(context.runId)).rejects.toMatchObject({ code: 'RUN_NOT_ACTIVE' })
+  })
+
+  it('refuses to undo once the chart has moved past the turn', async () => {
+    const { sessions, context } = await sessionFixture()
+    const transport = new FixtureTransport()
+    const runtime = createRuntime(sessions, transport)
+    const plan = await runtime.composePlan(context, emptyPlan(context), {
+      emit: vi.fn<AgentToolRunHooks['emit']>(),
+    })
+    await invoke(
+      plan.tools.find((tool) => tool.name === 'chart.zoomIn')!,
+      {},
+      'zoom-call',
+    )
+    // 用户在 Agent 之后手动改了图表，chartRevision 前进。
+    transport.revision += 3
+
+    await expect(runtime.undoTurn(context.runId)).rejects.toMatchObject({ code: 'UNDO_CONFLICT' })
+    expect(transport.undoCalls).toEqual([])
+  })
+
+  it('rejects confirming an id that is not pending', async () => {
+    const { sessions } = await sessionFixture()
+    const runtime = createRuntime(sessions, new FixtureTransport())
+
+    await expect(runtime.confirm('missing-confirmation', 'confirmed')).rejects.toMatchObject({
+      code: 'RUN_NOT_ACTIVE',
+    })
+  })
+
+  it('cancels a pending confirmation when its run finishes', async () => {
+    const { sessions, context } = await sessionFixture()
+    const transport = new FixtureTransport()
+    const events: AgentRunUiEventInput[] = []
+    const runtime = createRuntime(sessions, transport)
+    const plan = await runtime.composePlan(context, emptyPlan(context), {
+      emit: (event) => void events.push(event),
+    })
+    const pending = canonicalFailure(
+      invoke(
+        plan.tools.find((tool) => tool.name === 'drawing.clear')!,
+        {},
+        'clear-abandoned',
+      ),
+    )
+    await vi.waitFor(() => expect(latestConfirmationId(events)).toBeDefined())
+
+    runtime.finishRun(context.runId)
+
+    expect(await pending).toMatchObject({ ok: false, error: { code: 'CANCELLED' } })
+    expect(transport.executeCalls).toHaveLength(0)
+  })
+
+  it('cancels every pending confirmation and releases the proxy on close', async () => {
+    const { sessions, context } = await sessionFixture()
+    const transport = new FixtureTransport()
+    const events: AgentRunUiEventInput[] = []
+    const runtime = createRuntime(sessions, transport)
+    const plan = await runtime.composePlan(context, emptyPlan(context), {
+      emit: (event) => void events.push(event),
+    })
+    const pending = canonicalFailure(
+      invoke(
+        plan.tools.find((tool) => tool.name === 'drawing.clear')!,
+        {},
+        'clear-on-close',
+      ),
+    )
+    await vi.waitFor(() => expect(latestConfirmationId(events)).toBeDefined())
+
+    await runtime.close()
+
+    expect(await pending).toMatchObject({ ok: false, error: { code: 'CANCELLED' } })
+    await expect(runtime.undoTurn(context.runId)).rejects.toMatchObject({ code: 'RUN_NOT_ACTIVE' })
+  })
 })

@@ -7,6 +7,7 @@ import {
   PiRunDriver,
   create302AiRuntimeSupport,
   normalize302AiBaseUrl,
+  parseProvider302AiSettings,
   parseRetryAfter,
   requestProviderJson,
   type Provider302AiSettings,
@@ -117,12 +118,16 @@ describe('302.ai Provider HTTP boundary', () => {
     const response = new Response(secret, { status })
     const fetch = vi.fn(async () => response)
     await expect(
-      requestProviderJson('https://example.test', {}, {
-        fetch,
-        now: () => 0,
-        sleep: async () => undefined,
-        maxRetries: 0,
-      }),
+      requestProviderJson(
+        'https://example.test',
+        {},
+        {
+          fetch,
+          now: () => 0,
+          sleep: async () => undefined,
+          maxRetries: 0,
+        },
+      ),
     ).rejects.toMatchObject({ code })
     expect(response.bodyUsed).toBe(false)
   })
@@ -133,12 +138,16 @@ describe('302.ai Provider HTTP boundary', () => {
       .mockResolvedValueOnce(new Response('', { status: 429, headers: { 'retry-after': '2' } }))
       .mockResolvedValueOnce(json({ ok: true }))
     const sleep = vi.fn(async () => undefined)
-    const result = await requestProviderJson('https://example.test', {}, {
-      fetch,
-      now: () => 1_000,
-      sleep,
-      maxRetries: 1,
-    })
+    const result = await requestProviderJson(
+      'https://example.test',
+      {},
+      {
+        fetch,
+        now: () => 1_000,
+        sleep,
+        maxRetries: 1,
+      },
+    )
     expect(result.value).toEqual({ ok: true })
     expect(sleep).toHaveBeenCalledWith(2_000, undefined)
   })
@@ -149,20 +158,28 @@ describe('302.ai Provider HTTP boundary', () => {
         init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
       })
     await expect(
-      requestProviderJson('https://example.test', {}, {
-        fetch: hanging,
-        now: Date.now,
-        sleep: async () => undefined,
-        timeoutMs: 5,
-      }),
+      requestProviderJson(
+        'https://example.test',
+        {},
+        {
+          fetch: hanging,
+          now: Date.now,
+          sleep: async () => undefined,
+          timeoutMs: 5,
+        },
+      ),
     ).rejects.toMatchObject({ code: 'PROVIDER_TIMEOUT' })
 
     await expect(
-      requestProviderJson('https://example.test', {}, {
-        fetch: async () => new Response(`{"secret":"${secret}"`, { status: 200 }),
-        now: Date.now,
-        sleep: async () => undefined,
-      }),
+      requestProviderJson(
+        'https://example.test',
+        {},
+        {
+          fetch: async () => new Response(`{"secret":"${secret}"`, { status: 200 }),
+          now: Date.now,
+          sleep: async () => undefined,
+        },
+      ),
     ).rejects.toMatchObject({
       code: 'PROVIDER_MALFORMED_RESPONSE',
       message: '302.ai returned malformed JSON.',
@@ -340,3 +357,203 @@ describe('302.ai runtime support', () => {
     expect(JSON.stringify(status)).not.toContain(secret)
   })
 })
+
+describe('302.ai Provider malformed-response boundary', () => {
+  function supportWith(catalogBody: unknown, completion?: unknown) {
+    const { credentials, settings } = configuredStores()
+    const fetch: FetchFunction = vi.fn(async (input) =>
+      String(input).endsWith('/models') ? json(catalogBody) : json(completion ?? {}),
+    )
+    return {
+      credentials,
+      settings,
+      support: create302AiRuntimeSupport({ credentials, settings, fetch }),
+    }
+  }
+
+  it.each([
+    ['a non-object payload', 'catalog'],
+    ['an object without a data array', { object: 'list' }],
+    ['a data array with no usable model', { object: 'list', data: [{ id: '' }, { name: 'x' }] }],
+  ])('rejects %s as a malformed catalog', async (_label, body) => {
+    const { credentials, support } = supportWith(body)
+    await credentials.write(secret)
+
+    await expect(support.provider.listModels({ baseUrl })).rejects.toMatchObject({
+      code: 'PROVIDER_MALFORMED_RESPONSE',
+    })
+  })
+
+  it('requires a credential before contacting the catalog endpoint', async () => {
+    const { support } = supportWith({ object: 'list', data: [{ id: 'fast' }] })
+
+    await expect(support.provider.listModels({ baseUrl })).rejects.toMatchObject({
+      code: 'PROVIDER_NOT_CONFIGURED',
+    })
+  })
+
+  it('falls back to the model id when the catalog omits a usable name', async () => {
+    const { credentials, support } = supportWith({
+      object: 'list',
+      data: [{ id: 'beta', name: '   ' }, { id: 'alpha' }, { id: 'alpha', name: 'Alpha' }],
+    })
+    await credentials.write(secret)
+
+    expect((await support.provider.listModels({ baseUrl })).models).toEqual([
+      { id: 'alpha', name: 'Alpha', compatibility: 'unknown' },
+      { id: 'beta', name: 'beta', compatibility: 'unknown' },
+    ])
+  })
+
+  it.each([
+    ['no choices array', {}],
+    ['a choice without a message', { choices: [{}] }],
+    ['blank assistant content', { choices: [{ message: { role: 'assistant', content: '  ' } }] }],
+  ])('reports %s in the text probe as a malformed completion', async (_label, completion) => {
+    const { credentials, support } = supportWith(
+      { object: 'list', data: [{ id: 'frontier-fast', name: 'Frontier Fast' }] },
+      completion,
+    )
+    await credentials.write(secret)
+
+    await expect(support.provider.test({ baseUrl, model: 'frontier-fast' })).rejects.toMatchObject({
+      code: 'PROVIDER_MALFORMED_RESPONSE',
+    })
+  })
+
+  it.each([
+    ['no tool_calls', { role: 'assistant', content: null }],
+    [
+      'unparsable tool arguments',
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ function: { name: 'kq_agent_probe', arguments: '{"nonce":' } }],
+      },
+    ],
+    [
+      'a mismatched nonce',
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          { function: { name: 'kq_agent_probe', arguments: JSON.stringify({ nonce: 'wrong' }) } },
+        ],
+      },
+    ],
+  ])('marks a model incompatible when the tool probe returns %s', async (_label, message) => {
+    const { credentials, settings } = configuredStores()
+    await credentials.write(secret)
+    const fetch: FetchFunction = vi.fn(async (input, init) => {
+      if (String(input).endsWith('/models')) {
+        return json({ object: 'list', data: [{ id: 'frontier-fast', name: 'Frontier Fast' }] })
+      }
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return Array.isArray(body.tools)
+        ? json({ choices: [{ message }] })
+        : json({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })
+    })
+    const support = create302AiRuntimeSupport({ credentials, settings, fetch })
+
+    await expect(support.provider.test({ baseUrl, model: 'frontier-fast' })).rejects.toMatchObject({
+      code: 'PROVIDER_INCOMPATIBLE_TOOLS',
+    })
+  })
+})
+
+describe('persisted Provider settings', () => {
+  it('accepts an absent value and round-trips a complete record', () => {
+    expect(parseProvider302AiSettings(undefined)).toBeUndefined()
+    expect(parseProvider302AiSettings(valid())).toEqual(valid())
+  })
+
+  it('rejects every shape that would silently downgrade the saved Provider', () => {
+    const invalid: unknown[] = [
+      null,
+      'settings',
+      ['settings'],
+      { ...valid(), version: 99 },
+      { ...valid(), baseUrl: 1 },
+      { ...valid(), modelId: undefined },
+      { ...valid(), modelName: null },
+      { ...valid(), compatibility: 'unknown' },
+      { ...valid(), lastTestedAt: 'recent' },
+      { ...valid(), lastTestedAt: Number.NaN },
+      { ...valid(), lastModelsRefreshAt: '20' },
+      { ...valid(), lastModelsRefreshAt: Number.POSITIVE_INFINITY },
+    ]
+    for (const value of invalid) {
+      expect(() => parseProvider302AiSettings(value)).toThrowError(
+        expect.objectContaining({ code: 'PROVIDER_ERROR' }),
+      )
+    }
+  })
+
+  it('drops unknown extra fields instead of persisting them', () => {
+    expect(parseProvider302AiSettings({ ...valid(), injected: 'value' })).toEqual(valid())
+  })
+})
+
+describe('in-memory Provider stores', () => {
+  it('stores, reads, and deletes a credential while reporting its persistence mode', async () => {
+    const credentials = new InMemoryProviderCredentialStore({ persistenceMode: 'memory-only' })
+
+    expect(await credentials.read()).toBeUndefined()
+    await credentials.write(secret)
+    expect(await credentials.read()).toBe(secret)
+    expect(await credentials.metadata()).toEqual({ persistenceMode: 'memory-only' })
+    await credentials.delete()
+    expect(await credentials.read()).toBeUndefined()
+  })
+
+  it('defaults to memory-only persistence', async () => {
+    expect(await new InMemoryProviderCredentialStore().metadata()).toEqual({
+      persistenceMode: 'memory-only',
+    })
+  })
+
+  it('honours an aborted signal on every credential operation', async () => {
+    const credentials = new InMemoryProviderCredentialStore()
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(credentials.read(controller.signal)).rejects.toThrowError()
+    await expect(credentials.write(secret, controller.signal)).rejects.toThrowError()
+    await expect(credentials.delete(controller.signal)).rejects.toThrowError()
+  })
+
+  it('clones settings so callers cannot mutate stored state', async () => {
+    const store = new InMemoryProviderSettingsStore()
+    const settings = valid()
+
+    expect(await store.read()).toBeUndefined()
+    await store.write(settings)
+    settings.modelId = 'mutated'
+    const stored = await store.read()
+    expect(stored?.modelId).toBe('frontier-fast')
+
+    stored!.modelId = 'mutated-again'
+    expect((await store.read())?.modelId).toBe('frontier-fast')
+  })
+
+  it('honours an aborted signal on settings reads and writes', async () => {
+    const store = new InMemoryProviderSettingsStore()
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(store.read(controller.signal)).rejects.toThrowError()
+    await expect(store.write(valid(), controller.signal)).rejects.toThrowError()
+  })
+})
+
+function valid(): Provider302AiSettings {
+  return {
+    version: 1,
+    baseUrl,
+    modelId: 'frontier-fast',
+    modelName: 'Frontier Fast',
+    compatibility: 'compatible',
+    lastTestedAt: 10,
+    lastModelsRefreshAt: 20,
+  }
+}

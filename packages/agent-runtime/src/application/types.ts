@@ -1,4 +1,5 @@
 import type {
+  AgentRunTraceExport,
   AgentRunUiEventInput,
   AgentSessionSnapshot,
   AgentSessionView,
@@ -61,6 +62,7 @@ export interface AgentApplicationApi {
   retryRun(runId: string): Promise<{ runId: string }>
   confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void>
   undoTurn(runId: string): Promise<void>
+  exportRunTrace(runId: string): Promise<AgentRunTraceExport>
   listProviderModels(input: ProviderModelsInput): Promise<ProviderModelsResult>
   testProvider(input: ProviderTestInput): Promise<ProviderTestResult>
   deleteProviderCredential(): Promise<void>

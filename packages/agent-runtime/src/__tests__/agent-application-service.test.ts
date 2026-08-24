@@ -316,7 +316,7 @@ describe('AgentApplicationService', () => {
     await expect(service.deleteProviderCredential()).resolves.toBeUndefined()
     expect(await service.getProviderStatus()).toMatchObject({
       state: 'not-configured',
-      providerLabel: '302.ai',
+      providerLabel: 'OpenAI-compatible',
     })
   })
 

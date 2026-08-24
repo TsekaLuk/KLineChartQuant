@@ -2,7 +2,7 @@ import { AgentRuntimeError } from '../contracts/errors.js'
 
 import {
   PROVIDER_SETTINGS_VERSION,
-  type Provider302AiSettings,
+  type ProviderSettings,
   type ProviderCredentialMetadata,
   type ProviderCredentialStore,
   type ProviderSettingsStore,
@@ -12,7 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export function parseProvider302AiSettings(value: unknown): Provider302AiSettings | undefined {
+export function parseProviderSettings(value: unknown): ProviderSettings | undefined {
   if (value === undefined) return undefined
   if (
     !isRecord(value) ||
@@ -73,15 +73,18 @@ export class InMemoryProviderCredentialStore implements ProviderCredentialStore 
 }
 
 export class InMemoryProviderSettingsStore implements ProviderSettingsStore {
-  private value: Provider302AiSettings | undefined
+  private value: ProviderSettings | undefined
 
-  async read(signal?: AbortSignal): Promise<Provider302AiSettings | undefined> {
+  async read(signal?: AbortSignal): Promise<ProviderSettings | undefined> {
     signal?.throwIfAborted()
     return this.value ? structuredClone(this.value) : undefined
   }
 
-  async write(settings: Provider302AiSettings, signal?: AbortSignal): Promise<void> {
+  async write(settings: ProviderSettings, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
     this.value = structuredClone(settings)
   }
 }
+
+/** @deprecated 使用 parseProviderSettings。 */
+export const parseProvider302AiSettings = parseProviderSettings

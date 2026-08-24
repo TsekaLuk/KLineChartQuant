@@ -70,20 +70,21 @@ describe('AgentWorkspace', () => {
     await mounted.wrapper.get('button[aria-label="Provider settings"]').trigger('click')
     const dialog = document.querySelector<HTMLElement>('.settings-dialog')!
     const inputs = dialog.querySelectorAll<HTMLInputElement>('input')
+    inputs[0]!.value = 'https://api.deepseek.com'
+    inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }))
     inputs[1]!.value = 'temporary-test-key'
     inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
     dialog.querySelector<HTMLButtonElement>('.settings-dialog__refresh')!.click()
     await flushPromises()
 
-    const options = dialog.querySelectorAll<HTMLOptionElement>('select option')
+    const modelSelect = dialog.querySelector<HTMLSelectElement>('.settings-dialog__model-control select')!
+    const options = modelSelect.querySelectorAll<HTMLOptionElement>('option')
     expect([...options].map((option) => option.value)).toEqual([
       'gemini-3.7-flash-high',
       'gpt-5.6-luna',
     ])
-    expect(dialog.querySelector<HTMLSelectElement>('select')!.value).toBe(
-      'gemini-3.7-flash-high',
-    )
+    expect(modelSelect.value).toBe('gemini-3.7-flash-high')
   })
 
   it('does not submit on Shift+Enter and retains a pending draft when stopping', async () => {

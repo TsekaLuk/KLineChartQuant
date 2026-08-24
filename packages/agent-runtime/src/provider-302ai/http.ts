@@ -1,3 +1,4 @@
+/** OpenAI-compatible Provider 的 HTTP 边界：URL 规范化、重试与中性错误映射。 */
 import { AgentRuntimeError } from '../contracts/errors.js'
 
 import type { AgentRuntimeErrorCode } from '../contracts/errors.js'
@@ -38,7 +39,7 @@ function stableError(
   return new AgentRuntimeError(code, message, { retryable, recommendedAction })
 }
 
-export function normalize302AiBaseUrl(value: string): string {
+export function normalizeProviderBaseUrl(value: string): string {
   let url: URL
   try {
     url = new URL(value.trim())
@@ -54,6 +55,9 @@ export function normalize302AiBaseUrl(value: string): string {
   url.pathname = url.pathname.replace(/\/+$/, '') || '/'
   return url.toString().replace(/\/$/, '')
 }
+
+/** @deprecated 使用 normalizeProviderBaseUrl。 */
+export const normalize302AiBaseUrl = normalizeProviderBaseUrl
 
 export function parseRetryAfter(value: string | null, now = Date.now()): number | undefined {
   if (!value) return undefined
@@ -72,21 +76,21 @@ export function providerHttpError(
     case 401:
       return stableError(
         'PROVIDER_AUTHENTICATION',
-        '302.ai rejected the API credential.',
+        'The provider rejected the API credential.',
         false,
         'Check the API key and test the connection again.',
       )
     case 403:
       return stableError(
         'PROVIDER_PERMISSION',
-        '302.ai denied access to this resource.',
+        'The provider denied access to this resource.',
         false,
         'Check the credential permissions or account access.',
       )
     case 404:
       return stableError(
         'PROVIDER_MODEL_NOT_FOUND',
-        'The selected 302.ai model is unavailable.',
+        'The selected model is unavailable.',
         false,
         'Refresh the model list and select another model.',
       )
@@ -94,7 +98,7 @@ export function providerHttpError(
       const wait = retryAfterMs === undefined ? '' : ` Retry after ${Math.ceil(retryAfterMs / 1_000)} seconds.`
       return stableError(
         'PROVIDER_RATE_LIMITED',
-        `302.ai rate-limited the request.${wait}`,
+        `The provider rate-limited the request.${wait}`,
         true,
         'Wait for the retry window or select another model.',
       )
@@ -103,14 +107,14 @@ export function providerHttpError(
       if (status >= 500) {
         return stableError(
           'PROVIDER_UNAVAILABLE',
-          '302.ai is temporarily unavailable.',
+          'The provider is temporarily unavailable.',
           true,
           'Retry later or select another model.',
         )
       }
       return stableError(
         'PROVIDER_ERROR',
-        'The 302.ai request was rejected.',
+        'The provider request was rejected.',
         false,
         'Review the Provider configuration and retry.',
       )
@@ -202,7 +206,7 @@ export async function requestProviderJson(
         observation.malformed = true
         throw stableError(
           'PROVIDER_MALFORMED_RESPONSE',
-          '302.ai returned malformed JSON.',
+          'The provider returned malformed JSON.',
           true,
           'Retry the request or select another model.',
         )
@@ -214,7 +218,7 @@ export async function requestProviderJson(
         observation.timedOut = true
         throw stableError(
           'PROVIDER_TIMEOUT',
-          'The 302.ai request timed out.',
+          'The provider request timed out.',
           true,
           'Retry the request or use a faster model.',
         )
@@ -222,7 +226,7 @@ export async function requestProviderJson(
       observation.networkFailure = true
       throw stableError(
         'PROVIDER_UNAVAILABLE',
-        'The app could not reach 302.ai.',
+        'The app could not reach the provider.',
         true,
         'Check the network connection and retry.',
       )

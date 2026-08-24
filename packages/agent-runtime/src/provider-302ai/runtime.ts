@@ -3,23 +3,21 @@ import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completio
 
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from '../contracts/provider-presets.js'
+
 import {
-  normalize302AiBaseUrl,
+  normalizeProviderBaseUrl,
   parseRetryAfter,
   providerHttpError,
   requestProviderJson,
   sleepWithSignal,
 } from './http.js'
-import {
-  DEFAULT_302AI_BASE_URL,
-  PROVIDER_302AI_ID,
-  PROVIDER_302AI_LABEL,
-  PROVIDER_SETTINGS_VERSION,
-} from './types.js'
+import { providerLabelForBaseUrl } from '../contracts/provider-presets.js'
+import { PROVIDER_SETTINGS_VERSION } from './types.js'
 
 import type {
-  Provider302AiRuntimeOptions,
-  Provider302AiSettings,
+  ProviderRuntimeOptions,
+  ProviderSettings,
   ProviderCredentialMetadata,
 } from './types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
@@ -59,7 +57,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseCatalog(value: unknown): CatalogModel[] {
   if (!isRecord(value) || !Array.isArray(value.data)) {
-    throw malformed('302.ai returned an invalid model catalog.')
+    throw malformed('The provider returned an invalid model catalog.')
   }
   const unique = new Map<string, CatalogModel>()
   for (const item of value.data) {
@@ -70,7 +68,7 @@ function parseCatalog(value: unknown): CatalogModel[] {
     unique.set(id, { id, name: rawName.slice(0, MAX_MODEL_ID_LENGTH) || id })
     if (unique.size >= MAX_CATALOG_MODELS) break
   }
-  if (unique.size === 0) throw malformed('302.ai returned an empty model catalog.')
+  if (unique.size === 0) throw malformed('The provider returned an empty model catalog.')
   const ordered: CatalogModel[] = []
   for (const model of unique.values()) {
     const index = ordered.findIndex((current) => model.id.localeCompare(current.id) < 0)
@@ -79,7 +77,7 @@ function parseCatalog(value: unknown): CatalogModel[] {
   return ordered
 }
 
-function malformed(message = '302.ai returned a malformed response.'): AgentRuntimeError {
+function malformed(message = 'The provider returned a malformed response.'): AgentRuntimeError {
   return new AgentRuntimeError('PROVIDER_MALFORMED_RESPONSE', message, {
     retryable: true,
     recommendedAction: 'Retry the request or select another model.',
@@ -98,7 +96,7 @@ function incompatibleTools(): AgentRuntimeError {
 
 function safeProviderError(error: unknown): AgentRuntimeError {
   if (error instanceof AgentRuntimeError) return error
-  return new AgentRuntimeError('PROVIDER_ERROR', 'The 302.ai operation failed.', {
+  return new AgentRuntimeError('PROVIDER_ERROR', 'The provider operation failed.', {
     retryable: true,
     recommendedAction: 'Retry the operation or test the Provider connection.',
     cause: error,
@@ -122,7 +120,7 @@ function modelFromCatalog(baseUrl: string, model: CatalogModel): Model<'openai-c
     id: model.id,
     name: model.name,
     api: 'openai-completions',
-    provider: PROVIDER_302AI_ID,
+    provider: OPENAI_COMPATIBLE_PROVIDER_ID,
     baseUrl,
     reasoning: false,
     input: ['text'],
@@ -190,7 +188,7 @@ function classifyStreamError(
   if (/timeout|timed out|deadline/i.test(category)) {
     return streamError(
       'PROVIDER_TIMEOUT',
-      'The 302.ai request timed out.',
+      'The provider request timed out.',
       true,
       'Retry the request or use a faster model.',
     )
@@ -201,20 +199,20 @@ function classifyStreamError(
   if (observation.networkFailure) {
     return streamError(
       'PROVIDER_UNAVAILABLE',
-      'The app could not reach 302.ai.',
+      'The app could not reach the provider.',
       true,
       'Check the network connection and retry.',
     )
   }
   return streamError(
     'PROVIDER_ERROR',
-    'The 302.ai request failed.',
+    'The provider request failed.',
     true,
     'Retry the request or select another model.',
   )
 }
 
-export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions): RuntimeSupport {
+export function createOpenAiCompatibleRuntimeSupport(options: ProviderRuntimeOptions): RuntimeSupport {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const now = options.now ?? Date.now
   const sleep = options.sleep ?? sleepWithSignal
@@ -240,7 +238,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     if (!value) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Configure a 302.ai API credential before using the Agent.',
+        'Configure a provider API credential before using the Agent.',
         { recommendedAction: 'Open Provider settings and enter an API key.' },
       )
     }
@@ -251,7 +249,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     input: ProviderModelsInput,
     signal?: AbortSignal,
   ): Promise<{ baseUrl: string; apiKey: string; models: CatalogModel[]; refreshedAt: number }> {
-    const baseUrl = normalize302AiBaseUrl(input.baseUrl || DEFAULT_302AI_BASE_URL)
+    const baseUrl = normalizeProviderBaseUrl(input.baseUrl)
     const apiKey = await resolveCredential(input.apiKey, signal)
     const result = await requestProviderJson(
       `${baseUrl}/models`,
@@ -364,7 +362,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
 
       const previousKey = await options.credentials.read()
       await options.credentials.write(refreshed.apiKey)
-      const settings: Provider302AiSettings = {
+      const settings: ProviderSettings = {
         version: PROVIDER_SETTINGS_VERSION,
         baseUrl: refreshed.baseUrl,
         modelId: selected.id,
@@ -397,7 +395,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
 
   async function getStatus(): Promise<ProviderStatusView> {
     let apiKey: string | undefined
-    let settings: Provider302AiSettings | undefined
+    let settings: ProviderSettings | undefined
     let metadata: ProviderCredentialMetadata = { persistenceMode: 'memory-only' }
     try {
       metadata = await options.credentials.metadata()
@@ -410,9 +408,9 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     const compatible = configured && settings?.compatibility === 'compatible'
     return {
       state: lastError ? 'error' : compatible ? 'connected' : 'not-configured',
-      providerLabel: PROVIDER_302AI_LABEL,
+      providerLabel: providerLabelForBaseUrl(settings?.baseUrl),
       configured,
-      baseUrl: settings?.baseUrl ?? DEFAULT_302AI_BASE_URL,
+      baseUrl: settings?.baseUrl,
       modelId: settings?.modelId,
       modelLabel: settings?.modelName,
       fingerprint: apiKey ? await fingerprint(apiKey) : undefined,
@@ -440,7 +438,7 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     if (!apiKey || settings?.compatibility !== 'compatible') {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
-        'Configure an Agent-compatible 302.ai model before starting a run.',
+        'Configure an Agent-compatible provider model before starting a run.',
         { recommendedAction: 'Open Provider settings and test a model.' },
       )
     }
@@ -449,12 +447,12 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
       ({ id: settings.modelId, name: settings.modelName } satisfies CatalogModel)
     const model = modelFromCatalog(settings.baseUrl, selected)
     const provider = createProvider({
-      id: PROVIDER_302AI_ID,
-      name: PROVIDER_302AI_LABEL,
+      id: OPENAI_COMPATIBLE_PROVIDER_ID,
+      name: providerLabelForBaseUrl(settings.baseUrl),
       baseUrl: settings.baseUrl,
       auth: {
         apiKey: {
-          name: '302.ai API key',
+          name: 'Provider API key',
           resolve: async ({ signal }) => {
             signal.throwIfAborted()
             return { auth: { apiKey }, source: 'Main credential store' }
@@ -512,3 +510,6 @@ export function create302AiRuntimeSupport(options: Provider302AiRuntimeOptions):
     },
   }
 }
+
+/** @deprecated 使用 createOpenAiCompatibleRuntimeSupport。 */
+export const create302AiRuntimeSupport = createOpenAiCompatibleRuntimeSupport

@@ -6,10 +6,11 @@ import {
   ARENA_QUALITY_SOURCE,
   CURRENT_FAST_FRONTIER_CANDIDATES,
   CURRENT_MODEL_SOURCE,
-  DEFAULT_302AI_BASE_URL,
   InMemoryProviderCredentialStore,
   InMemoryProviderSettingsStore,
-  create302AiRuntimeSupport,
+  createOpenAiCompatibleRuntimeSupport,
+  providerPresetById,
+  readLiveProviderEnv,
   findArenaPrior,
   findCurrentFastCandidate,
   isLegacyModelId,
@@ -17,9 +18,10 @@ import {
   rankProviderParetoFrontier,
 } from '../dist/index.js'
 
-const apiKey = process.env.KQ_302AI_API_KEY
-const baseUrl = process.env.KQ_LLM_BASE_URL || DEFAULT_302AI_BASE_URL
-const explicitModel = process.env.KQ_LLM_MODEL
+const live = readLiveProviderEnv()
+const apiKey = live.apiKey
+const baseUrl = live.baseUrl || providerPresetById('302ai').baseUrl
+const explicitModel = live.modelId
 const runs = Math.max(3, Math.min(5, Number(process.env.KQ_LIVE_RUNS || 3)))
 const maxCandidates = Math.max(1, Math.min(5, Number(process.env.KQ_LIVE_MAX_CANDIDATES || 3)))
 const reportPath = process.env.KQ_302AI_REPORT_PATH
@@ -36,7 +38,7 @@ async function publish(report) {
 if (!apiKey) {
   await publish({
     status: 'skipped',
-    reason: 'KQ_302AI_API_KEY is not exported.',
+    reason: 'KQ_LLM_API_KEY or KQ_302AI_API_KEY is not exported.',
     arenaQualitySource: ARENA_QUALITY_SOURCE,
     currentModelSource: CURRENT_MODEL_SOURCE,
     currentCandidates: CURRENT_FAST_FRONTIER_CANDIDATES,
@@ -47,7 +49,7 @@ if (!apiKey) {
 
 const credentials = new InMemoryProviderCredentialStore()
 const settings = new InMemoryProviderSettingsStore()
-const support = create302AiRuntimeSupport({ credentials, settings })
+const support = createOpenAiCompatibleRuntimeSupport({ credentials, settings })
 const catalog = await support.provider.listModels({ baseUrl, apiKey })
 const candidates = catalog.models
   .filter((model) => !isLegacyModelId(model.id))

@@ -4,8 +4,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   AgentApplicationService,
   AgentToolRuntime,
+  InMemoryProviderCredentialStore,
+  InMemoryProviderSettingsStore,
+  LEGACY_PROVIDER_CREDENTIAL_FILE,
+  LEGACY_PROVIDER_SETTINGS_FILE,
+  PROVIDER_CREDENTIAL_FILE,
+  PROVIDER_SETTINGS_FILE,
   RendererToolProxy,
-  create302AiRuntimeSupport,
+  createOpenAiCompatibleRuntimeSupport,
+  readLiveProviderEnv,
   type RuntimeSupport,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
@@ -78,6 +85,43 @@ function createWindow(): void {
   }
 }
 
+/**
+ * 选择本次启动使用的 Provider。
+ *
+ * - 生产构建使用 OpenAI 兼容 Provider，凭据经 safeStorage 加密落盘。
+ * - e2e 构建默认使用确定性 Faux Provider。
+ * - e2e 构建设置 `KQ_LIVE_E2E` 时改用真实 Provider，与 fixture 行情组合成
+ *   「固定数据 + 真实模型」评估环境；凭据只从环境变量读入内存。
+ *
+ * Faux 的动态 import 位于 `MODE === 'e2e'` 分支内，生产构建下是静态死代码。
+ */
+async function createRuntimeSupport(userData: string): Promise<RuntimeSupport> {
+  if (import.meta.env.MODE === 'e2e') {
+    if (!process.env.KQ_LIVE_E2E) {
+      const testing = await import('@363045841yyt/klinechart-agent-runtime/testing')
+      return testing.createFauxRuntimeSupport()
+    }
+    const live = readLiveProviderEnv()
+    const credentials = new InMemoryProviderCredentialStore({ persistenceMode: 'memory-only' })
+    if (live.apiKey) await credentials.write(live.apiKey)
+    return createOpenAiCompatibleRuntimeSupport({
+      credentials,
+      settings: new InMemoryProviderSettingsStore(),
+    })
+  }
+  return createOpenAiCompatibleRuntimeSupport({
+    credentials: new ElectronSafeStorageCredentialStore({
+      filePath: join(userData, PROVIDER_CREDENTIAL_FILE),
+      fallbackFilePath: join(userData, LEGACY_PROVIDER_CREDENTIAL_FILE),
+      safeStorage,
+    }),
+    settings: new ElectronProviderSettingsStore(
+      join(userData, PROVIDER_SETTINGS_FILE),
+      join(userData, LEGACY_PROVIDER_SETTINGS_FILE),
+    ),
+  })
+}
+
 app.whenReady().then(async () => {
   registerIpcHandlers()
   const userData = app.getPath('userData')
@@ -85,18 +129,7 @@ app.whenReady().then(async () => {
     databasePath: join(userData, 'agent-sessions.sqlite'),
     cwd: userData,
   })
-  const support: RuntimeSupport =
-    import.meta.env.MODE === 'e2e'
-      ? (await import('@363045841yyt/klinechart-agent-runtime/testing')).createFauxRuntimeSupport()
-      : create302AiRuntimeSupport({
-          credentials: new ElectronSafeStorageCredentialStore({
-            filePath: join(userData, 'agent-provider-302ai-credential.json'),
-            safeStorage,
-          }),
-          settings: new ElectronProviderSettingsStore(
-            join(userData, 'agent-provider-302ai-settings.json'),
-          ),
-        })
+  const support = await createRuntimeSupport(userData)
   const rendererProxy = new RendererToolProxy()
   agentToolRuntime = new AgentToolRuntime({ proxy: rendererProxy, sessions: nodeRuntime.sessions })
   const application = new AgentApplicationService({

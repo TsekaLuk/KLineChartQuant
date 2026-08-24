@@ -6,9 +6,12 @@ import {
   InMemoryProviderSettingsStore,
   PiRunDriver,
   create302AiRuntimeSupport,
+  matchProviderPresetId,
   normalize302AiBaseUrl,
   parseProvider302AiSettings,
   parseRetryAfter,
+  providerLabelForBaseUrl,
+  readLiveProviderEnv,
   requestProviderJson,
   type Provider302AiSettings,
 } from '../index'
@@ -87,6 +90,25 @@ async function configure(
     lastModelsRefreshAt: 9,
   })
 }
+
+describe('OpenAI-compatible presets and live env', () => {
+  it('matches official URLs and aliases without treating 302.ai as the default', () => {
+    expect(matchProviderPresetId('')).toBe('custom')
+    expect(matchProviderPresetId('https://api.deepseek.com/v1')).toBe('deepseek')
+    expect(matchProviderPresetId('https://api.groq.com/openai/v1')).toBe('groq')
+    expect(matchProviderPresetId('https://api.302.ai/v1')).toBe('302ai')
+    expect(providerLabelForBaseUrl(undefined)).toBe('OpenAI-compatible')
+    expect(providerLabelForBaseUrl('https://api.302.ai/v1')).toBe('302.ai')
+  })
+
+  it('prefers the vendor-neutral live key and accepts the deprecated alias', () => {
+    expect(readLiveProviderEnv({ KQ_LLM_API_KEY: 'new', KQ_302AI_API_KEY: 'old' }).apiKey).toBe(
+      'new',
+    )
+    expect(readLiveProviderEnv({ KQ_302AI_API_KEY: 'old' }).apiKey).toBe('old')
+    expect(readLiveProviderEnv({}).apiKey).toBeUndefined()
+  })
+})
 
 describe('302.ai Provider HTTP boundary', () => {
   it('normalizes valid endpoints and rejects credentials, queries, and non-HTTP URLs', () => {
@@ -182,12 +204,28 @@ describe('302.ai Provider HTTP boundary', () => {
       ),
     ).rejects.toMatchObject({
       code: 'PROVIDER_MALFORMED_RESPONSE',
-      message: '302.ai returned malformed JSON.',
+      message: 'The provider returned malformed JSON.',
     })
   })
 })
 
 describe('302.ai runtime support', () => {
+  it('starts unconfigured without inventing a vendor Base URL', async () => {
+    const { credentials, settings } = configuredStores()
+    const support = create302AiRuntimeSupport({
+      credentials,
+      settings,
+      fetch: providerFetch(),
+    })
+    const status = await support.provider.getStatus()
+    expect(status).toMatchObject({
+      state: 'not-configured',
+      configured: false,
+      providerLabel: 'OpenAI-compatible',
+    })
+    expect(status.baseUrl).toBeUndefined()
+  })
+
   it('discovers models, passes all probes, and persists only the successful configuration', async () => {
     const { credentials, settings } = configuredStores()
     let currentTime = 100
@@ -331,7 +369,7 @@ describe('302.ai runtime support', () => {
     })
     await expect(new PiRunDriver().run(plan, () => undefined)).rejects.toMatchObject({
       code: 'PROVIDER_AUTHENTICATION',
-      message: '302.ai rejected the API credential.',
+      message: 'The provider rejected the API credential.',
     })
   })
 
@@ -352,7 +390,7 @@ describe('302.ai runtime support', () => {
     expect(status).toMatchObject({
       state: 'error',
       configured: true,
-      error: { code: 'PROVIDER_ERROR', message: 'The 302.ai operation failed.' },
+      error: { code: 'PROVIDER_ERROR', message: 'The provider operation failed.' },
     })
     expect(JSON.stringify(status)).not.toContain(secret)
   })

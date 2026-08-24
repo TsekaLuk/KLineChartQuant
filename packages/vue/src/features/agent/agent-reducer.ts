@@ -1,6 +1,7 @@
 /** Project replayed and live Agent events into the single Renderer view state. */
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  unconfiguredProviderStatus,
   type AgentErrorView,
   type AgentMessageView,
   type AgentRunView,
@@ -44,13 +45,7 @@ export function createInitialAgentState(): AgentWorkspaceState {
     confirmations: [],
     run: IDLE_RUN,
     previousRuns: [],
-    provider: {
-      state: 'not-configured',
-      providerLabel: '302.ai',
-      configured: false,
-      baseUrl: 'https://api.302.ai/v1',
-      compatibility: 'unknown',
-    },
+    provider: unconfiguredProviderStatus(),
     context: {
       symbol: 'BTCUSDT',
       period: '1h',

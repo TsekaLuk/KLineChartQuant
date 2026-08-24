@@ -10,6 +10,7 @@ import {
 
 import { AgentRuntimeError } from '../contracts/errors.js'
 import { createPiTools } from '../pi/pi-tool-adapter.js'
+import { buildAgentSystemPrompt } from '../pi/system-prompt.js'
 
 import type {
   AgentRunUiEventInput,
@@ -181,10 +182,10 @@ export class AgentToolRuntime {
       ...plan,
       scope: { ...plan.scope, readOnly: context.readOnly },
       tools,
-      systemPrompt:
-        tools.length > 0
-          ? `You are the KLineChartQuant financial analysis Agent. Inspect chart state before writes, use only supplied tools, preserve structured failures, and never claim a mutation succeeded unless its tool result succeeded. Scope: ${JSON.stringify(plan.scope)}.`
-          : 'You are the KLineChartQuant financial analysis Agent. No ready chart target is available. Answer only from user-provided text and do not claim to have read or changed the chart.',
+      systemPrompt: buildAgentSystemPrompt(
+        { ...plan.scope, readOnly: context.readOnly },
+        tools.length > 0,
+      ),
     }
   }
 

@@ -1,0 +1,3 @@
+{"file":".trellis/spec/backend/agent-runtime.md","reason":"Provider credentials, probes, and live env stay Main-only; Renderer receives bounded status/model/test views."}
+{"file":".trellis/spec/frontend/agent-workbench.md","reason":"Shared Agent settings dialog must stay host-agnostic and must not import Electron or raw provider payloads."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"baseUrl, preset label, and credential aliases cross runtime, IPC, persistence, and Vue."}

@@ -116,6 +116,12 @@ export function createMockChartController(
       getContext() {
         throw new Error('Mock Agent context is not configured')
       },
+      getState() {
+        throw new Error('Mock Agent state is not configured')
+      },
+      setVisibleRange() {
+        throw new Error('Mock Agent navigation is not configured')
+      },
       queryIndicator: () => Promise.resolve(''),
     },
     viewport,
@@ -136,6 +142,7 @@ export function createMockChartController(
     subPanes: createSignal<ReadonlyArray<SubPaneInfo>>([]),
     drawingTool: createSignal('cursor' as const),
     drawings: createSignal<ReadonlyArray<DrawingObject>>([]),
+    customMarkers: createSignal(new Map()),
     selectedDrawingId: createSignal<string | null>(null),
     paneRatios: createSignal<Readonly<Record<string, number>>>({}),
     paneLayout,

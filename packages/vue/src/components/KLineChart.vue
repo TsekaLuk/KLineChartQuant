@@ -255,6 +255,11 @@
 </template>
 
 <script setup lang="ts">
+  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
+  import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
+  import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
+
+  import { formatTimestamp } from '@363045841yyt/klinechart-core'
   import {
     SETTINGS_STORAGE_KEY,
     migrateStoredSettings,
@@ -262,7 +267,6 @@
     resolveSettings,
     type ChartSettings,
   } from '@363045841yyt/klinechart-core/config'
-  import type { RendererBackendRuntime } from '@363045841yyt/klinechart-core/controllers'
   import {
     createChartController,
     marketDataProviderRegistry,
@@ -274,8 +278,6 @@
     type SymbolInfo,
     type CustomDataSource,
   } from '@363045841yyt/klinechart-core/controllers'
-  import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
-  import type { CustomMarkerEntity } from '@363045841yyt/klinechart-core/engine/marker/registry'
   import {
     ref,
     computed,
@@ -287,11 +289,6 @@
     shallowRef,
     useSlots,
   } from 'vue'
-  import {
-    useAggregationSources,
-    type AggregationSourceDefinition,
-  } from '../composables/useAggregationSources'
-  import { formatTimestamp } from '@363045841yyt/klinechart-core'
 
   const slots = useSlots()
   /** Provider 与遗留 Fetcher 的展示元数据；已迁移源不再注册旧 Fetcher。 */
@@ -314,13 +311,17 @@
 
   import { useChartState } from '../composables/chart/useChartState'
   import { useChartTheme } from '../composables/chart/useChartTheme'
+  import { useControllerSignal } from '../composables/chart/useControllerSignal'
   import { useDrawingManager } from '../composables/chart/useDrawingManager'
   import { useIndicatorManager } from '../composables/chart/useIndicatorManager'
-  import { useControllerSignal } from '../composables/chart/useControllerSignal'
-  import { useWatchlist } from '../composables/useWatchlist'
   import { useRangeSelection } from '../composables/chart/useRangeSelection'
-  import { symbolIdentityKey } from '../composables/useSymbolSearch'
+  import {
+    useAggregationSources,
+    type AggregationSourceDefinition,
+  } from '../composables/useAggregationSources'
   import { provideFullscreenTeleportTarget } from '../composables/useFullscreenTeleportTarget'
+  import { symbolIdentityKey } from '../composables/useSymbolSearch'
+  import { useWatchlist } from '../composables/useWatchlist'
 
   import BatchStockDialog from './BatchStockDialog.vue'
   import DrawingStyleToolbar from './DrawingStyleToolbar.vue'
@@ -1769,6 +1770,7 @@
 
     // 3) 信号回调（必须在 registerSymbols 之前建立，否则订阅收不到初始通知）
     cleanupChartCallbacks = setupChartCallbacks(ctrl)
+    emit('themeChange', ctrl.theme.peek())
 
     // 4) 直接订阅 kernel 的 tooltip 信号，绕过 VNode
     _setupTooltipSub()

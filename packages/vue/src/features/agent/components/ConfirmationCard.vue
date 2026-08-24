@@ -27,6 +27,10 @@
         <IconX aria-hidden="true" />
         {{ text.reject }}
       </button>
+      <button type="button" class="confirmation__session" @click="$emit('decide', 'allow-session')">
+        <IconLockOpen aria-hidden="true" />
+        {{ text.allowSession }}
+      </button>
       <button type="button" class="confirmation__confirm" @click="$emit('decide', 'confirmed')">
         <IconCheck aria-hidden="true" />
         {{ text.confirm }}
@@ -43,14 +47,15 @@
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
-  import type { ConfirmationView } from '../agent-contracts'
+  import type { ConfirmationView, ToolConfirmationDecision } from '../agent-contracts'
 
   import IconCheck from '~icons/tabler/check'
+  import IconLockOpen from '~icons/tabler/lock-open'
   import IconShieldExclamation from '~icons/tabler/shield-exclamation'
   import IconX from '~icons/tabler/x'
 
   const props = defineProps<{ confirmation: ConfirmationView; locale: AgentLocale }>()
-  defineEmits<{ decide: [decision: 'confirmed' | 'rejected'] }>()
+  defineEmits<{ decide: [decision: ToolConfirmationDecision] }>()
   const text = computed(() => getAgentCopy(props.locale))
 </script>
 
@@ -138,6 +143,10 @@
     border-color: #996311;
     color: white;
     background: #996311;
+  }
+  .confirmation__session {
+    color: var(--agent-text);
+    background: var(--agent-input);
   }
   .confirmation__resolved {
     color: var(--agent-muted);

@@ -11,6 +11,7 @@ import type {
   ProviderModelsInput,
   ProviderTestInput,
   ProviderTestResult,
+  ToolConfirmationDecision,
 } from './agent-contracts'
 
 function operationError(error: unknown): AgentErrorView {
@@ -173,7 +174,7 @@ export function useAgentWorkspace(bridge: AgentBridgeClient) {
 
   async function confirmTool(
     confirmationId: string,
-    decision: 'confirmed' | 'rejected',
+    decision: ToolConfirmationDecision,
   ): Promise<void> {
     await bridge.confirmTool(confirmationId, decision)
   }

@@ -62,12 +62,14 @@
       "gzip": true,
       "ignore": [
         "vue",
+        "@363045841yyt/klinechart-ai-runtime",
         "@363045841yyt/klinechart-core"
       ]
     }
   ],
   "peerDependencies": {
     "@363045841yyt/klinechart-agent-runtime": "workspace:^",
+    "@363045841yyt/klinechart-ai-runtime": "workspace:^",
     "@363045841yyt/klinechart-core": "workspace:^",
     "vue": "^3.4.0"
   },

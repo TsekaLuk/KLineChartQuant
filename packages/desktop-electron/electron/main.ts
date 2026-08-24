@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url'
 
 import {
   AgentApplicationService,
+  AgentToolRuntime,
+  RendererToolProxy,
   create302AiRuntimeSupport,
   type RuntimeSupport,
 } from '@363045841yyt/klinechart-agent-runtime'
@@ -22,6 +24,7 @@ import {
 let mainWindow: BrowserWindow | null = null
 let nodeRuntime: NodeRuntimeSessions | undefined
 let agentIpc: RegisteredAgentIpc | undefined
+let agentToolRuntime: AgentToolRuntime | undefined
 let shutdownStarted = false
 const currentDirectory = dirname(fileURLToPath(import.meta.url))
 
@@ -77,13 +80,16 @@ app.whenReady().then(async () => {
             join(userData, 'agent-provider-302ai-settings.json'),
           ),
         })
+  const rendererProxy = new RendererToolProxy()
+  agentToolRuntime = new AgentToolRuntime({ proxy: rendererProxy, sessions: nodeRuntime.sessions })
   const application = new AgentApplicationService({
     sessions: nodeRuntime.sessions,
     createPlan: support.createPlan,
     provider: support.provider,
+    toolRuntime: agentToolRuntime,
   })
   await application.initialize()
-  agentIpc = registerAgentIpc(application)
+  agentIpc = registerAgentIpc(application, rendererProxy)
   createWindow()
 
   app.on('activate', () => {
@@ -105,6 +111,7 @@ app.on('before-quit', (event) => {
   shutdownStarted = true
   void (async () => {
     await agentIpc?.close()
+    await agentToolRuntime?.close()
     await nodeRuntime?.close()
     app.quit()
   })()

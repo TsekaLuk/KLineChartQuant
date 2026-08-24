@@ -1,5 +1,6 @@
 import {
   AGENT_IPC_PROTOCOL_VERSION,
+  type RendererToolProxy,
   type AgentApplicationService,
 } from '@363045841yyt/klinechart-agent-runtime'
 import {
@@ -8,7 +9,6 @@ import {
   MessageChannelMain,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
-  type MessagePortMain,
 } from 'electron'
 
 import {
@@ -17,8 +17,10 @@ import {
   AGENT_CONNECT_CHANNEL,
   AGENT_IDENTITY_CHANNEL,
   AGENT_PORT_CHANNEL,
+  AGENT_PORT_UI_MESSAGE,
 } from './agent-ipc-channels'
 import { AgentIpcRouter, type AgentIpcSenderContext } from './agent-ipc-router'
+import { ElectronRendererToolTransport } from './renderer-tool-transport'
 
 interface ConnectionIdentity {
   senderId: string
@@ -56,9 +58,13 @@ export interface RegisteredAgentIpc {
   close(): Promise<void>
 }
 
-export function registerAgentIpc(application: AgentApplicationService): RegisteredAgentIpc {
+export function registerAgentIpc(
+  application: AgentApplicationService,
+  rendererProxy: RendererToolProxy,
+): RegisteredAgentIpc {
   const router = new AgentIpcRouter({ application })
-  const ports = new Map<string, Set<MessagePortMain>>()
+  const generations = new Map<string, number>()
+  const connections = new Map<string, { close(interrupt: boolean): void }>()
 
   ipcMain.on(AGENT_IDENTITY_CHANNEL, (event) => {
     const identity = identityFor(event)
@@ -77,28 +83,43 @@ export function registerAgentIpc(application: AgentApplicationService): Register
     const identity = identityFor(event)
     if (!identity.isMainFrame || !isConnectPayload(payload, identity)) return
 
+    connections.get(identity.senderId)?.close(false)
     const { port1, port2 } = new MessageChannelMain()
+    const hostGeneration = (generations.get(identity.senderId) ?? 0) + 1
+    generations.set(identity.senderId, hostGeneration)
+    const target = {
+      windowId: identity.windowId,
+      chartId: identity.chartId,
+      hostGeneration,
+    }
+    const transport = new ElectronRendererToolTransport({ port: port1, target })
+    const detachTransport = rendererProxy.attach(transport)
     let closed = false
-    const senderPorts = ports.get(identity.senderId) ?? new Set<MessagePortMain>()
-    ports.set(identity.senderId, senderPorts)
-    senderPorts.add(port1)
-
     const unsubscribe = application.subscribe((agentEvent) => {
-      if (!closed) port1.postMessage(agentEvent)
+      if (!closed) port1.postMessage({ channel: AGENT_PORT_UI_MESSAGE, event: agentEvent })
     })
+    const connection = {
+      close(interrupt: boolean): void {
+        if (closed) return
+        closed = true
+        if (connections.get(identity.senderId) === connection) {
+          connections.delete(identity.senderId)
+        }
+        unsubscribe()
+        detachTransport()
+        router.release(identity.senderId)
+        if (interrupt) void application.interruptOwnedRuns()
+      },
+    }
+    connections.set(identity.senderId, connection)
     const cleanup = (): void => {
       if (closed) return
-      closed = true
-      unsubscribe()
-      senderPorts.delete(port1)
-      if (senderPorts.size === 0) ports.delete(identity.senderId)
-      router.release(identity.senderId)
-      void application.interruptOwnedRuns()
+      connection.close(true)
     }
     port1.on('close', cleanup)
     event.sender.once('destroyed', cleanup)
     port1.start()
-    event.senderFrame?.postMessage(AGENT_PORT_CHANNEL, null, [port2])
+    event.senderFrame?.postMessage(AGENT_PORT_CHANNEL, { target }, [port2])
   })
 
   return {
@@ -106,8 +127,9 @@ export function registerAgentIpc(application: AgentApplicationService): Register
       ipcMain.removeHandler(AGENT_COMMAND_CHANNEL)
       ipcMain.removeAllListeners(AGENT_CONNECT_CHANNEL)
       ipcMain.removeAllListeners(AGENT_IDENTITY_CHANNEL)
-      for (const senderPorts of ports.values()) for (const port of senderPorts) port.close()
-      ports.clear()
+      for (const connection of connections.values()) connection.close(false)
+      connections.clear()
+      generations.clear()
       await application.interruptOwnedRuns()
     },
   }

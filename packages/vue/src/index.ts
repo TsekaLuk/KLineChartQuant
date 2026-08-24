@@ -9,6 +9,12 @@
  * because legacy users of `@363045841yyt/klinechart` consume it.
  */
 
+import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
+import { onBeforeUnmount, onScopeDispose, shallowRef, watch, type App, type Ref } from 'vue'
+
+import { KlineChart } from './components/index'
+import { coreSignalToVueRef } from './utils/signalBridge'
+
 import type {
   ChartController,
   ChartControllerFactory,
@@ -19,11 +25,7 @@ import type {
   InteractionSnapshot,
   KLineData,
 } from '@363045841yyt/klinechart-core'
-import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
-import { onBeforeUnmount, onScopeDispose, shallowRef, watch, type App, type Ref } from 'vue'
-
-import { KlineChart } from './components/index'
 
 export type {
   ChartController,
@@ -75,6 +77,13 @@ export {
   type AgentWorkspaceState,
 } from './features/agent/agent-reducer'
 export { useAgentWorkspace } from './features/agent/use-agent-workspace'
+export {
+  useAgentChartToolHost,
+  type AgentChartControllerHandle,
+  type AgentChartToolHostHandle,
+  type AgentChartToolMessageHandler,
+  type AgentChartToolRegistrar,
+} from './features/agent/use-agent-chart-tool-host'
 export type { AgentPanelWidthStorage } from './features/agent/workbench-shell'
 
 // ---------------------------------------------------------------------------
@@ -120,7 +129,6 @@ export function createChart(opts: ChartMountOptions): ChartController | Promise<
   return controllerFactory(opts)
 }
 
-import { coreSignalToVueRef } from './utils/signalBridge'
 export { coreSignalToVueRef }
 
 // ---------------------------------------------------------------------------

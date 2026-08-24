@@ -1,23 +1,42 @@
 <template>
-  <AgentWorkbenchShell :bridge="bridge" :panel-width-storage="panelWidthStorage">
+  <AgentWorkbenchShell
+    :bridge="bridge"
+    :panel-width-storage="panelWidthStorage"
+    :theme="currentTheme"
+  >
     <template #chart>
-      <KlineChart :custom-data="e2eChartData" />
+      <KlineChart
+        ref="chartRef"
+        :custom-data="e2eChartData"
+        @theme-change="currentTheme = $event"
+      />
     </template>
   </AgentWorkbenchShell>
 </template>
 
 <script setup lang="ts">
-  import { FakeAgentBridge } from '../../vue/src/features/agent/testing/fake-agent-bridge'
-  import { AgentWorkbenchShell, KlineChart, type AgentPanelWidthStorage } from '../../vue/src/index'
+  import {
+    AgentWorkbenchShell,
+    KlineChart,
+    useAgentChartToolHost,
+    type AgentChartControllerHandle,
+    type AgentPanelWidthStorage,
+  } from '@363045841yyt/klinechart'
+  import { ref } from 'vue'
 
   import { createE2eChartData } from './features/agent/chart-e2e-fixture'
   import { NativeAgentBridgeClient } from './features/agent/native-agent-bridge'
 
   const PANEL_WIDTH_KEY = 'agent.panelWidth'
-  const bridge = window.desktopAPI?.agent
-    ? new NativeAgentBridgeClient(window.desktopAPI.agent)
-    : new FakeAgentBridge()
+  const nativeAgent = window.desktopAPI?.agent
+  if (!nativeAgent) throw new Error('The secure Agent preload bridge is unavailable.')
+  const bridge = new NativeAgentBridgeClient(nativeAgent)
   const e2eChartData = import.meta.env.MODE === 'e2e' ? createE2eChartData() : undefined
+  const chartRef = ref<AgentChartControllerHandle | null>(null)
+  const currentTheme = ref<'light' | 'dark'>(
+    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  )
+  useAgentChartToolHost(chartRef, window.desktopAPI?.chartTools)
 
   const panelWidthStorage: AgentPanelWidthStorage = {
     load() {

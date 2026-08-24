@@ -8,17 +8,18 @@
   "main": "./out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build && electron-builder",
-    "build:unpack": "electron-vite build && electron-builder --dir",
+    "build": "pnpm -w build:packages && electron-vite build && electron-builder",
+    "build:unpack": "pnpm -w build:packages && electron-vite build && electron-builder --dir",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "pnpm --filter @363045841yyt/klinechart-agent-runtime build && electron-vite build --mode e2e && playwright test --config playwright.config.ts",
-    "typecheck": "vue-tsc --build",
+    "test:e2e": "pnpm -w build:packages && electron-vite build --mode e2e && playwright test --config playwright.config.ts",
+    "typecheck": "pnpm -w build:packages && vue-tsc --build",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@363045841yyt/klinechart-agent-runtime": "workspace:*",
+    "@363045841yyt/klinechart-ai-runtime": "workspace:*",
     "@363045841yyt/klinechart": "workspace:*",
     "@363045841yyt/klinechart-core": "workspace:*"
   },

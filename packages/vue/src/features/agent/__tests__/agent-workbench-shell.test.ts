@@ -29,11 +29,15 @@ describe('AgentWorkbenchShell', () => {
       props: {
         bridge: new FakeAgentBridge({ providerConfigured: true }),
         panelWidthStorage: storage,
+        theme: 'dark',
       },
       slots: { chart: '<div data-testid="chart-slot">chart</div>' },
       attachTo: document.body,
     })
     await flushPromises()
+
+    expect(wrapper.attributes('data-theme')).toBe('dark')
+    expect(wrapper.get('.agent-workspace').attributes('data-theme')).toBe('dark')
 
     const resizer = wrapper.get('[role="separator"]')
     expect(resizer.attributes('aria-valuenow')).toBe('500')
@@ -43,7 +47,7 @@ describe('AgentWorkbenchShell', () => {
 
     await wrapper.get('[data-testid="agent-panel-close"]').trigger('click')
     expect(wrapper.get('[data-testid="agent-panel"]').isVisible()).toBe(false)
-    expect(wrapper.get('[data-testid="chart-slot"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="chart-slot"]').exists()).toBe(true)
 
     await wrapper.get('[data-testid="agent-panel-open"]').trigger('click')
     expect(wrapper.get('[data-testid="agent-panel"]').isVisible()).toBe(true)

@@ -9,6 +9,7 @@ import type {
   ProviderTestInput,
   ProviderTestResult,
   StartRunInput,
+  ToolConfirmationDecision,
 } from '@363045841yyt/klinechart-agent-runtime/contracts/ui'
 
 /** Renderer adapter with no knowledge of IPC channels or Electron primitives. */
@@ -45,7 +46,7 @@ export class NativeAgentBridgeClient implements AgentBridgeClient {
   retryRun(runId: string): Promise<{ runId: string }> {
     return this.native.retryRun(runId)
   }
-  confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
+  confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void> {
     return this.native.confirmTool(confirmationId, decision)
   }
   undoTurn(runId: string): Promise<void> {

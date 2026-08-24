@@ -14,6 +14,7 @@ import {
   type ProviderTestInput,
   type ProviderTestResult,
   type StartRunInput,
+  type ToolConfirmationDecision,
   type ToolCallView,
 } from '../agent-contracts'
 
@@ -162,7 +163,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     return this.startRun({ sessionId: run.sessionId, prompt: run.prompt, readOnly: run.readOnly })
   }
 
-  async confirmTool(confirmationId: string, decision: 'confirmed' | 'rejected'): Promise<void> {
+  async confirmTool(confirmationId: string, decision: ToolConfirmationDecision): Promise<void> {
     const pending = this.confirmations.get(confirmationId)
     if (!pending) return
     const run = this.runs.get(pending.runId)
@@ -175,7 +176,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     })
     this.confirmations.delete(confirmationId)
 
-    if (decision === 'confirmed') {
+    if (decision === 'confirmed' || decision === 'allow-session') {
       run.hasMutation = true
       const finished = {
         ...run.tool!,

@@ -1,0 +1,143 @@
+{
+  "name": "@363045841yyt/klinechart-core",
+  "version": "0.10.4",
+  "description": "Headless K-line chart engine + reactive controllers. Zero framework dependencies.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "bugs": "https://github.com/363045841/KLineChartQuant/issues",
+  "homepage": "https://363045841.github.io/KLineChartQuant/",
+  "type": "module",
+  "sideEffects": [
+    "./dist/engine/indicators/registerBuiltins.js",
+    "./dist/engine/renderers/Indicator/*.js",
+    "./dist/engine/renderers/subVolume.js",
+    "./src/data/**/*.ts",
+    "./dist/data/**/*.js"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./reactivity": {
+      "types": "./dist/foundation/reactivity/index.d.ts",
+      "import": "./dist/foundation/reactivity/index.js"
+    },
+    "./controllers": {
+      "types": "./dist/controllers/index.d.ts",
+      "import": "./dist/controllers/index.js"
+    },
+    "./market-data": {
+      "types": "./dist/data/provider/index.d.ts",
+      "import": "./dist/data/provider/index.js"
+    },
+    "./semantic": {
+      "types": "./dist/features/semantic/index.d.ts",
+      "import": "./dist/features/semantic/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/foundation/plugin/index.d.ts",
+      "import": "./dist/foundation/plugin/index.js"
+    },
+    "./config": {
+      "types": "./dist/foundation/config/chartSettings.d.ts",
+      "import": "./dist/foundation/config/chartSettings.js"
+    },
+    "./types/price": {
+      "types": "./dist/foundation/types/price.d.ts",
+      "import": "./dist/foundation/types/price.js"
+    },
+    "./engine/chart": {
+      "types": "./dist/engine/chart.d.ts",
+      "import": "./dist/engine/chart.js"
+    },
+    "./engine/utils/zoom": {
+      "types": "./dist/engine/utils/zoom.d.ts",
+      "import": "./dist/engine/utils/zoom.js"
+    },
+    "./engine/utils/klineConfig": {
+      "types": "./dist/engine/utils/klineConfig.d.ts",
+      "import": "./dist/engine/utils/klineConfig.js"
+    },
+    "./engine/renderers/Indicator": {
+      "types": "./dist/engine/renderers/Indicator/index.d.ts",
+      "import": "./dist/engine/renderers/Indicator/index.js"
+    },
+    "./indicators": {
+      "types": "./dist/engine/indicators/indicatorDefinitionRegistry.d.ts",
+      "import": "./dist/engine/indicators/indicatorDefinitionRegistry.js"
+    },
+    "./engine/renderers/Indicator/indicatorCatalog": {
+      "types": "./dist/engine/renderers/Indicator/indicatorCatalog.d.ts",
+      "import": "./dist/engine/renderers/Indicator/indicatorCatalog.js"
+    },
+    "./engine/renderers/paneTitle": {
+      "types": "./dist/engine/renderers/paneTitle.d.ts",
+      "import": "./dist/engine/renderers/paneTitle.js"
+    },
+    "./engine/controller/interaction": {
+      "types": "./dist/engine/controller/interaction.d.ts",
+      "import": "./dist/engine/controller/interaction.js"
+    },
+    "./engine/marker/registry": {
+      "types": "./dist/engine/marker/registry.d.ts",
+      "import": "./dist/engine/marker/registry.js"
+    },
+    "./engine/drawing": {
+      "types": "./dist/engine/drawing/index.d.ts",
+      "import": "./dist/engine/drawing/index.js"
+    },
+    "./version": {
+      "types": "./dist/version.d.ts",
+      "import": "./dist/version.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "version": "node -e \"require('fs').writeFileSync('src/version.ts', 'export const VERSION = ' + JSON.stringify(require('./package.json').version) + '\\\\n')\" && git add src/version.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "size": "size-limit",
+    "lint:publish": "publint --strict .",
+    "lint:types": "attw --pack ."
+  },
+  "size-limit": [
+    {
+      "name": "core (entry, pre-build src measurement)",
+      "path": "src/index.ts",
+      "limit": "30 KB",
+      "gzip": true
+    }
+  ],
+  "optionalDependencies": {
+    "ajv": "^8.20.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "@types/jsdom": "^28.0.0",
+    "@webgpu/types": "^0.1.71",
+    "publint": "^0.3.0",
+    "size-limit": "^12.1.0",
+    "typescript": "~6.0.3",
+    "vite-plugin-babel": "^1.3.2",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "effect": "^3.22.1"
+  }
+}

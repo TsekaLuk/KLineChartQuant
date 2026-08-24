@@ -6,7 +6,7 @@
 
 ```bash
 # 一键部署前后端
-./deploy.sh
+./devops/deploy.sh
 ```
 
 访问 `http://服务器IP:3000`
@@ -46,7 +46,7 @@
 
 ```bash
 # 复制示例配置
-cp .env.deploy.example .env.deploy
+cp devops/.env.deploy.example .env.deploy
 
 # 编辑配置
 vim .env.deploy
@@ -70,22 +70,22 @@ AKTOOLS_URL=http://host.docker.internal:8080/  # AKTools（如有）
 cd klinechart
 
 # 部署/更新（自动重建）
-./deploy.sh
+./devops/deploy.sh
 
 # 查看日志
-docker-compose logs -f
+docker-compose -f devops/docker-compose.yml logs -f
 
 # 查看后端日志
-docker-compose logs -f stockbao
+docker-compose -f devops/docker-compose.yml logs -f stockbao
 
 # 停止所有服务
-docker-compose down
+docker-compose -f devops/docker-compose.yml down
 
 # 只重启后端
-docker-compose restart stockbao
+docker-compose -f devops/docker-compose.yml restart stockbao
 
 # 进入后端容器
-docker-compose exec stockbao sh
+docker-compose -f devops/docker-compose.yml exec stockbao sh
 ```
 
 ---
@@ -94,10 +94,10 @@ docker-compose exec stockbao sh
 
 | 文件 | 说明 |
 |------|------|
-| `Dockerfile` | 前端构建配置 |
-| `docker-compose.yml` | 前后端服务编排 |
-| `nginx.conf.template` | Nginx 代理配置 |
-| `deploy.sh` | 一键部署脚本 |
+| `devops/Dockerfile` | 前端构建配置 |
+| `devops/docker-compose.yml` | 前后端服务编排 |
+| `devops/nginx.conf.template` | Nginx 代理配置 |
+| `devops/deploy.sh` | 一键部署脚本 |
 | `.env.deploy` | 环境变量 |
 | `../stockbao/Dockerfile` | 后端构建配置 |
 
@@ -122,17 +122,17 @@ docker-compose exec stockbao sh
 curl http://localhost:8000/
 
 # 检查后端日志
-docker-compose logs stockbao
+docker-compose -f devops/docker-compose.yml logs stockbao
 ```
 
 ### 前端无法访问
 
 ```bash
 # 检查容器状态
-docker-compose ps
+docker-compose -f devops/docker-compose.yml ps
 
 # 检查前端日志
-docker-compose logs klinechart
+docker-compose -f devops/docker-compose.yml logs klinechart
 ```
 
 ### 数据加载慢

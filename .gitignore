@@ -15,6 +15,7 @@ dist-ssr
 coverage
 *.local
 .claude
+.codegraph/
 
 # Editor directories and files
 .vscode/*
@@ -28,11 +29,14 @@ coverage
 
 *.tsbuildinfo
 
-# Compiled TS outputs in src (build artifacts, never committed)
-src/**/*.js
-src/**/*.js.map
-src/**/*.d.ts
-src/**/*.d.ts.map
+# TypeScript build outputs (compiled alongside source)
+src/core/**/*.js
+src/core/**/*.js.map
+src/core/**/*.d.ts
+src/core/**/*.d.ts.map
+
+# Obsolete - code migrated to packages/core/
+/src/core/
 
 .eslintcache
 
@@ -46,3 +50,23 @@ docs/TradingView级别像素对齐技术.md
 
 # Memory bank
 .memorybank/
+
+# Environment
+.env
+
+# Agents
+.agents/
+.worktrees/
+
+# Next.js examples
+examples/next-app/.next/
+examples/next-app/pnpm-lock.yaml
+
+# oxlint
+.oxlint_cache
+
+# Fallow
+.fallow/
+
+# Migration script temp files
+.opencode-temp/

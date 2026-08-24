@@ -1,9 +1,0 @@
-{
-  "enabled": true,
-  "levels": {
-    "info": true,
-    "success": true,
-    "warn": true,
-    "error": true
-  }
-}

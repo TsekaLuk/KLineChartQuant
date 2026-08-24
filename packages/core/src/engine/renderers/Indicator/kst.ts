@@ -1,0 +1,336 @@
+import type {
+  IndicatorRenderStateReader,
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
+import type { KLineData } from '../../../foundation/types/price'
+import { calcKSTData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import { resolveStateKey } from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { KSTRenderState } from '../../indicators/state/kstState'
+import { createKSTStateKey } from '../../indicators/state/kstState'
+import { EMPTY_KST_STATE } from '../../indicators/state/kstState'
+import { createPaddedPointVisibleStateComposer } from '../../indicators/visibleStateComposers'
+
+import { createKstScaleRendererPlugin } from './scale/kst_scale'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
+
+type LinePoint = { x: number; y: number }
+
+interface KSTRendererOptions {
+  /** 目标 pane ID（默认 'sub'） */
+  paneId?: string
+}
+
+function getKSTStateKey(host: PluginHost | null, paneId: string): string | null {
+  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+  if (!scheduler) {
+    console.warn('[KSTRenderer] Scheduler not available via service locator')
+    return null
+  }
+  const meta = scheduler.getIndicatorMetadata('kst')
+  if (!meta) {
+    console.warn("[KSTRenderer] Indicator metadata for 'kst' not found, skip rendering")
+    return null
+  }
+  return resolveStateKey(meta.stateKey, paneId)
+}
+
+/**
+ * 创建 KST 渲染器插件
+ */
+function createKSTRendererPlugin(options: KSTRendererOptions = {}): RendererPluginWithHost {
+  const { paneId = 'sub' } = options
+  let pluginHost: PluginHost | null = null
+
+  function resolveKey(): string | null {
+    return getKSTStateKey(pluginHost, paneId)
+  }
+
+  // 线条点缓存
+  let cachedKey = ''
+  let cachedKSTPoints: LinePoint[] = []
+  let cachedSignalPoints: LinePoint[] = []
+
+  function clearLineCache() {
+    cachedKey = ''
+    cachedKSTPoints = []
+    cachedSignalPoints = []
+  }
+
+  function buildKSTCacheKey(
+    range: { start: number; end: number },
+    kLineCenters: number[],
+    pane: RenderContext['pane'],
+    params: KSTRenderState['params'],
+    stateTimestamp: number,
+  ): string {
+    const dr = pane.yAxis.getDisplayRange()
+    return [
+      stateTimestamp,
+      range.start,
+      range.end,
+      kLineCenters.length,
+      kLineCenters[0]?.toFixed(2) ?? 'n',
+      kLineCenters[kLineCenters.length - 1]?.toFixed(2) ?? 'n',
+      dr.maxPrice.toFixed(6),
+      dr.minPrice.toFixed(6),
+      pane.yAxis.getPriceOffset().toFixed(6),
+      pane.yAxis.getScaleType(),
+      pane.height.toFixed(2),
+      params.showKST,
+      params.showSignal,
+      params.roc1,
+      params.roc2,
+      params.roc3,
+      params.roc4,
+      params.signalPeriod,
+    ].join('|')
+  }
+
+  return {
+    name: `kst_${paneId}`,
+    version: '2.1.0',
+    description: 'KST 确知指标渲染器（WebGL + Canvas2D 回退）',
+    debugName: 'KST',
+    paneId: paneId,
+    priority: RENDERER_PRIORITY.INDICATOR,
+
+    onInstall(host: PluginHost) {
+      pluginHost = host
+    },
+
+    getDeclaredNamespaces() {
+      const key = resolveKey()
+      return key ? [key] : []
+    },
+
+    draw(context: RenderContext) {
+      const { ctx, pane, range, scrollLeft, dpr, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
+
+      const stateKey = resolveKey()
+      if (!stateKey) return
+      const state = context.indicatorStateReader?.get<KSTRenderState>(stateKey)
+      if (!state || state.visibleMin > state.visibleMax) {
+        clearLineCache()
+        return
+      }
+
+      const { valueMin, valueMax, params, series } = state
+      const valueRange = valueMax - valueMin || 1
+
+      const displayRange = pane.yAxis.getDisplayRange({ minPrice: valueMin, maxPrice: valueMax })
+      const displayMin = displayRange.minPrice
+      const displayMax = displayRange.maxPrice
+      const displayValueRange = displayMax - displayMin || 1
+      const zeroY = pane.height - ((0 - displayMin) / displayValueRange) * pane.height
+
+      ctx.save()
+      ctx.translate(-scrollLeft, 0)
+
+      // 绘制零轴（实线，保持 Canvas 2D）
+      const lineStartX = scrollLeft
+      const lineEndX = scrollLeft + context.paneWidth
+
+      ctx.strokeStyle = colors.referenceLine.neutral
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(lineStartX, zeroY)
+      ctx.lineTo(lineEndX, zeroY)
+      ctx.stroke()
+
+      ctx.restore()
+
+      // 确定绘制范围
+      const drawStart = Math.max(range.start, params.roc4 + 15 + params.signalPeriod - 1)
+      const drawEnd = Math.min(range.end, series.length)
+
+      // 更新线条缓存
+      const cacheKey = buildKSTCacheKey(range, kLineCenters, pane, params, state.timestamp)
+      if (cachedKey !== cacheKey) {
+        cachedKey = cacheKey
+        cachedKSTPoints = []
+        cachedSignalPoints = []
+
+        if (params.showKST) {
+          for (let i = drawStart; i < drawEnd; i++) {
+            const point = series[i]
+            if (!point) continue
+
+            const centerX = kLineCenters[i - range.start]
+            if (centerX === undefined) continue
+
+            const logicY =
+              pane.height - ((point.kst - displayMin) / displayValueRange) * pane.height
+            cachedKSTPoints.push({ x: centerX, y: logicY })
+          }
+        }
+
+        if (params.showSignal) {
+          for (let i = drawStart; i < drawEnd; i++) {
+            const point = series[i]
+            if (!point) continue
+
+            const centerX = kLineCenters[i - range.start]
+            if (centerX === undefined) continue
+
+            const logicY =
+              pane.height - ((point.signal - displayMin) / displayValueRange) * pane.height
+            cachedSignalPoints.push({ x: centerX, y: logicY })
+          }
+        }
+      }
+
+      // 绘制 KST 线（WebGL 优先，Canvas2D 回退）
+      const lines: Array<{ points: LinePoint[]; width: number; color: string }> = []
+      if (params.showKST && cachedKSTPoints.length >= 2) {
+        lines.push({ points: cachedKSTPoints, width: 1, color: colors.kst.kst })
+      }
+      if (params.showSignal && cachedSignalPoints.length >= 2) {
+        lines.push({ points: cachedSignalPoints, width: 1, color: colors.kst.signal })
+      }
+      if (!tryDrawLinesGpu(context, lines, scrollLeft)) {
+        drawKSTLinesWithCanvas2D(
+          ctx,
+          scrollLeft,
+          cachedKSTPoints,
+          cachedSignalPoints,
+          params,
+          colors,
+        )
+      }
+    },
+
+    getConfig() {
+      const stateKey = resolveKey()
+      if (!stateKey) return {}
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<KSTRenderState>(stateKey)
+      return state?.params ?? {}
+    },
+
+    setConfig() {
+      // no-op: 配置通过 scheduler.updateIndicatorConfig() 更新
+    },
+  }
+}
+
+/**
+ * 使用 Canvas 2D 绘制 KST 线（WebGL 回退）
+ */
+function drawKSTLinesWithCanvas2D(
+  ctx: CanvasRenderingContext2D,
+  scrollLeft: number,
+  kstPoints: LinePoint[],
+  signalPoints: LinePoint[],
+  params: { showKST: boolean; showSignal: boolean },
+  colors: { kst: { kst: string; signal: string } },
+): void {
+  ctx.save()
+  ctx.translate(-scrollLeft, 0)
+  ctx.lineWidth = 1
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+
+  if (params.showKST && kstPoints.length >= 2) {
+    ctx.strokeStyle = colors.kst.kst
+    ctx.beginPath()
+    ctx.moveTo(kstPoints[0]!.x, kstPoints[0]!.y)
+    for (let i = 1; i < kstPoints.length; i++) {
+      const point = kstPoints[i]!
+      ctx.lineTo(point.x, point.y)
+    }
+    ctx.stroke()
+  }
+
+  if (params.showSignal && signalPoints.length >= 2) {
+    ctx.strokeStyle = colors.kst.signal
+    ctx.beginPath()
+    ctx.moveTo(signalPoints[0]!.x, signalPoints[0]!.y)
+    for (let i = 1; i < signalPoints.length; i++) {
+      const point = signalPoints[i]!
+      ctx.lineTo(point.x, point.y)
+    }
+    ctx.stroke()
+  }
+
+  ctx.restore()
+}
+
+/**
+ * 获取 KST 标题信息（供 paneTitle 使用）
+ */
+function getKSTTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  stateReader: IndicatorRenderStateReader,
+  paneId: string,
+  colors: ColorTokens,
+): {
+  name: string
+  params: number[]
+  values: Array<{ label: string; value: number; color: string }>
+} | null {
+  if (index === null) return null
+  const roc1 = (params.roc1 as number) ?? 10
+  const roc2 = (params.roc2 as number) ?? 15
+  const roc3 = (params.roc3 as number) ?? 20
+  const roc4 = (params.roc4 as number) ?? 30
+  const signalPeriod = (params.signalPeriod as number) ?? 9
+  const state = stateReader.get<KSTRenderState>(createKSTStateKey(paneId))
+  if (!state) return null
+
+  const point = state.series[index]
+  if (!point) return null
+
+  const values = []
+  if (state.params.showKST) values.push({ label: 'KST', value: point.kst, color: colors.kst.kst })
+  if (state.params.showSignal)
+    values.push({ label: 'Signal', value: point.signal, color: colors.kst.signal })
+
+  if (values.length === 0) return null
+
+  return {
+    name: 'KST',
+    params: [roc1, roc2, roc3, roc4, signalPeriod],
+    values,
+  }
+}
+
+@Indicator({
+  name: 'kst',
+  displayName: 'KST',
+  category: 'oscillator',
+  indicatorType: 'momentum',
+  defaultPaneId: 'sub_KST',
+  scaleRendererFactory: createKstScaleRendererPlugin,
+  visibleState: {
+    compose: createPaddedPointVisibleStateComposer('kst', EMPTY_KST_STATE, [
+      'kst',
+      'signal',
+    ] as const),
+  },
+  getTitleInfo: getKSTTitleInfo,
+  presentation: { defaultOptions: { showKST: true, showSignal: true } },
+  runtime: {
+    defaultParams: { roc1: 10, roc2: 15, roc3: 20, roc4: 30, signalPeriod: 9 },
+    computeKey: 'calcKSTData',
+    compute: (data, c) => calcKSTData(data, c.roc1, c.roc2, c.roc3, c.roc4, c.signalPeriod),
+  },
+})
+export class KSTIndicatorDefinition {
+  static rendererFactory = createKSTRendererPlugin
+}

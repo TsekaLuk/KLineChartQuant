@@ -1,0 +1,93 @@
+{
+  "name": "@363045841yyt/klinechart",
+  "version": "0.10.4",
+  "description": "Vue 3 bindings for @363045841yyt/klinechart-core. Idiomatic composables, SFC components.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/363045841/KLineChartQuant.git"
+  },
+  "bugs": "https://github.com/363045841/KLineChartQuant/issues",
+  "homepage": "https://363045841.github.io/KLineChartQuant/",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./web-component": {
+      "import": {
+        "default": "./dist/kline-chart.js"
+      }
+    },
+    "./style.css": "./dist/index.css"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite --config preview/vite.config.ts",
+    "build": "vite build && pnpm build:wc",
+    "build:wc": "cross-env BUILD_TARGET=web-component vite build",
+    "postbuild": "node -e \"var f='dist/index.d.ts';require('fs').existsSync(f)&&require('fs').copyFileSync(f,'dist/index.d.cts')\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "size": "size-limit",
+    "lint:publish": "publint --strict .",
+    "prepublishOnly": "npm run build",
+    "lint:types": "attw --pack ."
+  },
+  "size-limit": [
+    {
+      "name": "vue (entry, pre-build src measurement)",
+      "path": "src/index.ts",
+      "limit": "8 KB",
+      "gzip": true,
+      "ignore": [
+        "vue",
+        "@363045841yyt/klinechart-core"
+      ]
+    }
+  ],
+  "peerDependencies": {
+    "@363045841yyt/klinechart-core": "workspace:^",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@363045841yyt/klinechart-ai-runtime": "workspace:*",
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "cross-env": "^7.0.3",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
+    "publint": "^0.3.21",
+    "size-limit": "^12.1.0",
+    "typescript": "~6.0.3",
+    "unplugin-icons": "^23.0.1",
+    "vite": "^8.2.1",
+    "vite-plugin-babel": "^1.7.3",
+    "vite-plugin-css-injected-by-js": "^5.0.2",
+    "vite-plugin-dts": "^5.0.3",
+    "vitest": "^4.1.10",
+    "vue": "^3.5.41"
+  }
+}

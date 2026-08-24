@@ -1,0 +1,137 @@
+import type { PaneRendererDom } from './chartTypes'
+
+export type { PaneRendererDom }
+
+export type PaneRendererContexts = {
+  mainCtx: CanvasRenderingContext2D | null
+  overlayCtx: CanvasRenderingContext2D | null
+  yAxisCtx: CanvasRenderingContext2D | null
+  yAxisOverlayCtx: CanvasRenderingContext2D | null
+  leftAxisCtx: CanvasRenderingContext2D | null
+  leftAxisOverlayCtx: CanvasRenderingContext2D | null
+}
+
+export type PaneRendererOptions = {
+  rightAxisWidth: number
+  leftAxisWidth: number
+  yPaddingPx: number
+  priceLabelWidth?: number
+}
+
+/* PaneRenderer：负责单个 Pane 的 Canvas 管理与运行时状态持有
+   创建并管理 main/overlay/yAxis/yAxisOverlay（及可选 left 轴）canvas
+   持有 Pane 实例（布局、Y 轴、价格范围）
+   响应 Chart 的 resize / layout 信号
+   GPU 绘制经 ChartRenderer.sceneRenderer（SharedWebGLSurface），本类不再持有 per-pane surface */
+export class PaneRenderer {
+  private dom: PaneRendererDom
+  private pane: import('./layout/pane').Pane
+  private opt: PaneRendererOptions
+  private contexts: PaneRendererContexts | null = null
+
+  constructor(dom: PaneRendererDom, pane: import('./layout/pane').Pane, opt: PaneRendererOptions) {
+    this.dom = dom
+    this.pane = pane
+    this.opt = {
+      ...opt,
+      priceLabelWidth: opt.priceLabelWidth || 60,
+    }
+  }
+
+  /** 获取关联的 Pane 实例 */
+  getPane(): import('./layout/pane').Pane {
+    return this.pane
+  }
+
+  /** 获取 DOM 元素 */
+  getDom(): PaneRendererDom {
+    return this.dom
+  }
+
+  getContexts(): PaneRendererContexts {
+    if (!this.contexts) {
+      this.contexts = {
+        mainCtx: this.dom.mainCanvas.getContext('2d'),
+        overlayCtx: this.dom.overlayCanvas.getContext('2d'),
+        yAxisCtx: this.dom.yAxisCanvas.getContext('2d'),
+        yAxisOverlayCtx: this.dom.yAxisOverlayCanvas.getContext('2d'),
+        leftAxisCtx: this.dom.leftYAxisCanvas?.getContext('2d') ?? null,
+        leftAxisOverlayCtx: this.dom.leftYAxisOverlayCanvas?.getContext('2d') ?? null,
+      }
+    }
+    return this.contexts
+  }
+
+  private static resizeCanvas(
+    canvas: HTMLCanvasElement,
+    widthPx: number,
+    heightPx: number,
+    dpr: number,
+  ): void {
+    if (canvas.width !== widthPx) {
+      canvas.width = widthPx
+    }
+    if (canvas.height !== heightPx) {
+      canvas.height = heightPx
+    }
+    const cssW = `${widthPx / dpr}px`
+    if (canvas.style.width !== cssW) {
+      canvas.style.width = cssW
+    }
+    const cssH = `${heightPx / dpr}px`
+    if (canvas.style.height !== cssH) {
+      canvas.style.height = cssH
+    }
+  }
+
+  /**
+   * 调整 Canvas 尺寸
+   * @param width pane 宽度（逻辑像素）
+   * @param height pane 高度（逻辑像素）
+   * @param dpr 设备像素比
+   */
+  resize(width: number, height: number, dpr: number) {
+    const mainCanvas = this.dom.mainCanvas
+    const overlayCanvas = this.dom.overlayCanvas
+    const yAxisCanvas = this.dom.yAxisCanvas
+    const yAxisOverlayCanvas = this.dom.yAxisOverlayCanvas
+
+    // 先读取 parentClientWidth，避免在写入样式后读取触发强制回流
+    const fallbackYAxisWidth = this.opt.rightAxisWidth + (this.opt.priceLabelWidth || 60)
+    const parentClientWidth = yAxisCanvas.parentElement?.clientWidth ?? 0
+    const canvasYAxisWidth = parentClientWidth > 0 ? parentClientWidth : fallbackYAxisWidth
+
+    // Main Canvas
+    const mainWidth = Math.round(width * dpr)
+    const mainHeight = Math.round(height * dpr)
+    PaneRenderer.resizeCanvas(mainCanvas, mainWidth, mainHeight, dpr)
+
+    // Overlay Canvas - 与 Main Canvas 相同尺寸
+    PaneRenderer.resizeCanvas(overlayCanvas, mainWidth, mainHeight, dpr)
+
+    // YAxis Canvas + overlay 轴（同尺寸）
+    const yAxisWidth = Math.round(canvasYAxisWidth * dpr)
+    const yAxisHeight = Math.round(height * dpr)
+    PaneRenderer.resizeCanvas(yAxisCanvas, yAxisWidth, yAxisHeight, dpr)
+    PaneRenderer.resizeCanvas(yAxisOverlayCanvas, yAxisWidth, yAxisHeight, dpr)
+
+    // Left YAxis Canvas + overlay
+    const leftCanvas = this.dom.leftYAxisCanvas
+    const leftOverlayCanvas = this.dom.leftYAxisOverlayCanvas
+    if (leftCanvas) {
+      const fallbackLeftAxisWidth = this.opt.leftAxisWidth
+      const leftParentWidth = leftCanvas.parentElement?.clientWidth ?? 0
+      const canvasLeftAxisWidth = leftParentWidth > 0 ? leftParentWidth : fallbackLeftAxisWidth
+      const leftW = Math.round(Math.max(canvasLeftAxisWidth, 0) * dpr)
+      PaneRenderer.resizeCanvas(leftCanvas, leftW, yAxisHeight, dpr)
+      if (leftOverlayCanvas) {
+        PaneRenderer.resizeCanvas(leftOverlayCanvas, leftW, yAxisHeight, dpr)
+      }
+    }
+  }
+
+  /** 销毁 PaneRenderer 实例 */
+  destroy() {
+    this.contexts = null
+  }
+}

@@ -1,0 +1,346 @@
+import type {
+  IndicatorRenderStateReader,
+  RendererPluginWithHost,
+  RenderContext,
+  PluginHost,
+} from '../../../foundation/plugin/index'
+import { RENDERER_PRIORITY } from '../../../foundation/plugin/index'
+import { resolveThemeColors } from '../../../foundation/tokens/index'
+import type { ColorTokens } from '../../../foundation/tokens/index'
+import type { KLineData } from '../../../foundation/types/price'
+import { calcIchimokuData } from '../../indicators/calculators'
+import { Indicator } from '../../indicators/indicatorDefinitionRegistry'
+import {
+  resolveStateKey,
+  type TitleInfo,
+  type TitleValueItem,
+  type GetTitleInfoFn,
+} from '../../indicators/indicatorMetadata'
+import type { IndicatorScheduler } from '../../indicators/scheduler'
+import type { IchimokuRenderState } from '../../indicators/state/ichimokuState'
+import { createIchimokuStateKey, EMPTY_ICHIMOKU_STATE } from '../../indicators/state/ichimokuState'
+import { createIchimokuVisibleStateComposer } from '../../indicators/visibleStateComposers'
+import { getPhysicalKLineConfig } from '../../utils/klineConfig'
+import { tryDrawLinesGpu } from '../linesViaRenderer'
+
+type Point = { x: number; y: number }
+/** @internal 对测试暴露 */
+export type CloudSeg = { x: number; ya: number; yb: number; bull: boolean }
+
+function collectIchimokuPoints(
+  context: RenderContext,
+  series: IchimokuRenderState['series'],
+  params: IchimokuRenderState['params'],
+  pane: RenderContext['pane'],
+  kLineCenters: number[],
+  range: RenderContext['range'],
+) {
+  const toY = (price: number) => pane.yAxis.priceToY(price)
+  const rangeStart = range.start
+
+  const tenkanPts: Point[] = []
+  const kijunPts: Point[] = []
+  const spanAPts: Point[] = []
+  const spanBPts: Point[] = []
+  const chikouPts: Point[] = []
+  const cloudSegs: CloudSeg[] = []
+
+  const drawEnd = Math.min(range.end, series.length)
+  for (let i = range.start; i < drawEnd; i++) {
+    const p = series[i]
+    if (!p) continue
+    const centerX = kLineCenters[i - rangeStart]
+    if (centerX === undefined) continue
+    if (params.showTenkan && p.tenkan !== undefined)
+      tenkanPts.push({ x: centerX, y: toY(p.tenkan) })
+    if (params.showKijun && p.kijun !== undefined) kijunPts.push({ x: centerX, y: toY(p.kijun) })
+    if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
+    if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
+    if (params.showChikou && p.chikou !== undefined)
+      chikouPts.push({ x: centerX, y: toY(p.chikou) })
+    if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
+      cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
+    }
+  }
+
+  const dataLen = (context.data as unknown[]).length
+  if (dataLen < series.length) {
+    const physConfig = getPhysicalKLineConfig(context.kWidth, context.kGap, context.dpr)
+    const futureEnd = Math.min(dataLen + params.displacement, series.length)
+    for (let i = dataLen; i < futureEnd; i++) {
+      const p = series[i]
+      if (!p) continue
+      const leftPx = physConfig.startXPx + i * physConfig.unitPx
+      const wickXPx = leftPx + (physConfig.kWidthPx - 1) / 2
+      const centerX = wickXPx / context.dpr
+      if (params.showSpanA && p.spanA !== undefined) spanAPts.push({ x: centerX, y: toY(p.spanA) })
+      if (params.showSpanB && p.spanB !== undefined) spanBPts.push({ x: centerX, y: toY(p.spanB) })
+      if (params.showCloud && p.spanA !== undefined && p.spanB !== undefined) {
+        cloudSegs.push({ x: centerX, ya: toY(p.spanA), yb: toY(p.spanB), bull: p.spanA > p.spanB })
+      }
+    }
+  }
+
+  return { tenkanPts, kijunPts, spanAPts, spanBPts, chikouPts, cloudSegs }
+}
+
+function renderCloudFill(
+  ctx: CanvasRenderingContext2D,
+  cloudSegs: CloudSeg[],
+  colors: ReturnType<typeof resolveThemeColors>,
+  scrollLeft: number,
+): void {
+  ctx.save()
+  ctx.translate(-scrollLeft, 0)
+  fillCloud(ctx, cloudSegs, colors.candleUpBody, colors.candleDownBody)
+  ctx.restore()
+}
+
+function renderIchimokuLines(
+  context: RenderContext,
+  tenkanPts: Point[],
+  kijunPts: Point[],
+  spanAPts: Point[],
+  spanBPts: Point[],
+  chikouPts: Point[],
+  colors: ReturnType<typeof resolveThemeColors>,
+): void {
+  const { ctx, scrollLeft } = context
+  const lines: Array<{ points: Point[]; width: number; color: string }> = []
+  if (tenkanPts.length >= 2)
+    lines.push({ points: tenkanPts, width: 1, color: colors.ichimoku.tenkan })
+  if (kijunPts.length >= 2) lines.push({ points: kijunPts, width: 1, color: colors.ichimoku.kijun })
+  if (spanAPts.length >= 2) lines.push({ points: spanAPts, width: 1, color: colors.ichimoku.spanA })
+  if (spanBPts.length >= 2) lines.push({ points: spanBPts, width: 1, color: colors.ichimoku.spanB })
+  if (chikouPts.length >= 2)
+    lines.push({ points: chikouPts, width: 1, color: colors.ichimoku.chikou })
+
+  if (tryDrawLinesGpu(context, lines, scrollLeft)) return
+
+  ctx.save()
+  ctx.translate(-scrollLeft, 0)
+  ctx.lineWidth = 1
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  drawLine(ctx, tenkanPts, colors.ichimoku.tenkan)
+  drawLine(ctx, kijunPts, colors.ichimoku.kijun)
+  drawLine(ctx, spanAPts, colors.ichimoku.spanA)
+  drawLine(ctx, spanBPts, colors.ichimoku.spanB)
+  drawLine(ctx, chikouPts, colors.ichimoku.chikou)
+  ctx.restore()
+}
+
+interface IchimokuRendererOptions {
+  paneId?: string
+}
+
+function getIchimokuStateKey(host: PluginHost | null, paneId: string): string | null {
+  const scheduler = host?.getService<IndicatorScheduler>('indicatorScheduler')
+  if (!scheduler) {
+    console.warn('[IchimokuRenderer] Scheduler not available via service locator')
+    return null
+  }
+  const meta = scheduler.getIndicatorMetadata('ichimoku')
+  if (!meta) {
+    console.warn("[IchimokuRenderer] Indicator metadata for 'ichimoku' not found, skip rendering")
+    return null
+  }
+  return resolveStateKey(meta.stateKey, paneId)
+}
+
+function createIchimokuRendererPlugin(
+  options: IchimokuRendererOptions = {},
+): RendererPluginWithHost {
+  const { paneId = 'main' } = options
+  let pluginHost: PluginHost | null = null
+
+  function resolveKey(): string | null {
+    return getIchimokuStateKey(pluginHost, paneId)
+  }
+
+  return {
+    name: `ichimoku_${paneId}`,
+    version: '1.1.0',
+    description: '一目均衡表渲染器（WebGL 线 + Canvas2D 云图）',
+    debugName: 'Ichimoku',
+    paneId,
+    priority: RENDERER_PRIORITY.INDICATOR,
+
+    onInstall(host: PluginHost) {
+      pluginHost = host
+    },
+    getDeclaredNamespaces() {
+      const key = resolveKey()
+      return key ? [key] : []
+    },
+
+    draw(context: RenderContext) {
+      const { ctx, pane, range, scrollLeft, kLineCenters } = context
+      const colors = resolveThemeColors(
+        context.theme,
+        context.isAsiaMarket,
+        context.colorPresetSettings,
+      )
+      const stateKey = resolveKey()
+      if (!stateKey) return
+      const state = context.indicatorStateReader?.get<IchimokuRenderState>(stateKey)
+      if (!state || state.visibleMin > state.visibleMax) return
+
+      const { params, series } = state
+      const points = collectIchimokuPoints(context, series, params, pane, kLineCenters, range)
+
+      if (params.showCloud && points.cloudSegs.length >= 2) {
+        renderCloudFill(ctx, points.cloudSegs, colors, scrollLeft)
+      }
+      renderIchimokuLines(
+        context,
+        points.tenkanPts,
+        points.kijunPts,
+        points.spanAPts,
+        points.spanBPts,
+        points.chikouPts,
+        colors,
+      )
+    },
+
+    getConfig() {
+      const stateKey = resolveKey()
+      if (!stateKey) return {}
+      const state = pluginHost
+        ?.getService<IndicatorScheduler>('indicatorScheduler')
+        ?.createRenderStateReader()
+        .get<IchimokuRenderState>(stateKey)
+      return state?.params ?? {}
+    },
+    setConfig() {},
+  }
+}
+
+function drawLine(ctx: CanvasRenderingContext2D, pts: Point[], color: string): void {
+  if (pts.length < 2) return
+  ctx.strokeStyle = color
+  ctx.beginPath()
+  ctx.moveTo(pts[0]!.x, pts[0]!.y)
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y)
+  ctx.stroke()
+}
+
+/** @internal */
+export function fillCloud(
+  ctx: CanvasRenderingContext2D,
+  segs: CloudSeg[],
+  bullColor: string,
+  bearColor: string,
+  alpha = 0.15,
+): void {
+  if (segs.length < 2) return
+  ctx.save()
+  ctx.globalAlpha = alpha
+
+  let start = 0
+  const lastSeg = segs.length - 1
+  while (start < lastSeg) {
+    const isBull = segs[start]!.bull
+    ctx.fillStyle = isBull ? bullColor : bearColor
+    let end = start
+    while (end < lastSeg && segs[end]!.bull === isBull) end++
+    end--
+    ctx.beginPath()
+    ctx.moveTo(segs[start]!.x, segs[start]!.ya)
+    for (let k = start + 1; k <= end + 1; k++) ctx.lineTo(segs[k]!.x, segs[k]!.ya)
+    for (let k = end + 1; k >= start; k--) ctx.lineTo(segs[k]!.x, segs[k]!.yb)
+    ctx.closePath()
+    ctx.fill()
+    start = end + 1
+  }
+
+  ctx.restore()
+}
+
+function getIchimokuTitleInfo(
+  _data: KLineData[],
+  index: number | null,
+  params: Record<string, number | boolean | string>,
+  stateReader: IndicatorRenderStateReader,
+  paneId: string,
+  colors: ColorTokens,
+): TitleInfo | null {
+  if (index === null) return null
+  const state = stateReader.get<IchimokuRenderState>(createIchimokuStateKey(paneId))
+  const p = state?.series[index]
+  if (!p) return null
+
+  const values: TitleValueItem[] = []
+  if (p.tenkan !== undefined)
+    values.push({ label: 'Tenkan', value: p.tenkan, color: colors.ichimoku.tenkan })
+  if (p.kijun !== undefined)
+    values.push({ label: 'Kijun', value: p.kijun, color: colors.ichimoku.kijun })
+  if (p.spanA !== undefined)
+    values.push({ label: 'SpanA', value: p.spanA, color: colors.ichimoku.spanA })
+  if (p.spanB !== undefined)
+    values.push({ label: 'SpanB', value: p.spanB, color: colors.ichimoku.spanB })
+  if (p.chikou !== undefined)
+    values.push({ label: 'Chikou', value: p.chikou, color: colors.ichimoku.chikou })
+
+  return {
+    name: 'Ichimoku',
+    params: [
+      (params.tenkanPeriod as number) ?? 9,
+      (params.kijunPeriod as number) ?? 26,
+      (params.spanBPeriod as number) ?? 52,
+      (params.displacement as number) ?? 26,
+    ],
+    values,
+  }
+}
+
+@Indicator({
+  name: 'ichimoku',
+  displayName: 'Ichimoku',
+  getTitleInfo: getIchimokuTitleInfo,
+  category: 'main',
+  indicatorType: 'trend',
+  defaultPaneId: 'main',
+  allowMainPane: true,
+  mainPane: {
+    rendererName: 'ichimoku_main',
+    toActiveConfig: (params, active) => ({
+      ...params,
+      showTenkan: active,
+      showKijun: active,
+      showSpanA: active,
+      showSpanB: active,
+      showChikou: active,
+      showCloud: active,
+    }),
+  },
+  scale: { indicatorKey: 'ichimoku', label: 'Ichimoku', decimals: 2 },
+  visibleState: {
+    compose: createIchimokuVisibleStateComposer('ichimoku', EMPTY_ICHIMOKU_STATE, [
+      'tenkan',
+      'kijun',
+      'spanA',
+      'spanB',
+      'chikou',
+    ]),
+  },
+  presentation: {
+    defaultOptions: {
+      showTenkan: true,
+      showKijun: true,
+      showSpanA: true,
+      showSpanB: true,
+      showCloud: true,
+      showChikou: true,
+    },
+  },
+  runtime: {
+    defaultParams: { tenkanPeriod: 9, kijunPeriod: 26, spanBPeriod: 52, displacement: 26 },
+    computeKey: 'calcIchimokuData',
+    compute: (data, c) =>
+      calcIchimokuData(data, c.tenkanPeriod, c.kijunPeriod, c.spanBPeriod, c.displacement),
+  },
+})
+export class IchimokuDefinition {
+  static rendererFactory = createIchimokuRendererPlugin
+}

@@ -1,4 +1,4 @@
-name: Release
+name: release.yml
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -17,24 +18,90 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.15.8
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20.19.0
+          node-version: 22.12
           cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build package
-        run: pnpm run build
+      - name: Regenerate READMEs (safety net)
+        run: node scripts/generate-readmes.mjs
+
+      - name: Build packages
+        run: pnpm --filter @363045841yyt/klinechart-core --filter @363045841yyt/klinechart build
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "❌ 错误：缺少 NPM_TOKEN secret"
+            exit 1
+          fi
+
+          # 根据 tag 名判断 npm dist-tag
+          # 用 bash glob 而非 grep，避免 GH Actions 环境中 regex 差异导致匹配失败
+          TAG="${GITHUB_REF_NAME#v}"
+          case "$TAG" in
+            *-alpha.*) PRERELEASE=true; NPM_TAG=alpha ;;
+            *-beta.*)  PRERELEASE=true; NPM_TAG=beta  ;;
+            *-rc.*)    PRERELEASE=true; NPM_TAG=rc    ;;
+            *)         PRERELEASE=false; NPM_TAG=latest ;;
+          esac
+
+          echo "Publishing version $TAG with npm tag '$NPM_TAG' (prerelease=$PRERELEASE)"
+
+          # === 1. 发布 core 包 ===
+          if [ -d "packages/core" ]; then
+            echo "====== 开始发布 Core 包 ======"
+            cd packages/core
+            npm publish --provenance --access public --tag "$NPM_TAG"
+            # Explicitly set dist-tag as a fallback — the --tag flag can
+            # sometimes be silently ignored by npm in certain environments.
+            npm dist-tag add "@363045841yyt/klinechart-core@$(node -p "require('./package.json').version")" "$NPM_TAG"
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "❌ 错误：未找到 packages/core 目录！"
+            exit 1
+          fi
+
+          # === 2. 发布 vue 包 ===
+          if [ -d "packages/vue" ]; then
+            echo "====== 开始发布 Vue 包 ======"
+            cd packages/vue
+            cp package.json package.json.bak
+            trap 'mv -f package.json.bak package.json' EXIT
+            # workspace:^ → ^<TAG> (e.g. workspace:^ → ^0.8.9), and
+            # workspace:* → <TAG> (exact pin). Without the version number,
+            # npm would publish bare ^/* — unresolvable peer deps that
+            # prevent auto-install of klinechart-core.
+            sed -i "s/workspace:\^/^${TAG}/g" package.json
+            sed -i "s/workspace:\*/${TAG}/g" package.json
+            npm publish --provenance --access public --tag "$NPM_TAG"
+            # Explicitly set dist-tag as a fallback — the --tag flag can
+            # sometimes be silently ignored by npm in certain environments.
+            npm dist-tag add "@363045841yyt/klinechart@$(node -p "require('./package.json').version")" "$NPM_TAG"
+            mv package.json.bak package.json
+            trap - EXIT
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "❌ 错误：未找到 packages/vue 目录！"
+            exit 1
+          fi
 
       - name: Generate release notes
         id: notes
@@ -45,6 +112,31 @@ jobs:
           current_tag="${GITHUB_REF_NAME}"
           git fetch --force --tags
 
+          notes_file="release-notes.md"
+
+          # 优先使用本地生成的 release 日志（docs/release/<tag>.md）
+          if [ -f "docs/release/${current_tag}.md" ]; then
+            echo "📝 使用 docs/release/${current_tag}.md 作为 release notes"
+            cp "docs/release/${current_tag}.md" "$notes_file"
+            previous_tag="$(git tag --sort=-creatordate | awk -v current="$current_tag" '$0 != current { print; exit }')"
+            if [ -n "$previous_tag" ]; then
+              range="$previous_tag..$current_tag"
+            else
+              range="$current_tag"
+            fi
+            {
+              echo 'previous_tag<<EOF'
+              echo "$previous_tag"
+              echo 'EOF'
+              echo 'range<<EOF'
+              echo "$range"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 兜底：未找到日志文件时自动生成
+          echo "⚠️ 未找到 docs/release/${current_tag}.md，回退到自动生成 release notes"
           previous_tag="$(git tag --sort=-creatordate | awk -v current="$current_tag" '$0 != current { print; exit }')"
 
           if [ -n "$previous_tag" ]; then
@@ -52,8 +144,6 @@ jobs:
           else
             range="$current_tag"
           fi
-
-          notes_file="release-notes.md"
 
           CURRENT_TAG="$current_tag" PREVIOUS_TAG="$previous_tag" RANGE="$range" python <<'PY'
           import os
@@ -165,8 +255,70 @@ jobs:
         run: |
           set -euo pipefail
 
+          PRERELEASE_FLAG=""
+          if echo "${GITHUB_REF_NAME#v}" | grep -qE '-(alpha|beta|rc)\.'; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
           else
-            gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+            gh release create "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME" $PRERELEASE_FLAG
           fi
+
+  electron-release:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.8
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.12
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('packages/desktop-electron/package.json') }}
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build core
+        run: pnpm --filter @363045841yyt/klinechart-core build
+
+      - name: Build vue
+        run: pnpm --filter @363045841yyt/klinechart build
+
+      - name: Build & package desktop
+        run: pnpm --filter @363045841yyt/klinechart-desktop build
+
+      - name: Upload artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cd packages/desktop-electron/dist
+          case "${{ runner.os }}" in
+            Linux)   pattern="*.AppImage" ;;
+            macOS)   pattern="*.dmg" ;;
+            Windows) pattern="*-Setup-*.exe" ;;
+          esac
+          gh release upload "${{ github.ref_name }}" $pattern --clobber

@@ -1,0 +1,67 @@
+{
+  "name": "@363045841yyt/klinechart-angular",
+  "version": "0.0.0",
+  "description": "Angular bindings for @363045841yyt/klinechart-core. Standalone components, signals, DI.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "size": "size-limit",
+    "lint:publish": "publint --strict .",
+    "lint:types": "attw --pack ."
+  },
+  "size-limit": [
+    {
+      "name": "angular (entry, pre-build src measurement)",
+      "path": "src/index.ts",
+      "limit": "10 KB",
+      "gzip": true,
+      "ignore": [
+        "@angular/common",
+        "@angular/core",
+        "rxjs",
+        "@363045841yyt/klinechart-core"
+      ]
+    }
+  ],
+  "peerDependencies": {
+    "@angular/common": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "@363045841yyt/klinechart-core": "workspace:*",
+    "rxjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@angular/common": "^19.0.0",
+    "@angular/compiler": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "publint": "^0.3.0",
+    "rxjs": "^7.8.0",
+    "size-limit": "^12.1.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.5",
+    "zone.js": "^0.15.0"
+  }
+}

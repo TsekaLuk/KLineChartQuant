@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noImplicitOverride": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "paths": {
+      "@363045841yyt/klinechart-core": ["../core/src"],
+      "@363045841yyt/klinechart-core/*": ["../core/src/*"],
+      "@363045841yyt/klinechart/web-component": ["../vue/src/web-component.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/__tests__/**", "dist", "node_modules"]
+}

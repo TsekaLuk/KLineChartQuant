@@ -1,0 +1,79 @@
+export interface KLineData {
+  /* 时间戳（毫秒） */
+  timestamp: number
+  /** 日期字符串（如 "2025-06-16"），用于跨品种精确匹配 */
+  date?: string
+  /* 开盘价 */
+  open: number
+  /* 最高价 */
+  high: number
+  /* 最低价 */
+  low: number
+  /* 收盘价 */
+  close: number
+  symbol?: string
+  /** 成交量 */
+  volume?: number
+  /** 成交额 */
+  turnover?: number
+  /** 振幅 */
+  amplitude?: number
+  /** 涨跌幅 */
+  changePercent?: number
+  /** 涨跌额 */
+  changeAmount?: number
+  /** 换手率 */
+  turnoverRate?: number
+  /** 添加自定义字段 */
+  [key: string]: any
+}
+
+export interface KLineDailyDongCaiResponse extends KLineData {
+  symbol: string
+  volume: number
+  turnover: number
+  amplitude: number
+  changePercent: number
+  changeAmount: number
+  turnoverRate: number
+}
+
+export interface TimeShareData {
+  timestamp: number
+  price: number
+  average: number
+  /** 分时成交量，单位手；上游未提供时缺失。 */
+  volume?: number
+  /** 分时成交额，单位元；上游未提供时缺失。 */
+  amount?: number
+}
+
+export function isTimeShareData(data: unknown[]): data is TimeShareData[] {
+  const first = data[0]
+  return (
+    data.length > 0 &&
+    first !== null &&
+    typeof first === 'object' &&
+    'price' in (first as object) &&
+    'average' in (first as object)
+  )
+}
+
+export function toKLineData(arr: KLineDailyDongCaiResponse[]): KLineData[] {
+  return arr
+    .map((e) => ({
+      timestamp: e.timestamp,
+      open: e.open,
+      high: e.high,
+      low: e.low,
+      close: e.close,
+      symbol: e.symbol,
+      volume: e.volume,
+      turnover: e.turnover,
+      amplitude: e.amplitude,
+      changePercent: e.changePercent,
+      changeAmount: e.changeAmount,
+      turnoverRate: e.turnoverRate,
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp)
+}

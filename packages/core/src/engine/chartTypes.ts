@@ -1,0 +1,92 @@
+import type { PaneRole, PaneCapabilities } from '../foundation/plugin/index'
+
+export type ChartDom = {
+  container: HTMLDivElement
+  scrollContent?: HTMLDivElement
+  canvasLayer: HTMLDivElement
+  rightAxisLayer: HTMLDivElement
+  leftAxisLayer?: HTMLDivElement
+  xAxisCanvas: HTMLCanvasElement
+}
+
+export type PaneSpec = {
+  id: string
+  ratio: number
+  visible?: boolean
+  minHeightPx?: number
+  role?: PaneRole
+  capabilities?: Partial<PaneCapabilities>
+}
+
+export type PaneRendererDom = {
+  mainCanvas: HTMLCanvasElement
+  overlayCanvas: HTMLCanvasElement
+  yAxisCanvas: HTMLCanvasElement
+  /** 轴区动态层（最新价标签、十字线价签），叠在 yAxisCanvas 上 */
+  yAxisOverlayCanvas: HTMLCanvasElement
+  leftYAxisCanvas?: HTMLCanvasElement
+  leftYAxisOverlayCanvas?: HTMLCanvasElement
+}
+
+export type ChartOptions = {
+  kWidth?: number
+  kGap?: number
+  yPaddingPx: number
+  rightAxisWidth: number
+  leftAxisWidth: number
+  bottomAxisHeight: number
+  minKWidth: number
+  maxKWidth: number
+  panes: PaneSpec[]
+  paneGap?: number
+  priceLabelWidth?: number
+  defaultPaneMinHeightPx?: number
+  zoomLevels?: number
+  initialZoomLevel?: number
+}
+
+export type KLinePositions = number[]
+
+export type Viewport = {
+  viewWidth: number
+  viewHeight: number
+  plotWidth: number
+  plotHeight: number
+  scrollLeft: number
+  dpr: number
+}
+
+export type ViewportState = {
+  zoomLevel: number
+  plotWidth: number
+  plotHeight: number
+  dpr: number
+  /** 可索引可见起点（已 clamp start>=0） */
+  visibleFrom: number
+  /** 可索引可见终点（开区间） */
+  visibleTo: number
+  kWidth: number
+  kGap: number
+}
+
+export type IndicatorRole = 'main' | 'sub'
+
+export interface IndicatorInstance {
+  id: string
+  definitionId: string
+  label: string
+  name: string
+  role: IndicatorRole
+  paneId?: string
+  ordinal: number
+  params: Record<string, unknown>
+}
+
+export interface SubPaneInfo {
+  instanceId: string
+  paneId: string
+  indicatorId: string
+  ordinal: number
+  params: Record<string, unknown>
+  ratio: number
+}

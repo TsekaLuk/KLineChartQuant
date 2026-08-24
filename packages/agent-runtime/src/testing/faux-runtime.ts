@@ -7,6 +7,8 @@ import {
 import { Type } from 'typebox'
 
 import { AgentRuntimeError } from '../contracts/errors.js'
+import { unconfiguredProviderStatus } from '../contracts/ui.js'
+import { providerLabelForBaseUrl } from '../provider-302ai/presets.js'
 
 import type { AgentApplicationServiceOptions } from '../application/types.js'
 import type { RuntimeSupport } from '../application/unavailable-runtime.js'
@@ -22,27 +24,24 @@ import type { PiRunPlan, RuntimeToolDefinition } from '../pi/types.js'
 export function createFauxRuntimeSupport(): RuntimeSupport {
   let configured = false
   let modelLabel = 'KQ Faux Fast'
+  let configuredBaseUrl: string | undefined
 
   const provider = {
     getStatus(): ProviderStatusView {
       return configured
         ? {
             state: 'connected',
-            providerLabel: '302.ai',
+            providerLabel: providerLabelForBaseUrl(configuredBaseUrl),
             configured: true,
-            baseUrl: 'https://api.302.ai/v1',
+            baseUrl: configuredBaseUrl,
             modelId: modelLabel,
             modelLabel,
             persistenceMode: 'encrypted',
             compatibility: 'compatible',
           }
         : {
-            state: 'not-configured',
-            providerLabel: '302.ai',
-            configured: false,
-            baseUrl: 'https://api.302.ai/v1',
+            ...unconfiguredProviderStatus(),
             persistenceMode: 'encrypted',
-            compatibility: 'unknown',
           }
     },
     async listModels(_input: ProviderModelsInput): Promise<ProviderModelsResult> {
@@ -54,6 +53,7 @@ export function createFauxRuntimeSupport(): RuntimeSupport {
     async test(input: ProviderTestInput): Promise<ProviderTestResult> {
       configured = true
       modelLabel = input.model
+      configuredBaseUrl = input.baseUrl
       return {
         compatible: true,
         model: input.model,

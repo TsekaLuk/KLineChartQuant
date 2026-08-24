@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:e2e": "pnpm -w build:packages && electron-vite build --mode e2e && playwright test --config playwright.config.ts",
     "test:smoke": "pnpm -w build:packages && electron-vite build && node scripts/verify-package-smoke.mjs",
+    "test:e2e:live": "pnpm -w build:packages && electron-vite build --mode e2e && playwright test --config playwright.config.ts agent-live-scenarios",
     "typecheck": "pnpm -w build:packages && vue-tsc --build",
     "postinstall": "electron-builder install-app-deps"
   },

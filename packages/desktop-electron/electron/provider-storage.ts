@@ -81,12 +81,14 @@ function parseCredentialFile(value: unknown): EncryptedCredentialFile {
 
 export interface ElectronSafeStorageCredentialStoreOptions {
   filePath: string
+  fallbackFilePath?: string
   safeStorage: SafeStoragePort
   platform?: NodeJS.Platform
 }
 
 export class ElectronSafeStorageCredentialStore implements ProviderCredentialStore {
   private readonly filePath: string
+  private readonly fallbackFilePath?: string
   private readonly safeStorage: SafeStoragePort
   private readonly platform: NodeJS.Platform
   private memoryKey: string | undefined
@@ -94,6 +96,7 @@ export class ElectronSafeStorageCredentialStore implements ProviderCredentialSto
 
   constructor(options: ElectronSafeStorageCredentialStoreOptions) {
     this.filePath = options.filePath
+    this.fallbackFilePath = options.fallbackFilePath
     this.safeStorage = options.safeStorage
     this.platform = options.platform ?? process.platform
   }
@@ -120,7 +123,7 @@ export class ElectronSafeStorageCredentialStore implements ProviderCredentialSto
     signal?.throwIfAborted()
     if ((await this.metadata()).persistenceMode === 'memory-only') return this.memoryKey
     try {
-      const envelope = parseCredentialFile(JSON.parse(await readFile(this.filePath, 'utf8')))
+      const envelope = parseCredentialFile(JSON.parse(await this.readPersistedJson()))
       signal?.throwIfAborted()
       const decrypted = await this.safeStorage.decryptStringAsync(
         Buffer.from(envelope.ciphertext, 'base64'),
@@ -156,21 +159,37 @@ export class ElectronSafeStorageCredentialStore implements ProviderCredentialSto
   async delete(signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted()
     this.memoryKey = undefined
+    for (const filePath of [this.filePath, this.fallbackFilePath]) {
+      if (!filePath) continue
+      try {
+        await unlink(filePath)
+      } catch (error) {
+        if (!isMissing(error)) throw storageError(error)
+      }
+    }
+  }
+
+  /** 优先读新文件，缺失时回退到 302.ai 旧文件名。 */
+  private async readPersistedJson(): Promise<string> {
     try {
-      await unlink(this.filePath)
+      return await readFile(this.filePath, 'utf8')
     } catch (error) {
-      if (!isMissing(error)) throw storageError(error)
+      if (!isMissing(error) || !this.fallbackFilePath) throw error
+      return readFile(this.fallbackFilePath, 'utf8')
     }
   }
 }
 
 export class ElectronProviderSettingsStore implements ProviderSettingsStore {
-  constructor(private readonly filePath: string) {}
+  constructor(
+    private readonly filePath: string,
+    private readonly fallbackFilePath?: string,
+  ) {}
 
   async read(signal?: AbortSignal): Promise<Provider302AiSettings | undefined> {
     signal?.throwIfAborted()
     try {
-      const value: unknown = JSON.parse(await readFile(this.filePath, 'utf8'))
+      const value: unknown = JSON.parse(await this.readPersistedJson())
       signal?.throwIfAborted()
       return parseProvider302AiSettings(value)
     } catch (error) {
@@ -180,6 +199,16 @@ export class ElectronProviderSettingsStore implements ProviderSettingsStore {
         recommendedAction: 'Test the Provider connection again.',
         cause: error,
       })
+    }
+  }
+
+  /** 优先读新设置文件，缺失时回退到 302.ai 旧文件名。 */
+  private async readPersistedJson(): Promise<string> {
+    try {
+      return await readFile(this.filePath, 'utf8')
+    } catch (error) {
+      if (!isMissing(error) || !this.fallbackFilePath) throw error
+      return readFile(this.fallbackFilePath, 'utf8')
     }
   }
 

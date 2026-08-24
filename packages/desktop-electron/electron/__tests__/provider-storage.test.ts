@@ -139,6 +139,59 @@ describe('Electron Provider storage', () => {
     })
   })
 
+  it('reads legacy 302.ai files and writes only the generic filenames', async () => {
+    const root = await directory()
+    const credentialPath = join(root, 'agent-provider-credential.json')
+    const legacyCredentialPath = join(root, 'agent-provider-302ai-credential.json')
+    const settingsPath = join(root, 'agent-provider-settings.json')
+    const legacySettingsPath = join(root, 'agent-provider-302ai-settings.json')
+    const crypto = safeStorage()
+    await writeFile(
+      legacyCredentialPath,
+      `${JSON.stringify({
+        version: 1,
+        ciphertext: Buffer.from(`encrypted:${secret}`).toString('base64'),
+      })}\n`,
+    )
+    await writeFile(
+      legacySettingsPath,
+      `${JSON.stringify({
+        version: 1,
+        baseUrl: 'https://api.302.ai/v1',
+        modelId: 'frontier-fast',
+        modelName: 'Frontier Fast',
+        compatibility: 'compatible',
+        lastTestedAt: 2,
+        lastModelsRefreshAt: 1,
+      })}\n`,
+    )
+
+    const credentials = new ElectronSafeStorageCredentialStore({
+      filePath: credentialPath,
+      fallbackFilePath: legacyCredentialPath,
+      safeStorage: crypto,
+      platform: 'darwin',
+    })
+    const settings = new ElectronProviderSettingsStore(settingsPath, legacySettingsPath)
+
+    expect(await credentials.read()).toBe(secret)
+    expect(await settings.read()).toMatchObject({ modelId: 'frontier-fast' })
+    await credentials.write(secret)
+    await settings.write({
+      version: 1,
+      baseUrl: 'https://api.deepseek.com',
+      modelId: 'deepseek-chat',
+      modelName: 'DeepSeek',
+      compatibility: 'compatible',
+      lastTestedAt: 3,
+      lastModelsRefreshAt: 2,
+    })
+    expect(JSON.parse(await readFile(credentialPath, 'utf8'))).toMatchObject({ version: 1 })
+    expect(JSON.parse(await readFile(settingsPath, 'utf8'))).toMatchObject({
+      baseUrl: 'https://api.deepseek.com',
+    })
+  })
+
   it('re-encrypts a credential after safeStorage key rotation', async () => {
     const root = await directory()
     const filePath = join(root, 'credential.json')

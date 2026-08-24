@@ -1,6 +1,7 @@
 import { AgentRuntimeError, toAgentRuntimeError } from '../contracts/errors.js'
 import {
   AGENT_UI_PROTOCOL_VERSION,
+  unconfiguredProviderStatus,
   type AgentRunTraceExport,
   type AgentRunUiEventInput,
   type AgentUiEvent,
@@ -35,13 +36,7 @@ type GlobalAgentUiEventInput = GlobalAgentUiEvent extends infer Event
     : never
   : never
 
-const DEFAULT_PROVIDER_STATUS: ProviderStatusView = {
-  state: 'not-configured',
-  providerLabel: '302.ai',
-  configured: false,
-  baseUrl: 'https://api.302.ai/v1',
-  compatibility: 'unknown',
-}
+const DEFAULT_PROVIDER_STATUS: ProviderStatusView = unconfiguredProviderStatus()
 
 function isCancelling(active: ActiveRun): boolean {
   return active.status === 'cancelling'

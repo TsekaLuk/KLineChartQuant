@@ -1,8 +1,7 @@
+/** OpenAI-compatible Provider 的凭据、设置与运行时选项。 */
+
 import type { ProviderPersistenceMode } from '../contracts/ui.js'
 
-export const PROVIDER_302AI_ID = '302ai'
-export const PROVIDER_302AI_LABEL = '302.ai'
-export const DEFAULT_302AI_BASE_URL = 'https://api.302.ai/v1'
 export const PROVIDER_SETTINGS_VERSION = 1 as const
 
 export interface ProviderCredentialMetadata {
@@ -17,7 +16,7 @@ export interface ProviderCredentialStore {
   metadata(): Promise<ProviderCredentialMetadata>
 }
 
-export interface Provider302AiSettings {
+export interface ProviderSettings {
   version: typeof PROVIDER_SETTINGS_VERSION
   baseUrl: string
   modelId: string
@@ -27,18 +26,24 @@ export interface Provider302AiSettings {
   lastModelsRefreshAt: number
 }
 
+/** @deprecated 使用 ProviderSettings。保留别名以免破坏已编译的调用方。 */
+export type Provider302AiSettings = ProviderSettings
+
 export interface ProviderSettingsStore {
-  read(signal?: AbortSignal): Promise<Provider302AiSettings | undefined>
-  write(settings: Provider302AiSettings, signal?: AbortSignal): Promise<void>
+  read(signal?: AbortSignal): Promise<ProviderSettings | undefined>
+  write(settings: ProviderSettings, signal?: AbortSignal): Promise<void>
 }
 
-export interface Provider302AiRuntimeOptions {
+export interface ProviderRuntimeOptions {
   credentials: ProviderCredentialStore
   settings: ProviderSettingsStore
   fetch?: typeof globalThis.fetch
   now?: () => number
-  sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>
+  sleep?: (milliseconds: number, signal?: AbortSignal): Promise<void>
   requestTimeoutMs?: number
   maxRetries?: number
   maxRetryDelayMs?: number
 }
+
+/** @deprecated 使用 ProviderRuntimeOptions。 */
+export type Provider302AiRuntimeOptions = ProviderRuntimeOptions

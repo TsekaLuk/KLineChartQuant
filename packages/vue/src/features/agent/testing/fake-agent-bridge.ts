@@ -2,6 +2,8 @@
 import {
   AGENT_UI_PROTOCOL_VERSION,
   KQ_TRACE_EXPORT_VERSION,
+  providerLabelForBaseUrl,
+  unconfiguredProviderStatus,
   type AgentBridgeClient,
   type AgentRunTraceExport,
   type AgentSessionView,
@@ -66,12 +68,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
           compatibility: 'compatible',
         }
       : {
-          state: 'not-configured',
-          providerLabel: '302.ai',
-          configured: false,
-          baseUrl: 'https://api.302.ai/v1',
+          ...unconfiguredProviderStatus(),
           persistenceMode: 'encrypted',
-          compatibility: 'unknown',
         }
   }
 
@@ -245,7 +243,7 @@ export class FakeAgentBridge implements AgentBridgeClient {
     await new Promise<void>((resolve) => setTimeout(resolve, this.stepDelayMs))
     this.provider = {
       state: 'connected',
-      providerLabel: '302.ai',
+      providerLabel: providerLabelForBaseUrl(input.baseUrl),
       configured: true,
       baseUrl: input.baseUrl,
       modelId: input.model,
@@ -269,9 +267,8 @@ export class FakeAgentBridge implements AgentBridgeClient {
 
   async deleteProviderCredential(): Promise<void> {
     this.provider = {
-      state: 'not-configured',
-      providerLabel: '302.ai',
-      configured: false,
+      ...unconfiguredProviderStatus(),
+      persistenceMode: this.provider.persistenceMode,
       baseUrl: this.provider.baseUrl,
       modelId: this.provider.modelId,
       modelLabel: this.provider.modelLabel,

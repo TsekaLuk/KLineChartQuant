@@ -28,8 +28,20 @@
 
         <form @submit.prevent="submit">
           <label>
+            <span>{{ text.preset }}</span>
+            <select v-model="presetId" @change="applyPreset">
+              <option
+                v-for="preset in presets"
+                :key="preset.id"
+                :value="preset.id"
+              >
+                {{ preset.id === customPresetId ? text.presetCustom : preset.label }}
+              </option>
+            </select>
+          </label>
+          <label>
             <span>{{ text.baseUrl }}</span>
-            <input v-model="baseUrl" type="url" required spellcheck="false" />
+            <input v-model="baseUrl" type="url" required spellcheck="false" @input="syncPresetFromUrl" />
           </label>
           <label>
             <span>{{ text.apiKey }}</span>
@@ -140,14 +152,18 @@
 
   import { getAgentCopy, type AgentLocale } from '../agent-copy'
 
-  import type {
-    AgentErrorView,
-    ProviderModelView,
-    ProviderModelsInput,
-    ProviderProbeStageResult,
-    ProviderStatusView,
-    ProviderTestInput,
-    ProviderTestResult,
+  import {
+    PROVIDER_PRESET_CUSTOM_ID,
+    PROVIDER_PRESETS,
+    matchProviderPresetId,
+    providerPresetById,
+    type AgentErrorView,
+    type ProviderModelView,
+    type ProviderModelsInput,
+    type ProviderProbeStageResult,
+    type ProviderStatusView,
+    type ProviderTestInput,
+    type ProviderTestResult,
   } from '../agent-contracts'
 
   import IconAlertTriangle from '~icons/tabler/alert-triangle'
@@ -179,7 +195,10 @@
   const titleId = 'agent-provider-settings-title'
   const dialog = ref<HTMLElement | null>(null)
   const modelInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
-  const baseUrl = ref('https://api.302.ai/v1')
+  const presets = PROVIDER_PRESETS
+  const customPresetId = PROVIDER_PRESET_CUSTOM_ID
+  const presetId = ref(PROVIDER_PRESET_CUSTOM_ID)
+  const baseUrl = ref('')
   const apiKey = ref('')
   const model = ref('')
   const text = computed(() => getAgentCopy(props.locale))
@@ -196,7 +215,11 @@
       (!apiKey.value.trim() && !props.status.configured),
   )
   const testDisabled = computed(
-    () => props.status.state === 'testing' || props.modelsLoading || !model.value.trim(),
+      () =>
+        props.status.state === 'testing' ||
+        props.modelsLoading ||
+        !baseUrl.value.trim() ||
+        !model.value.trim(),
   )
   const connectionLabel = computed(() => {
     const labels = {
@@ -207,6 +230,15 @@
     }
     return labels[props.status.state]
   })
+
+  function applyPreset(): void {
+    const preset = providerPresetById(presetId.value)
+    if (preset.id !== PROVIDER_PRESET_CUSTOM_ID) baseUrl.value = preset.baseUrl
+  }
+
+  function syncPresetFromUrl(): void {
+    presetId.value = matchProviderPresetId(baseUrl.value)
+  }
 
   function submit(): void {
     emit('test', {
@@ -235,7 +267,8 @@
     () => props.open,
     async (open) => {
       if (!open) return
-      baseUrl.value = props.status.baseUrl ?? 'https://api.302.ai/v1'
+      baseUrl.value = props.status.baseUrl ?? ''
+      presetId.value = matchProviderPresetId(baseUrl.value)
       model.value = props.status.modelId ?? ''
       await nextTick()
       dialog.value?.focus()

@@ -1,0 +1,3 @@
+{"file":".trellis/spec/backend/agent-runtime.md","reason":"Check that production composition stays fail-closed, redacted, and free of Faux fallbacks."}
+{"file":".trellis/spec/frontend/agent-workbench.md","reason":"Check that settings UI still uses the shared contract and does not hardcode a vendor as the product Provider."}
+{"file":".trellis/tasks/08-24-agent-live-scenarios/prd.md","reason":"Check R1-R5 acceptance: generic defaults, presets, migration, live env aliases, prompt safety."}

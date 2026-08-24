@@ -1,5 +1,19 @@
 /** Stable Renderer contract. Pi, Provider, and host transport types stop here. */
+import { OPENAI_COMPATIBLE_PROVIDER_LABEL } from './provider-presets.js'
+
+export * from './provider-presets.js'
+
 export const AGENT_UI_PROTOCOL_VERSION = 2 as const
+
+/** 未配置时的中性状态：不预填任何厂商 Base URL。 */
+export function unconfiguredProviderStatus(): ProviderStatusView {
+  return {
+    state: 'not-configured',
+    providerLabel: OPENAI_COMPATIBLE_PROVIDER_LABEL,
+    configured: false,
+    compatibility: 'unknown',
+  }
+}
 
 export type AgentRunStatus =
   | 'idle'

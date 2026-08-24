@@ -142,11 +142,14 @@ root and `./mcp-server` entry.
   permitted only for the exact application page: compare `pathname` for `file:`
   pages (their origin is always `null`) and `origin` for the dev renderer.
   Decisions live in pure functions so both sides are testable without Electron.
-- The 302.ai credential is accepted only by `provider.models` and
+- The provider credential is accepted only by `provider.models` and
   `provider.test` request inputs. Renderer receives bounded model/status/test
   views and must never receive or persist the key. A configuration becomes
   runnable only after catalog, text, and exact harmless tool-call probes pass.
-- Live evaluation reads only `KQ_302AI_API_KEY`; a missing variable is a
+  The runtime identity is `openai-compatible`; 302.ai is one preset, not the
+  product default. Fresh status omits Base URL.
+- Live evaluation reads `KQ_LLM_API_KEY` or the deprecated alias
+  `KQ_302AI_API_KEY`; a missing variable is a
   zero-request skip. Quality evidence is exact-ID evidence: the official model
   catalog marks `gpt-5.6-luna` as a current candidate, while the observed Arena
   rank 63 belongs only to the exact `gpt-5.6-luna-xhigh` row. Never copy a

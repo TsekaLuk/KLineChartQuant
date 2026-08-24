@@ -136,9 +136,8 @@ describe('production Provider fallback', () => {
 
     expect(await support.provider.getStatus()).toEqual({
       state: 'not-configured',
-      providerLabel: '302.ai',
+      providerLabel: 'OpenAI-compatible',
       configured: false,
-      baseUrl: 'https://api.302.ai/v1',
       compatibility: 'unknown',
     })
     await expect(

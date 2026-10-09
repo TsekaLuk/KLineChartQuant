@@ -8,6 +8,8 @@ export type {
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
 
+export { BarsLiveSource } from '../live/impl/barsLive.js'
+export type { LiveBarsDataSource, LiveBarsRequest } from '../live/types.js'
 export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'

@@ -13,6 +13,7 @@ Status: `Proposed` → `Accepted` → (`Superseded by NNNN` | `Deprecated`).
 | [0005](0005-renderer-freeze.md) | Renderer is out of scope for the design overhaul | Accepted |
 | [0006](0006-settings-instant-apply.md) | Settings apply instantly; no draft copy | Accepted |
 | [0007](0007-brand-accent-instrument-cobalt.md) | Brand accent: Instrument Cobalt | Accepted |
+| [0008](0008-loading-orchestration-out-of-freeze.md) | Data-loading orchestration is outside the renderer freeze | Accepted |
 
 Template:
 

@@ -4,14 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataBuffer } from '../buffer/impl/dataBuffer'
 import {
   BarsLiveSource,
-  BarsLiveSubscription,
   type LiveBar,
   type LiveBarsRequest,
   type LiveBarsStream,
   RealtimeBarsConnector,
 } from '../live/impl/barsLive'
-import { marketDataProviderRegistry } from '../provider/impl/registry'
-import type { MarketDataProvider } from '../provider/types'
 
 /** K 线 fixture 入参：timestamp/close 必填，确有差异的 OHLCV 字段可按需覆盖。 */
 type BarOverrides = Pick<LiveBar, 'timestamp' | 'close'> &
@@ -363,5 +360,36 @@ describe('BarsLiveSubscription instrumentId', () => {
 
     expect(requests).toHaveLength(1)
     expect(requests[0]).not.toHaveProperty('instrumentId')
+  })
+
+  it('does not stream an instrument that declares no live bars', () => {
+    const requests = registerLiveProvider()
+    const subscription = new BarsLiveSubscription({ updateBars: () => {} })
+
+    subscription.reconcile({
+      symbol: 'AAPL',
+      period: '5min',
+      instrument: {
+        sourceId: SOURCE_ID,
+        id: 'live-test:US:AAPL',
+        capabilities: { liveBars: false },
+      },
+    })
+
+    expect(requests).toHaveLength(0)
+  })
+
+  it('streams when the instrument does not declare live-bar support either way', () => {
+    const requests = registerLiveProvider()
+    const subscription = new BarsLiveSubscription({ updateBars: () => {} })
+
+    subscription.reconcile({
+      symbol: '600519',
+      period: '5min',
+      instrument: { sourceId: SOURCE_ID, id: 'live-test:SH:600519', capabilities: {} },
+    })
+    subscription.stop()
+
+    expect(requests).toHaveLength(1)
   })
 })

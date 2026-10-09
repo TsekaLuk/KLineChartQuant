@@ -489,6 +489,9 @@ importers:
       '@363045841yyt/klinechart-core':
         specifier: workspace:^
         version: link:../core
+      '@floating-ui/dom':
+        specifier: 1.8.0
+        version: 1.8.0
       '@fontsource/jetbrains-mono':
         specifier: ^5.3.0
         version: 5.3.0

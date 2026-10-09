@@ -40,22 +40,6 @@ const WATERMARK_NAME_FONT_WEIGHT = 500
 /** 品牌与水印字体族来自 Theme Token，随包自托管，不依赖宿主系统。 */
 const WATERMARK_BRAND_FONT_TOKEN = '--klc-font-family-brand'
 const WATERMARK_NAME_FONT_TOKEN = '--klc-font-family-brand-cjk'
-/** FontFace 注册名，必须与 --klc-font-family-brand-cjk 的首选族一致。 */
-const WATERMARK_CJK_FONT_FAMILY = 'HarmonyOS Sans'
-let harmonyFontPromise: Promise<FontFace> | undefined
-
-/** 首次截图时加载随包提供的 HarmonyOS Sans 中文字体，后续复用字体。 */
-function loadHarmonyFont(): Promise<FontFace> {
-  if (!harmonyFontPromise) {
-    const fontUrl = new URL('../../assets/fonts/HarmonyOS_Sans_SC_Medium.ttf', import.meta.url)
-    const font = new FontFace(WATERMARK_CJK_FONT_FAMILY, `url("${fontUrl.href}")`, {
-      weight: String(WATERMARK_NAME_FONT_WEIGHT),
-    })
-    document.fonts.add(font)
-    harmonyFontPromise = font.load()
-  }
-  return harmonyFontPromise
-}
 
 /** 将 Canvas 编码为 PNG Blob，编码失败时拒绝 Promise。 */
 function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -118,8 +102,7 @@ async function createScreenshot(
   const brandFont = `${WATERMARK_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${brandFamily}`
   const instrumentFont = `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${instrumentFamily}`
   // 品种信息与品牌分行呈现，字体准备完成后再绘制，避免中文使用系统替代字形。
-  await Promise.all([document.fonts.load(brandFont, WATERMARK_TEXT), loadHarmonyFont()])
-  await document.fonts.load(instrumentFont, instrumentText)
+  await Promise.all([document.fonts.load(brandFont, WATERMARK_TEXT), document.fonts.load(instrumentFont, instrumentText)])
   const backgroundColor = styles.getPropertyValue(CHART_BACKGROUND_TOKEN).trim()
   const { image, scale } = await captureFrame(async (frame) => ({
     image: await captureChartImage(element, frame, backgroundColor),

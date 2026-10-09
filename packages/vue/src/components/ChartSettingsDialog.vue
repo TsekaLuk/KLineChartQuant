@@ -133,7 +133,7 @@
                   type="button"
                   class="settings__icon-btn"
                   aria-label="清除缓存"
-                  @click="emit('clearMarketDataCache')"
+                  @click="clearCacheWithUndo"
                 >
                   <IconTablerTrash aria-hidden="true" />
                 </button>
@@ -189,18 +189,6 @@
             </template>
           </template>
         </TabsContent>
-
-        <div v-if="inlineToast.current.value" class="settings__toast" role="status">
-          <span>{{ inlineToast.current.value.message }}</span>
-          <button
-            v-if="inlineToast.current.value.action"
-            type="button"
-            class="settings__toast-action"
-            @click="inlineToast.act()"
-          >
-            {{ inlineToast.current.value.action.label }}
-          </button>
-        </div>
       </div>
     </TabsRoot>
   </BaseModal>
@@ -236,7 +224,6 @@
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import IconTablerTrash from '~icons/tabler/trash'
   import { injectCommands } from '../composables/commands/useCommands.js'
-  import { createInlineToast, injectToast } from '../composables/feedback/undoToast.js'
   import {
     ADVANCED_SECTION_KEYS,
     APPEARANCE_SECTION_KEYS,
@@ -250,6 +237,7 @@
     injectChartController,
     useChartSettings,
   } from '../composables/settings/useChartSettings.js'
+  import { useToast } from '../composables/toast/useToast.js'
   import type {
     AggregationSourceDefinition,
     AggregationSourceEndpoint,
@@ -303,9 +291,8 @@
   const settings = handle.settings
   const hasCommands = injectCommands() !== null
 
-  // 已注入共享 Toast 时交给它；否则在对话框内联显示撤销提示。
-  const inlineToast = createInlineToast()
-  const toast = injectToast() ?? inlineToast
+  // 共享 Toast + Undo 服务；BaseModal 内置视口，模态期间撤销按钮仍可点击。
+  const toast = useToast()
 
   const items = (keys: ReadonlyArray<string>) =>
     keys.map(settingItem).filter((item): item is SettingItem => item !== undefined)
@@ -374,9 +361,16 @@
   }
 
   function offerUndo(message: string, previous: Readonly<Partial<ChartSettings>>): void {
-    toast.show({
-      message,
-      action: { label: '撤销', onAction: () => handle.update(previous) },
+    toast.showUndo({ message, onUndo: () => void handle.update(previous) })
+  }
+
+  /** 清除缓存不可恢复：撤销窗口结束后才真正清除，期间可撤销。 */
+  function clearCacheWithUndo(): void {
+    toast.showUndo({
+      id: 'settings:clear-market-data-cache',
+      message: '行情缓存将被清除',
+      onUndo: () => {},
+      onCommit: () => emit('clearMarketDataCache'),
     })
   }
 
@@ -478,8 +472,7 @@
   .settings__restore:focus-visible,
   .settings__icon-btn:focus-visible,
   .settings__nav-row:focus-visible,
-  .settings__credit:focus-visible,
-  .settings__toast-action:focus-visible {
+  .settings__credit:focus-visible {
     outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 2px;
   }
@@ -640,26 +633,6 @@
     white-space: nowrap;
   }
 
-  .settings__toast {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--klc-spacing-md);
-    margin: 0 var(--klc-spacing-md) var(--klc-spacing-md);
-    padding: var(--klc-spacing-sm) var(--klc-spacing-md);
-    border: 1px solid var(--klc-color-ui-border);
-    border-radius: 8px;
-    background: var(--klc-color-ui-surface);
-  }
-
-  .settings__toast-action {
-    border: 0;
-    background: none;
-    color: var(--klc-color-ui-accent, var(--klc-color-ui-text));
-    font: inherit;
-    font-weight: var(--klc-typography-font-weight-bold);
-    cursor: pointer;
-  }
 
   /* 窄屏：左侧导航收为顶部横向滚动标签。 */
   @media (max-width: 640px) {

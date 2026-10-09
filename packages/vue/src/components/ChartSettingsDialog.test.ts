@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { createMockChartController } from '../__tests__/_mockController.js'
+import { useToast } from '../composables/toast/useToast.js'
 import ChartSettingsDialog from './ChartSettingsDialog.vue'
 
 const toolContext = { signal: new AbortController().signal, progress: () => {} }
@@ -48,6 +49,7 @@ function mountDialog(controller: ReturnType<typeof createMockChartController>) {
 describe('ChartSettingsDialog (ADR 0006 instant apply)', () => {
   let wrapper: ReturnType<typeof mountDialog> | null = null
   afterEach(() => {
+    useToast().clear('replaced')
     wrapper?.unmount()
     wrapper = null
   })
@@ -116,14 +118,38 @@ describe('ChartSettingsDialog (ADR 0006 instant apply)', () => {
     // 其它分区的设置不受影响。
     expect(controller.settings.peek().theme).toBe('light')
 
-    const status = document.querySelector('[role="status"]')
-    expect(status?.textContent).toContain('已恢复“图表”默认设置')
-    const undo = [...(status?.querySelectorAll('button') ?? [])].find(
+    const live = document.querySelector('[aria-live="polite"]')
+    expect(live?.textContent).toContain('已恢复“图表”默认设置')
+    const undo = [...document.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === '撤销',
     )
     undo?.click()
     await nextTick()
     expect(controller.settings.peek().showGridLines).toBe(false)
+  })
+
+  it('defers the irreversible cache clear until the undo window closes', async () => {
+    const controller = createMockChartController()
+    wrapper = mount(ChartSettingsDialog, {
+      attachTo: document.body,
+      props: { show: true, controller, initialSection: 'data' },
+    })
+    await flushPromises()
+    document.querySelector<HTMLButtonElement>('[aria-label="清除缓存"]')?.click()
+    await nextTick()
+    expect(wrapper.emitted('clearMarketDataCache')).toBeUndefined()
+    // 撤销：永不清除。
+    ;[...document.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === '撤销')
+      ?.click()
+    await flushPromises()
+    useToast().clear()
+    expect(wrapper.emitted('clearMarketDataCache')).toBeUndefined()
+    // 未撤销：窗口结束后提交。
+    document.querySelector<HTMLButtonElement>('[aria-label="清除缓存"]')?.click()
+    await nextTick()
+    useToast().clear()
+    expect(wrapper.emitted('clearMarketDataCache')).toHaveLength(1)
   })
 
   it('edits custom colours inline instead of a nested modal', async () => {

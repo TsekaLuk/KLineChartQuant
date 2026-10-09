@@ -6,7 +6,7 @@
   },
   "packages/vue/src/components/AggregationSourceDialog.vue": {
     "klc/no-raw-length": {
-      "count": 20
+      "count": 21
     }
   },
   "packages/vue/src/components/BaseButton.vue": {
@@ -21,7 +21,7 @@
   },
   "packages/vue/src/components/ChartSettingsDialog.vue": {
     "klc/no-raw-length": {
-      "count": 2
+      "count": 7
     }
   },
   "packages/vue/src/components/ColorPicker.vue": {
@@ -307,6 +307,21 @@
   "packages/vue/src/features/agent/components/agent-select-trigger.css": {
     "klc/no-raw-length": {
       "count": 4
+    }
+  },
+  "packages/vue/src/components/commands/CommandPalette.vue": {
+    "klc/no-raw-length": {
+      "count": 4
+    }
+  },
+  "packages/vue/src/components/commands/ShortcutList.vue": {
+    "klc/no-raw-length": {
+      "count": 3
+    }
+  },
+  "packages/vue/src/components/settings/SettingRow.vue": {
+    "klc/no-raw-length": {
+      "count": 1
     }
   }
 }

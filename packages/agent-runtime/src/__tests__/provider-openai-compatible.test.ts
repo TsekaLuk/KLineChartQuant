@@ -15,6 +15,7 @@ import {
   type ProviderDiagnostic,
   parseOpenAiCompatibleProviderSettings,
   parseRetryAfter,
+  ReadOnlyProviderCredentialStore,
   requestProviderJson,
 } from '../index'
 import { createMemoryRuntimeSessions } from '../testing/memory-sessions'
@@ -858,5 +859,16 @@ describe('OpenAI-compatible runtime support', () => {
       error: { code: 'PROVIDER_ERROR', message: 'The Provider operation failed.' },
     })
     expect(JSON.stringify(status)).not.toContain(secret)
+  })
+
+  it('serves a read-only placeholder credential and rejects writes and deletes', async () => {
+    const credentials = new ReadOnlyProviderCredentialStore('host-managed')
+    await expect(credentials.read()).resolves.toBe('host-managed')
+    await expect(credentials.write()).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+    await expect(credentials.delete()).rejects.toMatchObject({ code: 'PROVIDER_ERROR' })
+    await expect(credentials.read()).resolves.toBe('host-managed')
+    const aborted = new AbortController()
+    aborted.abort()
+    await expect(credentials.read(aborted.signal)).rejects.toBeDefined()
   })
 })

@@ -120,6 +120,39 @@ export class InMemoryProviderCredentialStore implements ProviderCredentialStore 
   }
 }
 
+/**
+ * 只读的 API Key 存储：始终返回构造时给定的凭据，拒绝写入与删除。
+ * 用于由宿主在服务端注入真实鉴权、浏览器只需携带占位凭据的托管 Provider。
+ */
+export class ReadOnlyProviderCredentialStore implements ProviderCredentialStore {
+  /** @param credential 每次读取返回的凭据值，通常是非敏感的占位符。 */
+  constructor(private readonly credential: string) {}
+
+  /**
+   * 读取固定凭据。
+   * @param signal 用于在读取前取消操作的信号。
+   */
+  async read(signal?: AbortSignal): Promise<string | undefined> {
+    signal?.throwIfAborted()
+    return this.credential
+  }
+
+  /** 拒绝写入：该凭据由宿主持有。 */
+  async write(): Promise<void> {
+    throw readOnlyCredentialError()
+  }
+
+  /** 拒绝删除：该凭据由宿主持有。 */
+  async delete(): Promise<void> {
+    throw readOnlyCredentialError()
+  }
+}
+
+/** 构造只读凭据存储拒绝写入时的统一错误。 */
+function readOnlyCredentialError(): AgentRuntimeError {
+  return new AgentRuntimeError('PROVIDER_ERROR', 'The Provider credential is managed by the host.')
+}
+
 /** 用于测试或非持久化宿主的 Provider 设置内存存储。 */
 export class InMemoryProviderSettingsStore implements ProviderSettingsStore {
   private value: OpenAiCompatibleProviderSettings | undefined

@@ -105,8 +105,8 @@
             target="_blank"
             rel="noopener noreferrer"
             :style="{ bottom: `${props.bottomAxisHeight + 8}px` }"
-            aria-label="KlineChartQuant"
-          >KlineChartQuant</a>
+            aria-label="KLineChartQuant"
+          >KLineChartQuant</a>
           <div
             ref="leftAxisLayerRef"
             v-show="chartMode === 'timeshare'"

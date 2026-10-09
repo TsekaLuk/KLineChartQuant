@@ -23,7 +23,7 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
  * care, and consumers consume them through `var(...)` so the type tag is
  * lost in the round-trip anyway.
  *
- * Prefix is configurable. Default `--klc-` (KLineChart Quant) is short
+ * Prefix is configurable. Default `--klc-` (KLineChartQuant) is short
  * enough to type and unique enough to coexist with other token systems
  * (Tailwind, MUI, Radix) on the same page.
  */

@@ -315,6 +315,8 @@ function setupAgentProviderSettingsStore() {
   async function persistConnection(): Promise<boolean> {
     if (!bridge) return false
     if (!profileName.value.trim() || !baseUrl.value.trim()) return false
+    // 宿主托管配置没有可编辑的连接。
+    if (profiles.value.some((item) => item.managed && item.name === profileName.value)) return false
     operationError.value = null
     try {
       const customHeaders = parseHeaders()

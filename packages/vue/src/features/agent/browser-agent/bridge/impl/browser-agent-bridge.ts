@@ -51,6 +51,11 @@ import {
   BrowserProviderCredentialStore,
   BrowserProviderSettingsStore,
 } from '../../provider/impl/browser-provider-stores.js'
+import {
+  ManagedProvider,
+  managedProviderReadOnlyError,
+  RoutedProviderCredentialStore,
+} from '../../provider/impl/managed-provider.js'
 import { ProviderModelPool } from '../../provider/impl/provider-model-pool.js'
 import type { BrowserProviderConnection, BrowserProviderProfile } from '../../provider/types.js'
 import { BrowserRunRegistry } from '../../session/impl/browser-run-registry.js'
@@ -65,7 +70,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     () => this.modelSettings.modelPool(),
     (models) => this.modelSettings.setModelPool(models),
   )
-  private readonly profiles = new BrowserProviderProfiles(this.modelSettings)
+  private readonly managed: ManagedProvider | undefined
+  private readonly profiles: BrowserProviderProfiles
   private readonly enabledTools = new BrowserEnabledTools(this.modelSettings)
   private readonly createSessions: (redaction: RedactionOptions) => Promise<BrowserRuntimeSessions>
   private readonly redactionSecrets: string[] = []
@@ -83,7 +89,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.createSessions =
       options.createSessions ?? ((redaction) => createBrowserRuntimeSessions({ redaction }))
     this.getChartAgent = options.getChartAgent ?? (() => null)
-    this.credentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
+    this.managed = options.managedProvider && new ManagedProvider(options.managedProvider)
+    this.profiles = new BrowserProviderProfiles(this.modelSettings, this.managed)
+    const userCredentials = options.credentials ?? new BrowserProviderCredentialStore(this.profiles)
+    this.credentials = this.managed
+      ? new RoutedProviderCredentialStore(userCredentials, this.managed.credentials, () =>
+          this.managedActive(),
+        )
+      : userCredentials
     this.settings = new BrowserProviderSettingsStore(this.profiles)
     this.context = new BrowserChartContextSource({ getChartAgent: this.getChartAgent })
     this.tools = new BrowserToolRegistry({
@@ -94,7 +107,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     this.support = createOpenAiCompatibleRuntimeSupport({
       credentials: this.credentials,
       settings: this.settings,
-      fetch: fetchBrowserProvider,
+      fetch: (input, init) => this.providerFetch()(input, init),
       tools: (context) => {
         const enabledNames = this.enabledToolNames()
         return this.tools.catalog
@@ -130,6 +143,16 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     const profile = this.profiles.active()
     const exaConfigured = Boolean(this.webSearchApiKey())
     if (!profile) return { ...status, exaConfigured }
+    if (profile.managed) {
+      // 托管凭据只是占位值，不向界面暴露其指纹。
+      return {
+        ...status,
+        profileName: profile.name,
+        exaConfigured,
+        managed: true,
+        fingerprint: undefined,
+      }
+    }
     const connection = profile.connection
     if (!connection) return { ...status, profileName: profile.name, exaConfigured }
     if (profile.settings) return { ...status, profileName: profile.name, exaConfigured }
@@ -289,9 +312,25 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     return values
   }
 
+  /** 当前生效的配置是否为宿主托管配置。 */
+  private managedActive(): boolean {
+    return this.profiles.active()?.managed === true
+  }
+
+  /** 当前生效配置的 fetch：托管配置使用宿主 fetch，其余使用浏览器默认适配。 */
+  private providerFetch(): typeof fetch {
+    return this.managed && this.managedActive() ? this.managed.fetch : fetchBrowserProvider
+  }
+
+  /** 拒绝对托管配置的修改，以及与托管配置重名的用户配置。 */
+  private assertUserProfileName(profileName: string): void {
+    if (profileName === this.managed?.name) throw managedProviderReadOnlyError()
+  }
+
   /** 返回已保存的 Provider 配置，不向界面暴露 API Key。 */
   async listProviderProfiles(): Promise<ProviderProfileView[]> {
     return this.profiles.read().map((profile) => {
+      if (profile.managed && this.managed) return this.managed.view()
       const connection = profile.connection
       const settings = profile.settings
       return {
@@ -310,6 +349,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 在唯一配置数组中创建并激活一个空配置。 */
   async createProviderProfile(profileName: string): Promise<void> {
+    this.assertUserProfileName(profileName)
     const profiles = this.profiles.read()
     if (profiles.some((profile) => profile.name === profileName)) {
       throw new AgentRuntimeError(
@@ -331,6 +371,8 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 重命名已保存配置，并同步其模型池分组。 */
   async renameProviderProfile(profileName: string, nextProfileName: string): Promise<void> {
     const nextName = nextProfileName.trim()
+    this.assertUserProfileName(profileName)
+    this.assertUserProfileName(nextName)
     if (!profileName || !nextName) {
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration name is required.')
     }
@@ -352,6 +394,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   /** 删除已保存配置及其模型池；删除激活配置前必须停止运行。 */
   async deleteProviderProfile(profileName: string): Promise<void> {
+    this.assertUserProfileName(profileName)
     const profile = this.profiles.read().find((item) => item.name === profileName)
     if (!profile) {
       throw new AgentRuntimeError('PROVIDER_ERROR', 'The Provider configuration was not found.')
@@ -385,6 +428,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 使用当前已保存的 Provider 连接拉取模型目录。 */
   async listProviderModelCatalog(): Promise<ProviderModelsResult> {
     const profile = this.profiles.active()
+    if (profile?.managed && this.managed) {
+      return { models: [this.managed.poolEntry()], refreshedAt: Date.now() }
+    }
     const connection = profile?.connection
     if (!connection) {
       throw new AgentRuntimeError(
@@ -398,12 +444,14 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 返回当前 Profile 在统一模型池中可用的模型。 */
   async listProviderModelPool(): Promise<ProviderModelPoolEntry[]> {
     const profile = this.profiles.active()
+    if (profile?.managed && this.managed) return [this.managed.poolEntry()]
     return profile ? this.modelPool.list(profile.name) : []
   }
 
   /** 将远端目录模型加入当前 Profile 的模型池，并返回更新后的模型池。 */
   async addProviderModelPoolModel(model: ProviderModelView): Promise<ProviderModelPoolEntry[]> {
     const profile = this.profiles.active()
+    if (profile?.managed) throw managedProviderReadOnlyError()
     if (!profile) return []
     this.modelPool.add(profile.name, model)
     return this.modelPool.list(profile.name)
@@ -412,6 +460,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 从当前 Profile 模型池移除模型；若移除的是已选模型则同时清除选择。 */
   async removeProviderModelPoolModel(modelId: string): Promise<ProviderModelPoolEntry[]> {
     const profile = this.profiles.active()
+    if (profile?.managed) throw managedProviderReadOnlyError()
     if (!profile) return []
     this.modelPool.remove(profile.name, modelId)
     if (profile.settings?.modelId === modelId) {
@@ -424,6 +473,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 选择当前 Profile 模型池中的模型，并同步该模型声明的能力。 */
   async setProviderModel(modelId: string): Promise<void> {
     const profile = this.profiles.active()
+    if (profile?.managed) throw managedProviderReadOnlyError()
     const connection = profile?.connection
     if (!profile || !connection) return
     const model = this.modelPool.list(profile.name).find((item) => item.id === modelId)
@@ -508,6 +558,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async testProvider(input: ProviderTestInput): Promise<ProviderTestResult> {
+    if (this.managedActive()) throw managedProviderReadOnlyError()
     const apiKey = input.apiKey?.trim() || (await this.credentials.read())
     if (!apiKey) {
       throw new AgentRuntimeError('PROVIDER_NOT_CONFIGURED', 'Enter an API key before testing.')
@@ -517,6 +568,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
 
   async saveProvider(input: ProviderSaveInput): Promise<void> {
     const profileName = input.profileName.trim()
+    this.assertUserProfileName(profileName)
     if (!profileName) {
       throw new AgentRuntimeError(
         'PROVIDER_NOT_CONFIGURED',
@@ -547,7 +599,9 @@ export class BrowserAgentBridge implements AgentBridgeClient {
     // apiKey 一律不进 profile 对象：它随 profiles.write() 会被 JSON.stringify 进
     // localStorage。Key 统一经 credentials 存储写入——默认实现写回 localStorage（Web 端
     // 行为不变），Electron 实现写进 safeStorage。
-    const apiKey = input.apiKey?.trim() || (await this.credentials.read()) || ''
+    // 托管配置生效时 credentials 返回宿主占位值，不得被带入用户配置。
+    const inheritedKey = this.managedActive() ? undefined : await this.credentials.read()
+    const apiKey = input.apiKey?.trim() || inheritedKey || ''
     const profile: BrowserProviderProfile = {
       name: profileName,
       apiKey: '',
@@ -577,6 +631,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   /** 更新当前 Profile 的思考强度并保持已验证模型能力不变。 */
   async setProviderReasoningEffort(effort: ProviderReasoningEffort | undefined): Promise<void> {
     const active = this.profiles.active()
+    if (active?.managed) throw managedProviderReadOnlyError()
     const settings = active?.settings
     if (!settings) return
     if (effort && !settings.reasoningEfforts.includes(effort)) {
@@ -590,6 +645,7 @@ export class BrowserAgentBridge implements AgentBridgeClient {
   }
 
   async deleteProviderCredential(): Promise<void> {
+    if (this.managedActive()) throw managedProviderReadOnlyError()
     await this.support.provider.deleteCredential()
     await this.emitProviderStatus()
   }

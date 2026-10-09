@@ -77,6 +77,8 @@ const copy = {
     toolRun: 'Run',
     toolRunning: 'Running...',
     providerProfile: 'Configuration',
+    managedProviderNotice:
+      'This configuration is provided and managed for you. No API key or model selection is needed.',
     providerProfileName: 'Configuration name',
     providerProfileNameDuplicated: 'A configuration with this name already exists.',
     newProviderProfile: 'New configuration',
@@ -198,6 +200,7 @@ const copy = {
     toolRun: '运行',
     toolRunning: '运行中...',
     providerProfile: '配置',
+    managedProviderNotice: '此配置已为你托管，无需填写 API Key 或选择模型。',
     providerProfileName: '配置名称',
     providerProfileNameDuplicated: '已存在同名配置。',
     newProviderProfile: '新建配置',

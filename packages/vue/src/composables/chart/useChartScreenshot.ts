@@ -39,23 +39,15 @@ const WATERMARK_FONT_SIZE = 20
 const WATERMARK_FONT_FAMILY = 'Outfit, sans-serif'
 const WATERMARK_FONT_WEIGHT = 600
 const WATERMARK_FONT = `${WATERMARK_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${WATERMARK_FONT_FAMILY}`
-const WATERMARK_NAME_FONT_FAMILY = '"HarmonyOS Sans", sans-serif'
+/**
+ * 品种名使用 Noto Sans SC（OFL）。库不打包中文字体：库构建会把字体内联进 JS，
+ * 宿主注册 Noto Sans SC 500（如 `@fontsource/noto-sans-sc/500.css`）后，按 unicode-range 只下载用到的分片；
+ * 未注册时回退到系统中文字体。
+ */
+const WATERMARK_NAME_FONT_FAMILY =
+  '"Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif'
 const WATERMARK_NAME_FONT_WEIGHT = 500
 const WATERMARK_NAME_FONT = `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${WATERMARK_NAME_FONT_FAMILY}`
-let harmonyFontPromise: Promise<FontFace> | undefined
-
-/** 首次截图时加载随包提供的 HarmonyOS Sans 中文字体，后续复用字体。 */
-function loadHarmonyFont(): Promise<FontFace> {
-  if (!harmonyFontPromise) {
-    const fontUrl = new URL('../../assets/fonts/HarmonyOS_Sans_SC_Medium.ttf', import.meta.url)
-    const font = new FontFace('HarmonyOS Sans', `url("${fontUrl.href}")`, {
-      weight: String(WATERMARK_NAME_FONT_WEIGHT),
-    })
-    document.fonts.add(font)
-    harmonyFontPromise = font.load()
-  }
-  return harmonyFontPromise
-}
 
 /** 将 Canvas 编码为 PNG Blob，编码失败时拒绝 Promise。 */
 function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -122,9 +114,8 @@ async function createScreenshot(
   // 品种信息与品牌分行呈现，字体准备完成后再绘制，避免中文使用系统替代字形。
   await Promise.all([
     document.fonts.load(WATERMARK_FONT, WATERMARK_TEXT),
-    loadHarmonyFont(),
+    document.fonts.load(WATERMARK_NAME_FONT, instrumentText),
   ])
-  await document.fonts.load(WATERMARK_NAME_FONT, instrumentText)
   const styles = getComputedStyle(element)
   const backgroundColor = styles.getPropertyValue(CHART_BACKGROUND_TOKEN).trim()
   const { image, scale } = await captureFrame(async (frame) => ({

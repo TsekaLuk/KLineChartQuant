@@ -101,8 +101,8 @@
                   : priceAxisPosition === 'left' ? axisHostWidth : 0
               }px`,
             }"
-            aria-label="KlineChartQuant"
-          >KlineChartQuant</a>
+            aria-label="KLineChartQuant"
+          >KLineChartQuant</a>
           <div
             ref="leftAxisLayerRef"
             v-show="chartMode === 'timeshare'"

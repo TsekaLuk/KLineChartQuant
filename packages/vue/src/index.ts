@@ -124,6 +124,10 @@ export { default as AgentWorkbenchShell } from '@vue-src/features/agent/AgentWor
 export * from '@vue-src/features/agent/agent-contracts.js'
 export { BrowserAgentBridge } from '@vue-src/features/agent/browser-agent/bridge/impl/browser-agent-bridge.js'
 export type { BrowserAgentBridgeOptions } from '@vue-src/features/agent/browser-agent/bridge/types.js'
+export type {
+  BrowserManagedProvider,
+  BrowserManagedProviderModel,
+} from '@vue-src/features/agent/browser-agent/provider/types.js'
 export { default as AgentWorkspace } from '@vue-src/features/agent/components/AgentWorkspace.vue'
 export { createAgentPanelSideStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-side-storage.js'
 export { createAgentPanelWidthStorage } from '@vue-src/features/agent/workspace/impl/agent-panel-width-storage.js'

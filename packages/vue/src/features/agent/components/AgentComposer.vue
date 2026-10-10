@@ -13,6 +13,7 @@
       <div class="composer__footer">
         <div class="composer__meta">
           <DropMenu
+            v-if="!provider.managed"
             class="composer__model"
             :label="text.model"
             :groups="modelGroups"

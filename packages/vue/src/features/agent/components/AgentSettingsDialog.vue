@@ -163,8 +163,9 @@
           </aside>
 
           <div class="provider__detail">
+            <p v-if="status.managed" class="tool__note">{{ text.managedProviderNotice }}</p>
             <!-- 连接 -->
-            <section class="card connection">
+            <section v-if="!status.managed" class="card connection">
               <label class="field">
                 <span class="field__label">{{ text.apiProtocol }}</span>
                 <DropMenu
@@ -225,7 +226,7 @@
             </section>
 
             <!-- 模型 -->
-            <section class="card models">
+            <section v-if="!status.managed" class="card models">
               <header class="models__header">
                 <span class="models__title">
                   {{ text.modelList }}
@@ -481,7 +482,12 @@
     { id: 'interface', label: text.value.interface },
   ])
   const persistedProfileNames = computed(
-    () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
+    () =>
+      new Set(
+        props.providerSettings.profiles
+          .filter((profile) => !profile.managed)
+          .map((profile) => profile.name),
+      ),
   )
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)
   const profileNameDialogError = computed(() =>

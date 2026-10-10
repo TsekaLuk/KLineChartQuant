@@ -2,6 +2,7 @@
 
 import type {
   OpenAiCompatibleProviderSettings,
+  ProviderCredentialStore,
   ProviderModelPoolEntry,
 } from '@363045841yyt/klinechart-agent-runtime'
 import type { ProviderApiProtocol } from '../../agent-contracts.js'
@@ -22,6 +23,38 @@ export interface BrowserProviderProfile {
   settings?: OpenAiCompatibleProviderSettings
   connection?: BrowserProviderConnection
   active: boolean
+  /** 宿主托管的配置：仅存在于内存，从不写入 LocalStorage。 */
+  managed?: boolean
+}
+
+/** 宿主托管 Provider 的固定模型；真实路由由宿主服务端决定，界面不提供选择。 */
+export interface BrowserManagedProviderModel {
+  /** 随请求发送的模型标识，宿主服务端可将其视为占位。 */
+  id: string
+  /** 用于界面展示的模型名称；缺省使用 id。 */
+  name?: string
+  contextWindow?: number
+  maxOutputTokens?: number
+}
+
+/**
+ * 宿主预置的已验证 OpenAI-compatible Provider。
+ * 它出现在配置列表首位，未选择其他配置时默认生效；界面不展示其 Base URL、Key 与模型选择。
+ */
+export interface BrowserManagedProvider {
+  /** 配置列表中的显示名称，不得与用户配置重名。 */
+  name: string
+  /** Provider API 根地址，例如 `<origin>/ai/v1`。 */
+  baseUrl: string
+  /** 缺省为 `openai-completions`。 */
+  protocol?: ProviderApiProtocol
+  /** 附加的非鉴权请求头。 */
+  headers?: Record<string, string>
+  model: BrowserManagedProviderModel
+  /** 只读凭据存储；浏览器仅需占位值，真实鉴权由 `fetch` 或服务端完成。 */
+  credentials: ProviderCredentialStore
+  /** 该 Provider 的全部请求（目录与流式）使用的 fetch，例如携带 Cookie 并移除 Authorization。 */
+  fetch?: typeof globalThis.fetch
 }
 
 /** LocalStorage 中 Agent 模型设置的持久化文档。 */

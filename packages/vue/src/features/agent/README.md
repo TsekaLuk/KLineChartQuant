@@ -50,6 +50,10 @@ core controllers + agent-runtime
 
 `browser-agent/bridge/impl/browser-agent-bridge.ts` 只做浏览器依赖装配、跨模块协调和 `AgentBridgeClient` 委托，其宿主依赖契约定义在 `browser-agent/bridge/types.ts`。Provider、会话、图表上下文或工具适配的新逻辑应进入对应的 `browser-agent/<module>/impl/`，不要继续扩充 bridge。
 
+## Managed provider
+
+宿主可通过 `BrowserAgentBridgeOptions.managedProvider` 预置一个已验证 Provider（连接、只读凭据、固定模型、专用 `fetch`）。它默认生效、只存在于内存，界面隐藏其 Key / URL / 模型选择，用户仍可添加自己的 Provider。设计见 [`docs/design/agent/managed-provider.md`](../../../../../docs/design/agent/managed-provider.md)，实现位于 `browser-agent/provider/impl/managed-provider.ts`。
+
 ## Compatibility facades
 
 以下根文件是过渡/兼容入口，内部实现已经迁入语义模块。新的代码应从目标模块导入；只有需要保持既有公共路径时才保留或新增 facade。

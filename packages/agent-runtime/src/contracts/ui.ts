@@ -289,6 +289,8 @@ export interface ProviderStatusView {
   modelId?: string
   modelLabel?: string
   profileName?: string
+  /** 当前配置由宿主托管：连接、凭据与模型均由宿主决定，界面不展示这些字段。 */
+  managed?: boolean
   protocol?: ProviderApiProtocol
   headers?: Record<string, string>
   fingerprint?: string
@@ -448,6 +450,8 @@ export interface ProviderSaveInput {
 }
 export interface ProviderProfileView {
   name: string
+  /** 宿主托管的配置：只能选择，不能编辑、重命名或删除。 */
+  managed?: boolean
   baseUrl: string
   modelId: string
   modelName: string

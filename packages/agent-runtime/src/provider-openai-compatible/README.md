@@ -21,7 +21,7 @@
 - `ProviderCredentialStore`：保存 API Key；生产实现应使用宿主提供的安全存储。
 - `ProviderSettingsStore`：保存不含密钥的 `OpenAiCompatibleProviderSettings`。
 
-模块提供的 `InMemoryProviderCredentialStore` 与 `InMemoryProviderSettingsStore` 仅适用于测试或不需要持久化的场景。读取和写入均接收可选 `AbortSignal`，实现必须在 I/O 前检查取消状态。
+`ReadOnlyProviderCredentialStore` 返回固定凭据并拒绝写入与删除，用于由宿主在服务端鉴权的托管 Provider。模块提供的 `InMemoryProviderCredentialStore` 与 `InMemoryProviderSettingsStore` 仅适用于测试或不需要持久化的场景。读取和写入均接收可选 `AbortSignal`，实现必须在 I/O 前检查取消状态。
 
 ## HTTP 行为
 

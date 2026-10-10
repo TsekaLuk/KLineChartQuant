@@ -166,7 +166,8 @@
           </aside>
 
           <div class="provider-settings-detail">
-            <section class="provider-settings-connection provider-form__fields">
+            <p v-if="status.managed" class="agent-tools__empty">{{ text.managedProviderNotice }}</p>
+            <section v-if="!status.managed" class="provider-settings-connection provider-form__fields">
               <label class="provider-field">
                 <span class="provider-field__label">{{ text.apiProtocol }}</span>
                 <Dropdown
@@ -213,7 +214,7 @@
               </label>
             </section>
 
-            <section class="provider-settings-models">
+            <section v-if="!status.managed" class="provider-settings-models">
               <div class="provider-settings-models__header">
                 <span>{{ text.modelList }}</span>
                 <input
@@ -415,7 +416,12 @@
     { id: 'tools', label: text.value.tools },
   ])
   const persistedProfileNames = computed(
-    () => new Set(props.providerSettings.profiles.map((profile) => profile.name)),
+    () =>
+      new Set(
+        props.providerSettings.profiles
+          .filter((profile) => !profile.managed)
+          .map((profile) => profile.name),
+      ),
   )
   const modelSearch = ref('')
   const visibleError = computed(() => props.providerSettings.operationError ?? props.status.error)

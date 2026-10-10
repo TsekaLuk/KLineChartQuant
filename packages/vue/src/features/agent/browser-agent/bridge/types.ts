@@ -6,6 +6,7 @@ import type {
 } from '@363045841yyt/klinechart-agent-runtime'
 import type { BrowserRuntimeSessions } from '@363045841yyt/klinechart-agent-runtime/browser'
 import type { ChartAgentController } from '@363045841yyt/klinechart-core/controllers'
+import type { BrowserManagedProvider } from '../provider/types.js'
 
 /** 浏览器 Agent bridge 的宿主依赖；未注入时使用 Web 端默认实现。 */
 export interface BrowserAgentBridgeOptions {
@@ -18,4 +19,9 @@ export interface BrowserAgentBridgeOptions {
    * 不传时行为与 Web 端完全一致。注入后 apiKey 不再写入 localStorage。
    */
   readonly credentials?: ProviderCredentialStore
+  /**
+   * 宿主预置的托管 Provider。提供后它成为配置列表首项，并在用户未选择其他配置时默认生效；
+   * 设置界面隐藏其连接与模型选择，用户仍可添加自己的 Provider。
+   */
+  readonly managedProvider?: BrowserManagedProvider
 }

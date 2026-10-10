@@ -215,6 +215,7 @@ export class Chart {
   /** 主图图例模板上下文（每帧由 mainIndicatorLegend 发布） */
   private readonly _legendTemplateContext: WritableSignal<LegendTemplateContext | null> =
     createSignal<LegendTemplateContext | null>(null)
+  private disposeLeftAxisProjection: (() => void) | null = null
   /** 图表拥有的 DOM Legend renderer，数据不进入框架响应式状态。 */
   private readonly legendDom: import('../../renderers/legend/types.js').LegendDomRenderer
 
@@ -566,6 +567,12 @@ export class Chart {
     this.viewportManager.init()
     this.ensurePaneScaleTypesFromSettings()
     this.installActiveRendererProjection()
+    // 左轴只在分时视图绘制刻度；其余视图不分配左轴后备存储。
+    this.disposeLeftAxisProjection = effect(() => {
+      this.layoutManager.setLeftAxisVisible(
+        isTimeShareDataView(this.kernel.mode.readonly.dataView()),
+      )
+    })
     this.scheduleDraw()
   }
 
@@ -1260,6 +1267,8 @@ export class Chart {
     await this.pluginHost.destroy()
     this.disposeActiveRendererProjection?.()
     this.disposeActiveRendererProjection = null
+    this.disposeLeftAxisProjection?.()
+    this.disposeLeftAxisProjection = null
     this.indicatorManager.destroy()
     this.renderer.destroy()
     this.legendDom.dispose()

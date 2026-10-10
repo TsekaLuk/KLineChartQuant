@@ -5,7 +5,7 @@
 
 | 目录 | 范围 |
 |------|------|
-| [`agent/`](agent/) | Agent 工具、图表上下文与行情查询边界 |
+| [`agent/`](agent/) | Agent 工具、图表上下文、托管 Provider 与行情查询边界 |
 | [`comparison/`](comparison/) | 对比视图与对比写原语 |
 | [`data/`](data/) | 行情序列仓库、数据身份与资产类别筛选 |
 | [`drawing/`](drawing/) | 绘图领域模型、命令、交互、渲染与会话 |

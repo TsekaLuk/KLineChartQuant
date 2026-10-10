@@ -14,6 +14,7 @@ Status: `Proposed` → `Accepted` → (`Superseded by NNNN` | `Deprecated`).
 | [0006](0006-settings-instant-apply.md) | Settings apply instantly; no draft copy | Accepted |
 | [0007](0007-brand-accent-instrument-cobalt.md) | Brand accent: Instrument Cobalt | Accepted |
 | [0008](0008-loading-orchestration-out-of-freeze.md) | Data-loading orchestration is outside the renderer freeze | Accepted |
+| [0009](0009-renderer-freeze-perf-exception.md) | Renderer-freeze exception for canvas allocation and indicator loading | Accepted |
 
 Template:
 

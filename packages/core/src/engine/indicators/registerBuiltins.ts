@@ -1,29 +1,23 @@
-/** 内置定义装配：消费 @Indicator 自动生成的入口，不维护模块或定义类清单。 */
+/** 内置定义装配入口：静态目录随注册表同步可用，系统定义静态装配，指标实现按需或一次性加载。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
-import { loadBuiltinDefinitionClasses } from './generated/builtinIndicators.js'
 import { registerBuiltinRenderers } from './generated/builtinRenderers.js'
 import {
   getRegisteredIndicatorDefinitions,
-  type IndicatorDefinitionClass,
-  registerIndicatorDefinition,
+  loadAllIndicatorDefinitions,
 } from './indicatorDefinitionRegistry.js'
 
 let loaded = false
-let loading: Promise<IndicatorDefinitionClass[]> | undefined
 
-/** 自动加载所有内置定义；并发调用共享加载任务，失败后允许重试。 */
+/** 加载全部内置定义的实现；并发调用共享加载任务，失败可重试，注册按身份幂等。 */
 export async function loadBuiltinIndicators(): Promise<void> {
   registerBuiltinRenderers()
-  loading ??= loadBuiltinDefinitionClasses()
-  try {
-    for (const definition of await loading) {
-      registerIndicatorDefinition(definition)
-    }
-    loaded = true
-  } catch (error) {
-    loading = undefined
-    throw error
-  }
+  await loadAllIndicatorDefinitions()
+  loaded = true
+}
+
+/** 装配图表视图自身需要的系统定义（K 线标注、最新价、分时主线等）。 */
+export async function loadSystemIndicators(): Promise<void> {
+  registerBuiltinRenderers()
 }
 
 /** 返回已完成装配的定义目录，未初始化时报告调用顺序错误。 */

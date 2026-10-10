@@ -40,6 +40,7 @@ import type { VisibleRange } from '../viewport/viewport.js'
 import {
   getRegisteredIndicatorDefinition,
   getRegisteredIndicatorDefinitions,
+  onIndicatorDefinitionRegistered,
   resolveIndicatorDefinitionId,
 } from './indicatorDefinitionRegistry.js'
 import { IndicatorKind, type IndicatorMetadata } from './indicatorMetadata.js'
@@ -67,6 +68,8 @@ import {
 import {
   createInlineIndicatorCalculationExecutor,
   createWorkerIndicatorCalculationExecutor,
+  type InlineIndicatorCalculationExecutor,
+  type WorkerIndicatorCalculationExecutor,
 } from './instances/execution/instanceCalculationExecutors.js'
 import {
   createInstanceCalculationScheduler,
@@ -163,7 +166,10 @@ export class ChartIndicatorManager {
   private deps: IndicatorDependencies
   private readonly pipeline: IndicatorInstancePipeline
   private readonly executorHolder: IndicatorExecutorHolder
-  private readonly inlineExecutor: IndicatorCalculationExecutor
+  private readonly inlineExecutor: InlineIndicatorCalculationExecutor
+  private readonly workerExecutor: WorkerIndicatorCalculationExecutor | null
+  /** 取消订阅按需装配事件。 */
+  private readonly disposeDefinitionSubscription: () => void
   private readonly calculationScheduler: ReturnType<typeof createInstanceCalculationScheduler>
   private subPaneManager: SubPaneManager
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
@@ -193,40 +199,44 @@ export class ChartIndicatorManager {
   }
   private onResultsAppliedCallback: (() => void) | null = null
 
-  /** 主图指标默认参数（从注册表中懒加载） */
-  private static _defaultMainParamsCache: Record<
-    string,
-    Record<string, number | boolean | string>
-  > | null = null
+  /** 主图指标默认参数与可启用白名单；随已装配定义数量变化重建。 */
+  private static _mainCatalogCache: {
+    readonly definitionCount: number
+    readonly defaultParams: Record<string, Record<string, number | boolean | string>>
+    readonly enabled: string[]
+  } | null = null
 
+  private static get mainCatalog() {
+    const definitions = getRegisteredIndicatorDefinitions()
+    const cached = ChartIndicatorManager._mainCatalogCache
+    if (cached?.definitionCount === definitions.length) return cached
+    const mainDefinitions = definitions.filter((def) => def.category === 'main')
+    const defaultParams: Record<string, Record<string, number | boolean | string>> = {}
+    for (const def of mainDefinitions) {
+      defaultParams[def.displayName] = {
+        ...(def.presentation?.defaultOptions ?? def.runtime?.defaultParams ?? {}),
+      } as Record<string, number | boolean | string>
+    }
+    const next = {
+      definitionCount: definitions.length,
+      defaultParams,
+      enabled: mainDefinitions.map((def) => def.displayName),
+    }
+    ChartIndicatorManager._mainCatalogCache = next
+    return next
+  }
+
+  /** 主图指标默认参数（仅已装配的定义）。 */
   private static get DEFAULT_MAIN_PARAMS(): Record<
     string,
     Record<string, number | boolean | string>
   > {
-    if (ChartIndicatorManager._defaultMainParamsCache === null) {
-      ChartIndicatorManager._defaultMainParamsCache = {}
-      for (const def of getRegisteredIndicatorDefinitions()) {
-        if (def.category === 'main') {
-          const key = def.displayName
-          ChartIndicatorManager._defaultMainParamsCache[key] = {
-            ...(def.presentation?.defaultOptions ?? def.runtime?.defaultParams ?? {}),
-          } as Record<string, number | boolean | string>
-        }
-      }
-    }
-    return ChartIndicatorManager._defaultMainParamsCache
+    return ChartIndicatorManager.mainCatalog.defaultParams
   }
 
-  /** 可启用的主图指标白名单（从注册表中懒加载） */
-  private static _enableMainIndicatorsCache: string[] | null = null
-
+  /** 可启用的主图指标白名单（仅已装配的定义）。 */
   private static get ENABLE_MAIN_INDICATORS(): string[] {
-    if (ChartIndicatorManager._enableMainIndicatorsCache === null) {
-      ChartIndicatorManager._enableMainIndicatorsCache = getRegisteredIndicatorDefinitions()
-        .filter((d) => d.category === 'main')
-        .map((d) => d.displayName)
-    }
-    return ChartIndicatorManager._enableMainIndicatorsCache
+    return ChartIndicatorManager.mainCatalog.enabled
   }
 
   /** 副图渲染器名称前缀（保留向后兼容） */
@@ -247,8 +257,13 @@ export class ChartIndicatorManager {
       createInstanceCalculationDefinitions(getRegisteredIndicatorDefinitions()),
     )
     this.executorHolder = { active: this.inlineExecutor }
-    const workerExecutor = this.tryCreateWorkerExecutor()
-    if (workerExecutor) this.executorHolder.active = workerExecutor
+    this.workerExecutor = this.tryCreateWorkerExecutor()
+    if (this.workerExecutor) this.executorHolder.active = this.workerExecutor
+    // 按需加载的定义在实例进入状态前装配，同步追加到两个执行器。
+    this.disposeDefinitionSubscription = onIndicatorDefinitionRegistered((definition) => {
+      this.inlineExecutor.addDefinitions(createInstanceCalculationDefinitions([definition]))
+      this.workerExecutor?.addDefinitions(serializeInstanceCalculationDefinitions([definition]))
+    })
 
     this.calculationScheduler = createInstanceCalculationScheduler({
       pipeline: this.pipeline,
@@ -471,9 +486,7 @@ export class ChartIndicatorManager {
   }
 
   /** 尝试创建 Worker 执行器；环境不支持时返回 null 交给 inline。 */
-  private tryCreateWorkerExecutor():
-    | (IndicatorCalculationExecutor & { dispose: () => void })
-    | null {
+  private tryCreateWorkerExecutor(): WorkerIndicatorCalculationExecutor | null {
     if (typeof Worker === 'undefined') return null
     try {
       const worker = new Worker(
@@ -1107,6 +1120,7 @@ export class ChartIndicatorManager {
   }
 
   destroy(): void {
+    this.disposeDefinitionSubscription()
     this.disposeProjection?.()
     this.disposeProjection = null
     this.deps.runRendererTransaction(() => this.subPaneManager.clear(this.subPaneCtx))

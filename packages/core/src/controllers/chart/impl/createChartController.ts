@@ -6,8 +6,15 @@ import type {
   ViewportState as EngineViewportState,
 } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/indicatorDefinitionRegistry.js'
-import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
+import {
+  getRegisteredIndicatorDefinition,
+  loadIndicatorDefinitions,
+} from '@/engine/indicators/indicatorDefinitionRegistry.js'
+import {
+  loadBuiltinIndicators,
+  loadSystemIndicators,
+} from '@/engine/indicators/registerBuiltins.js'
+import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { hasSubPaneRendererMetadata } from '@/engine/pane/index.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
@@ -88,7 +95,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     )
   }
 
-  await loadBuiltinIndicators()
+  // 视图系统定义随图表创建；用户指标按需加载，布局恢复前再加载其引用的指标。
+  await (opts.indicatorLoading === 'all' ? loadBuiltinIndicators() : loadSystemIndicators())
   const mounted = mountChartDom(opts)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
@@ -179,6 +187,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       return chart.kernel.exportLayout()
     },
     createLayout: () => chart.kernel.createLayout(),
+    prepareLayout: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
     applyLayout: (document) => {
       if (isDisposed()) throw new Error('图表已销毁')
       batch(() => {
@@ -228,6 +237,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     paneManager: chart.kernel.paneManager,
     comparisonCommands: chart.comparisonCommands,
     settingsCommands,
+    loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
     resolveSubPaneIndicatorId: (indicatorId) =>
       getRegisteredIndicatorDefinition(indicatorId)?.displayName ?? null,
     isSubPaneRendererAvailable: (indicatorId, paneId) => {
@@ -262,6 +272,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setLayoutAutoSave: (input) => layoutManager.setLayoutAutoSave(input),
     exportLayout: () => layoutManager.exportLayout(),
     applyLayout: (document) => layoutManager.applyLayout(document),
+    loadIndicators: (definitionIds) => loadIndicatorDefinitions(definitionIds),
     listLayouts: () => layoutManager.listLayouts(),
     saveLayout: (input) => layoutManager.saveLayout(input),
     switchLayout: (input) => layoutManager.switchLayout(input),

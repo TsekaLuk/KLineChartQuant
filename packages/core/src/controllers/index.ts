@@ -51,6 +51,7 @@ export type {
   DrawingViewportPort,
   IndicatorDefinition,
   IndicatorInstance,
+  IndicatorLoadingMode,
   IndicatorPaneRole,
   IndicatorParamDef,
   IndicatorRole,

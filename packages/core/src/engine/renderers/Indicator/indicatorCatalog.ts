@@ -1,6 +1,6 @@
 import {
-  getRegisteredIndicatorDefinition,
-  getRegisteredIndicatorDefinitions,
+  getIndicatorDescriptor,
+  getIndicatorDescriptors,
 } from '../../indicators/indicatorDefinitionRegistry.js'
 import {
   getBuiltinIndicatorTypeLabel,
@@ -1340,7 +1340,7 @@ let _allIndicators: Indicator[] | null = null
 let _definitionCount = -1
 
 function rebuildIfStale(): Indicator[] {
-  const definitions = getRegisteredIndicatorDefinitions()
+  const definitions = getIndicatorDescriptors()
   if (_allIndicators === null || definitions.length !== _definitionCount) {
     _definitionCount = definitions.length
     _allIndicators = definitions
@@ -1384,7 +1384,7 @@ export function findIndicator(id: string): Indicator | undefined {
   )
   if (direct) return direct
   // 兼容内部 name / 别名输入：先解析为规范展示名再匹配
-  const canonicalId = getRegisteredIndicatorDefinition(id)?.displayName
+  const canonicalId = getIndicatorDescriptor(id)?.displayName
   if (!canonicalId) return undefined
   const canonical = normalizeId(canonicalId)
   return rebuildIfStale().find((i) => normalizeId(i.id) === canonical)

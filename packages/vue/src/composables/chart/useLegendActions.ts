@@ -65,11 +65,18 @@ export function useLegendActions(
     { immediate: true, flush: 'post' },
   )
 
-  /** 将选择器结果交给原位置对应的领域 API。 */
-  function replaceLegend(id: string, definitionId: string): void {
-    if (replacementRole.value === 'main') controller.value?.replaceMainIndicator(id, definitionId)
-    else options.replacePane(id, definitionId)
+  /** 将选择器结果交给原位置对应的领域 API；主图替换前先按需加载指标实现。 */
+  async function replaceLegend(id: string, definitionId: string): Promise<void> {
+    const ctrl = controller.value
+    const role = replacementRole.value
     replacementId.value = null
+    if (!ctrl) return
+    if (role !== 'main') {
+      options.replacePane(id, definitionId)
+      return
+    }
+    await ctrl.loadIndicators([definitionId])
+    if (controller.value === ctrl) ctrl.replaceMainIndicator(id, definitionId)
   }
   return { replacementId, replacementRole, replaceLegend }
 }

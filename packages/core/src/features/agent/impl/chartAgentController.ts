@@ -512,6 +512,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
     executionMode: 'sequential',
   })
   async createPane(input: Static<typeof PaneCreateToolParameters>): Promise<boolean> {
+    await this.dependencies.loadIndicators([input.indicatorId])
     const indicatorId = this.dependencies.resolveSubPaneIndicatorId(input.indicatorId)
     if (!indicatorId || !this.dependencies.isSubPaneRendererAvailable(indicatorId, input.paneId))
       return false
@@ -573,6 +574,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
   async replacePaneContent(
     input: Static<typeof PaneReplaceContentToolParameters>,
   ): Promise<boolean> {
+    await this.dependencies.loadIndicators([input.indicatorId])
     const indicatorId = this.dependencies.resolveSubPaneIndicatorId(input.indicatorId)
     if (!indicatorId || !this.dependencies.isSubPaneRendererAvailable(indicatorId, input.paneId))
       return false
@@ -631,10 +633,11 @@ class ChartAgentControllerImpl implements ChartAgentController {
     safety: 'read-only',
     executionMode: 'parallel',
   })
-  queryIndicator(
+  async queryIndicator(
     input: IndicatorQueryInput,
     _context?: ChartToolExecutionContext,
   ): Promise<string> {
+    await this.dependencies.loadIndicators([input.definitionId])
     return this.dependencies.indicatorQuery.queryIndicator({
       definitionId: input.definitionId,
       params: input.params,

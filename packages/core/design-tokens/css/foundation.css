@@ -138,7 +138,7 @@
   --klc-breakpoint-xl: 1280px;
   --klc-brand-accent: #4C77C6;
   --klc-font-family-brand: Outfit, sans-serif;
-  --klc-font-family-brand-cjk: 'HarmonyOS Sans', sans-serif;
+  --klc-font-family-brand-cjk: 'Noto Sans SC', sans-serif;
 }
 
 [data-theme='light'] {

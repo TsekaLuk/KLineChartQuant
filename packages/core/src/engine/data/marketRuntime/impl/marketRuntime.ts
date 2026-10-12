@@ -302,12 +302,18 @@ export class MarketRuntime implements IndicatorMarketData {
       binding.stream.destroy()
     }
     for (const [key, target] of targets) {
-      if (this.live.has(key) || !target.capabilities.liveBars) continue
+      if (
+        this.live.has(key) ||
+        !target.capabilities.liveBars ||
+        target.instrument.capabilities.liveBars === false
+      )
+        continue
       const provider = this.registry.get(target.instrument.sourceId)
       if (provider?.liveBars === undefined)
         throw new Error(`数据源声明实时 K 线但没有提供接口：${target.instrument.sourceId}`)
       const stream = provider.liveBars.createStream({
         symbol: target.instrument.symbol,
+        instrumentId: target.instrument.id,
         period: target.selection.period,
         barAggregation: target.selection.barAggregation,
       })

@@ -6,7 +6,7 @@ import type { SymbolSpec } from '../../../controllers/types.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
-import { LayoutManager } from '../impl/layoutManager.js'
+import { LayoutManager, readActiveLayoutSettings } from '../impl/layoutManager.js'
 
 /** 每个用例使用独立数据库，避免归档相互污染。 */
 beforeEach(async () => {
@@ -27,6 +27,22 @@ function createManager() {
   })
   return { kernel, manager }
 }
+
+it('独立宿主只读活动布局设置，不挂载图表或修改归档', async () => {
+  expect(await readActiveLayoutSettings()).toBeUndefined()
+  const { kernel, manager } = createManager()
+  try {
+    await manager.initialize()
+    kernel.settings.actions.patch({ theme: 'dark' })
+    await manager.saveLayout({ name: '深色布局' })
+    expect(await readActiveLayoutSettings()).toMatchObject({ theme: 'dark' })
+    await manager.createLayout({ name: '默认设置布局' })
+    expect(await readActiveLayoutSettings()).toEqual(manager.exportLayout().settings)
+  } finally {
+    await manager.dispose()
+    kernel.dispose()
+  }
+})
 
 /** 按生产订阅方式把图元变更交给布局自动保存，返回释放订阅的方法。 */
 function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createManager>) {

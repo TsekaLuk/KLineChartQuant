@@ -39,9 +39,7 @@ export class ScrollCompensator {
 
   /** 以视口几何度量左侧已加载余量与露出的空白槽位。 */
   measureLeftHistory(): LeftHistoryWindow {
-    const dpr = this.deps.viewport.readonly.dpr.peek()
-    const opt = this.deps.getOption()
-    const { unitLogical, startXLogical } = getPhysicalKLineConfig(opt.kWidth, opt.kGap, dpr)
+    const { unitLogical, startXLogical } = resolvePhysicalKLineConfig(this.deps)
     const clientWidth = this.deps.viewport.readonly.viewWidth.peek()
     if (clientWidth <= 0 || unitLogical <= 0) {
       return { visibleSlots: 0, leftMarginSlots: 0, blankSlots: 0 }

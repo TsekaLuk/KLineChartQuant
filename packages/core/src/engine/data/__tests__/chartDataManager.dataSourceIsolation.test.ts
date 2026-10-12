@@ -37,7 +37,7 @@ describe('ChartDataManager data source isolation', () => {
             fetchCount++
             return makeBarsPage([makeKLine(Date.now())], {
               instrumentId: 'test:000001',
-              olderData: 'unknown',
+              olderData: 'exhausted',
             })
           },
         },

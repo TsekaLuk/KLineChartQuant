@@ -130,13 +130,14 @@ export class MarketRuntime {
       this.live = null
       previous?.connector.stop()
       previous?.stream.destroy()
-      if (next?.capabilities.liveBars) {
+      if (next?.capabilities.liveBars && next.instrument.capabilities.liveBars !== false) {
         const provider = this.registry.get(next.instrument.sourceId)
         if (provider?.liveBars) {
           const stream = provider.liveBars.createStream({
             symbol: next.instrument.symbol,
             period: next.selection.period,
             barAggregation: next.selection.barAggregation,
+            instrumentId: next.instrument.id,
           })
           const connector = new RealtimeBarsConnector(
             {

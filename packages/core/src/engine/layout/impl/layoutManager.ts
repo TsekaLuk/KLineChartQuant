@@ -1,4 +1,6 @@
 // 布局管理领域入口：具名文档与自动保存偏好统一存入 IndexedDB，列表按文档创建顺序稳定输出。
+
+import type { ChartSettings } from '../../../foundation/config/chartSettings.js'
 import { createIndexedDbPersistence } from '../../../foundation/persistence/index.js'
 import { createSignal } from '../../../foundation/reactivity/signal.js'
 import {
@@ -56,14 +58,30 @@ function requireName(name: string): string {
   return result
 }
 
-export class LayoutManager implements LayoutApi {
-  private readonly persistence = createIndexedDbPersistence<LayoutArchive>({
+/** 创建布局归档的唯一持久化契约，供布局管理器和只读宿主共用。 */
+function createLayoutPersistence() {
+  return createIndexedDbPersistence<LayoutArchive>({
     databaseName: '@363045841yyt/klinechart-layouts',
     storeName: 'layouts',
     key: 'documents',
     flushOnPageHide: false,
     codec: { decode: decodeArchive, encode: (value) => value },
   })
+}
+
+/** 独立账户页面读取当前作用域的活动布局设置，不挂载图表或写入归档。 */
+export async function readActiveLayoutSettings(): Promise<Partial<ChartSettings> | undefined> {
+  const persistence = createLayoutPersistence()
+  try {
+    const archive = await persistence.load()
+    return archive?.documents[archive.activeId]?.settings
+  } finally {
+    await persistence.dispose()
+  }
+}
+
+export class LayoutManager implements LayoutApi {
+  private readonly persistence = createLayoutPersistence()
   private archive: LayoutArchive = {
     documents: {},
     activeId: DEFAULT_LAYOUT_ID,

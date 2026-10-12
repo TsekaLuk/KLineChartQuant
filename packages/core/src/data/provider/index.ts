@@ -10,6 +10,7 @@ export { defaultMarketDataContext, MarketDataContext } from '../management/index
 
 export { BarsLiveSource } from '../live/impl/barsLive.js'
 export type { LiveBarsDataSource, LiveBarsRequest } from '../live/types.js'
+export { createTradeDataSource } from '../trades/impl/tradeSource.js'
 export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
 export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'

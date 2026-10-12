@@ -205,7 +205,7 @@ const shared = {
   },
   fontFamily: {
     brand: 'Outfit, sans-serif',
-    brandCjk: "'HarmonyOS Sans', sans-serif",
+    brandCjk: "'Noto Sans SC', sans-serif",
   },
 } satisfies Omit<FoundationTokens, 'elevation' | 'brand'>
 

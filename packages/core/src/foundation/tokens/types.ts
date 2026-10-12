@@ -613,7 +613,7 @@ export interface BrandTokens {
 export interface FontFamilyTokens {
   /** 品牌字体（Outfit），用于截图水印品牌字与图表角标。 */
   readonly brand: string
-  /** 品牌字的中文回退（HarmonyOS Sans），用于截图水印里的中文品种名。 */
+  /** 宿主自托管的中文字体（Noto Sans SC），用于截图水印里的中文品种名。 */
   readonly brandCjk: string
 }
 

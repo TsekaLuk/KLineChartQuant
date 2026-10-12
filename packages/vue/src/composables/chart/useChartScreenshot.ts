@@ -37,7 +37,7 @@ const WATERMARK_LINE_GAP = 12
 const WATERMARK_FONT_SIZE = 20
 const WATERMARK_FONT_WEIGHT = 600
 const WATERMARK_NAME_FONT_WEIGHT = 500
-/** 品牌与水印字体族来自 Theme Token，随包自托管，不依赖宿主系统。 */
+/** 品牌与水印字体族来自 Theme Token，中文字体由宿主自托管。 */
 const WATERMARK_BRAND_FONT_TOKEN = '--klc-font-family-brand'
 const WATERMARK_NAME_FONT_TOKEN = '--klc-font-family-brand-cjk'
 
@@ -102,7 +102,10 @@ async function createScreenshot(
   const brandFont = `${WATERMARK_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${brandFamily}`
   const instrumentFont = `${WATERMARK_NAME_FONT_WEIGHT} ${WATERMARK_FONT_SIZE}px ${instrumentFamily}`
   // 品种信息与品牌分行呈现，字体准备完成后再绘制，避免中文使用系统替代字形。
-  await Promise.all([document.fonts.load(brandFont, WATERMARK_TEXT), document.fonts.load(instrumentFont, instrumentText)])
+  await Promise.all([
+    document.fonts.load(brandFont, WATERMARK_TEXT),
+    document.fonts.load(instrumentFont, instrumentText),
+  ])
   const backgroundColor = styles.getPropertyValue(CHART_BACKGROUND_TOKEN).trim()
   const { image, scale } = await captureFrame(async (frame) => ({
     image: await captureChartImage(element, frame, backgroundColor),

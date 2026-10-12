@@ -6,6 +6,7 @@ import { AXIS_TYPE_NONE, ScaleType } from '../types/scaleType.js'
 
 import { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
 
+export { readActiveLayoutSettings } from '../../engine/layout/impl/layoutManager.js'
 export { ScaleType } from '../types/scaleType.js'
 export { PRICE_AXIS_RANGE_MODE } from './priceAxisRangeMode.js'
 

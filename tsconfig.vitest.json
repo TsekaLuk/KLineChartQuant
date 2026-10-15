@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.app.json",
   "include": ["packages/**/__tests__/**/*", "packages/**/*.d.ts"],
-  "exclude": [],
+  // QuickJS 运行时源码按全局脚本由 packages/script/tsconfig.runtime.json 单独检查。
+  "exclude": ["packages/script/src/quickjs/runtime/**"],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",

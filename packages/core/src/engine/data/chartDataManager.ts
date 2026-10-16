@@ -50,8 +50,8 @@ import type {
   InstrumentDescriptor,
   KLineAdjustment,
   KLinePeriod,
-  SourceCapabilities,
   OlderDataStatus,
+  SourceCapabilities,
   TradingDate,
 } from '../../data/provider/types.js'
 import {

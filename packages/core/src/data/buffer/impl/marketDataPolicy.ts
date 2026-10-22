@@ -11,7 +11,7 @@ const MIN_MARKET_DATA_CACHE_MAX_MIB = 5
 const MAX_MARKET_DATA_CACHE_MAX_MIB = 512
 /** 初始加载和向左增量加载的最小请求根数。 */
 export const DEFAULT_BAR_PAGE_LIMIT = 500
-/** 单次历史请求（含批量补齐）的根数上限，避免极小缩放下一次拉取过多。 */
+/** 单轮历史加载的工作预算，不是 HTTP 单页限制，也不是历史总量上限；不足部分由下一轮补齐。 */
 export const MAX_BAR_PAGE_LIMIT = 5_000
 /** 首次请求覆盖的屏数：一屏可见 K 线外再留一屏左侧余量，首屏一次铺满。 */
 export const INITIAL_BAR_SCREENS = 2
@@ -19,7 +19,7 @@ export const INITIAL_BAR_SCREENS = 2
 export const HISTORY_PREFETCH_TRIGGER_SCREENS = 0.75
 /** 每批向左预取覆盖的屏数（另加当前已露出的空白槽位）。 */
 export const HISTORY_PREFETCH_SCREENS = 2
-/** 一批补齐最多串行请求的 Provider 页数；Provider 单页有上限时由此合并为一次写入。 */
+/** 单轮串行页数预算；达到预算保留 Provider 的历史状态，后续按视口缺口继续调度。 */
 export const MAX_HISTORY_BATCH_PAGES = 8
 
 // ── Helpers ──

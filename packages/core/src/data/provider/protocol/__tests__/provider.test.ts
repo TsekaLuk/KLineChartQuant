@@ -58,6 +58,35 @@ function createProvider(transport: MarketDataTransport) {
 }
 
 describe('createMarketDataProvider', () => {
+  // 探测更新后直接消费当前能力，不把首个响应的数字冻结为前端常量。
+  it('uses a changed runtime source limit on the next request', async () => {
+    let maxBarsPerRequest = 798
+    const transport = fakeTransport({
+      probe: async () => ({
+        status: 'online',
+        checkedAt: 1,
+        capabilities: {
+          assetClasses: ['stock'],
+          bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest },
+        },
+      }),
+    })
+    const fetchBars = vi.spyOn(transport, 'fetchBars')
+    const provider = createProvider(transport)
+    for (const limit of [798, 100, 1500]) {
+      maxBarsPerRequest = limit
+      await provider.probe()
+      await provider.bars!.fetch({
+        instrument,
+        period: 'daily',
+        adjustment: 'none',
+        barAggregation: 'original',
+        limit: 3099,
+      })
+      expect(fetchBars).toHaveBeenLastCalledWith(expect.objectContaining({ limit }), undefined)
+    }
+  })
+
   // 大视口、缩放与旧布局均须遵守当前源声明的单页上限，不限制整批历史目标。
   it.each([
     { requested: 1, sourceLimit: 798, instrumentLimit: undefined, expected: 1 },

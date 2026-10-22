@@ -12,6 +12,7 @@ import type { KLineData } from '@/controllers/types'
 import {
   DEFAULT_BAR_PAGE_LIMIT,
   MAX_BAR_PAGE_LIMIT,
+  MAX_HISTORY_BATCH_PAGES,
   resolveBarRequestLimit,
 } from '@/data/buffer/impl/marketDataPolicy'
 import { createHttpMarketDataTransport, createMarketDataProvider } from '@/data/provider/protocol'
@@ -216,6 +217,64 @@ describe('ChartDataManager history loading orchestration', () => {
     expect(fetch).toHaveBeenCalledTimes(3)
     expect(manager.getData()).toHaveLength(DEFAULT_BAR_PAGE_LIMIT)
     expect(loadingStates).toEqual([true, false])
+  })
+
+  // 工作预算只结束本轮，不把大需求或小单页的数据源误标为失败或历史耗尽。
+  it.each([
+    { slots: 100_000_000, pageCap: MAX_BAR_PAGE_LIMIT },
+    { slots: 800 / UNIT, pageCap: 13 },
+  ])(
+    'continues after a bounded batch for $slots visible slots and $pageCap-bar pages',
+    async ({ slots, pageCap }) => {
+      const target = resolveBarRequestLimit(slots * 2)
+      const firstBatch = Math.min(target, pageCap * MAX_HISTORY_BATCH_PAGES)
+      const { fetch, dataset } = registerPagedProvider({ total: firstBatch * 3, pageCap })
+      const harness = createTestChartDataManager(document, {
+        viewport: { viewWidth: slots * UNIT, scrollLeft: LEFT_BUFFER },
+      })
+      manager = harness.manager
+      manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+      await vi.waitFor(() => expect(manager!.getData()).toHaveLength(firstBatch))
+
+      expect(manager.dataError.peek()).toBeNull()
+      expect(manager.hasPendingOlderHistory()).toBe(true)
+      expect(fetch.mock.calls.length).toBeLessThanOrEqual(MAX_HISTORY_BATCH_PAGES)
+      const callsBefore = fetch.mock.calls.length
+      harness.scrollTo(LEFT_BUFFER - UNIT)
+      manager.checkVisibleRangeGap()
+      await vi.waitFor(() => expect(manager!.getData()).toHaveLength(firstBatch * 2))
+
+      expect(fetch.mock.calls[callsBefore]![0].beforeTimestamp).toBe(
+        dataset[dataset.length - firstBatch]!.timestamp,
+      )
+      expect(manager.getData()).toEqual(dataset.slice(-firstBatch * 2))
+      expect(manager.dataError.peek()).toBeNull()
+      expect(manager.hasPendingOlderHistory()).toBe(true)
+    },
+  )
+
+  // 已销毁的视图即使收到晚到响应，也不能继续串行请求后续历史页。
+  it('stops a history batch after the chart is destroyed', async () => {
+    const { fetch } = registerPagedProvider({ total: 2_000, pageCap: 100 })
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const original = fetch.getMockImplementation()!
+    fetch.mockImplementation(async (query) => {
+      await gate
+      return original(query)
+    })
+    manager = createTestChartDataManager(document).manager
+    const inactive = manager
+    manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    manager.destroy()
+    manager = null
+    release()
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(inactive.getData()).toEqual([])
   })
 
   it('fills a visible gap with one batch: one data change, one hint, one loading cycle', async () => {

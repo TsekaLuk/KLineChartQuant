@@ -22,3 +22,10 @@ Regression coverage sends actual protocol HTTP envelopes through the chart for
 fixture, matching the production connector. The tests verify exact chronological
 data, cursor boundaries and legal page sizes. Provider tests cover single-bar
 and 798/799 boundaries, undeclared bounds, tighter instrument bounds and signals.
+
+The existing 5,000-bar and eight-page values bound one scheduling turn, not total
+history or a supported viewport size. Hitting either budget preserves the
+provider's history state and cursor. Subsequent viewport demand continues from
+that cursor. Tests cover an exaggerated 100-million-slot demand without allocating
+that many bars, a provider whose small pages need multiple turns, runtime probe
+limit changes, and disposal during an in-flight page.

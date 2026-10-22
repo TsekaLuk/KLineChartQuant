@@ -14,6 +14,8 @@ import {
   MAX_BAR_PAGE_LIMIT,
   resolveBarRequestLimit,
 } from '@/data/buffer/impl/marketDataPolicy'
+import { createHttpMarketDataTransport, createMarketDataProvider } from '@/data/provider/protocol'
+import type { ProtocolBarRequest } from '@/data/provider/protocol/types'
 import { createKLineData, createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { createTimeAxisLayer } from '@/engine/renderers/timeAxis'
 import { getPhysicalKLineConfig } from '@/engine/viewport/klineConfig'
@@ -27,6 +29,7 @@ import {
   createTestChartDataManager,
   createTestDocument,
   createTestProvider,
+  instrumentFor,
   makeBarsPage,
   makeDailyBars,
   makeTestSymbolSpec,
@@ -117,6 +120,85 @@ describe('ChartDataManager history loading orchestration', () => {
     expect(fetch).toHaveBeenCalledOnce()
     expect(fetch.mock.calls[0]![0].limit).toBe(DEFAULT_BAR_PAGE_LIMIT)
   })
+
+  // 按线上 798 根限制返回真实 HTTP envelope，验证大视口经协议层分页而非被接口拒绝。
+  it.each([799, 3099, MAX_BAR_PAGE_LIMIT])(
+    'fills a %i-bar viewport target without exceeding the connector limit',
+    async (target) => {
+      const pageLimit = 798
+      const dataset = makeDailyBars(6000, Date.now())
+      const queries: ProtocolBarRequest[] = []
+      const transport = createHttpMarketDataTransport({
+        baseUrl: 'http://connector.test',
+        fetchImpl: async (input, init) => {
+          if (String(input).endsWith('/probe')) {
+            return Response.json({
+              data: {
+                status: 'online',
+                checkedAt: 1,
+                capabilities: {
+                  assetClasses: ['stock'],
+                  bars: { periods: ['daily'], adjustments: ['none'], maxBarsPerRequest: pageLimit },
+                },
+              },
+              requestId: 'test',
+            })
+          }
+          if (!String(input).endsWith('/bars')) throw new Error(`Unexpected endpoint: ${input}`)
+          const query: ProtocolBarRequest = JSON.parse(String(init?.body))
+          queries.push(query)
+          if (query.limit > pageLimit)
+            return Response.json(
+              {
+                error: { code: 'INVALID_REQUEST', message: 'limit must be between 1 and 798' },
+                requestId: 'test',
+              },
+              { status: 400 },
+            )
+          const eligible =
+            query.beforeTimestamp === undefined
+              ? dataset
+              : dataset.filter((bar) => bar.timestamp < query.beforeTimestamp!)
+          const items = eligible.slice(-query.limit)
+          return Response.json({
+            data: {
+              instrumentId: instrumentFor('sh.600000').id,
+              period: 'daily',
+              adjustment: 'none',
+              barAggregation: 'original',
+              timezone: 'Asia/Shanghai',
+              items,
+              olderData: items[0] === dataset[0] ? 'exhausted' : 'available',
+            },
+            requestId: 'test',
+          })
+        },
+      })
+      registerTestProvider(
+        createMarketDataProvider({ source: { id: 'test', displayName: 'Test' }, transport }),
+      )
+      manager = createTestChartDataManager(document, {
+        viewport: { viewWidth: (target * UNIT) / 2, scrollLeft: LEFT_BUFFER },
+      }).manager
+      manager.setSymbols([makeTestSymbolSpec('sh.600000')])
+      await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false), {
+        timeout: 5000,
+      })
+
+      expect(manager.getData()).toHaveLength(target)
+      expect(manager.getData()).toMatchObject(dataset.slice(-target))
+      expect(queries.map((query) => query.limit)).toEqual(
+        Array.from({ length: Math.ceil(target / pageLimit) }, (_, index) =>
+          Math.min(pageLimit, target - index * pageLimit),
+        ),
+      )
+      for (let index = 1; index < queries.length; index++) {
+        expect(queries[index]!.beforeTimestamp).toBe(
+          dataset[dataset.length - index * pageLimit]!.timestamp,
+        )
+      }
+    },
+  )
 
   it('stitches capped provider pages into one buffer update on first load', async () => {
     const { fetch } = registerPagedProvider({ total: 2_000, pageCap: 200 })

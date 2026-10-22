@@ -4,11 +4,29 @@
  */
 
 import { execFile, spawn } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+
+import {
+  assertHardwareGpu,
+  benchChromeArgs,
+  chromeExecutable,
+  closeBenchSession,
+  evaluate,
+  heartbeat,
+  launchChrome,
+  logPhase,
+  openBenchPage,
+  percentile,
+  performanceMetrics,
+  spawnVite,
+  standardDeviation,
+  waitForExit,
+  waitForHttp,
+} from './lib/harness.mjs'
 
 const execFileAsync = promisify(execFile)
 const benchDir = dirname(fileURLToPath(import.meta.url))
@@ -51,9 +69,7 @@ const csv = (value) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
-const chromePath =
-  process.env.KLINE_BENCH_CHROME ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-const vitePath = resolve(repoDir, 'node_modules', 'vite', 'bin', 'vite.js')
+const chromePath = chromeExecutable()
 const port = Number(process.env.KLINE_BENCH_PORT ?? 4173)
 const remoteDebugPort = Number(process.env.KLINE_BENCH_DEBUG_PORT ?? 9223)
 const visibleBarSets = csv(argument('bars') ?? process.env.KLINE_BENCH_BARS ?? '300,600,1200,2000,3000,5000,7000,10000')
@@ -75,88 +91,6 @@ const height = Number(process.env.KLINE_BENCH_HEIGHT ?? 640)
 const dpr = Number(process.env.KLINE_BENCH_DPR ?? 2)
 const droppedFrameMultiplier = 1.5
 const severeJankMultiplier = 2
-
-/** 等待条件成立，超时后抛出带上下文的错误。 */
-async function waitFor(check, timeoutMs, label) {
-  const deadline = Date.now() + timeoutMs
-  let lastError
-  while (Date.now() < deadline) {
-    try {
-      const value = await check()
-      if (value) return value
-    } catch (error) {
-      lastError = error
-    }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100))
-  }
-  throw new Error(`${label} timed out${lastError ? `: ${lastError.message}` : ''}`)
-}
-
-/** 建立最小 CDP 客户端，支持浏览器级和页面级命令。 */
-function createCdpClient(webSocketUrl) {
-  const socket = new WebSocket(webSocketUrl)
-  let sequence = 0
-  const pending = new Map()
-
-  socket.addEventListener('message', (event) => {
-    const message = JSON.parse(event.data)
-    if (!message.id) return
-    const request = pending.get(message.id)
-    if (!request) return
-    pending.delete(message.id)
-    if (message.error) request.reject(new Error(message.error.message))
-    else request.resolve(message.result)
-  })
-
-  return {
-    async ready() {
-      if (socket.readyState === WebSocket.OPEN) return
-      await new Promise((resolveOpen, rejectOpen) => {
-        socket.addEventListener('open', resolveOpen, { once: true })
-        socket.addEventListener('error', rejectOpen, { once: true })
-      })
-    },
-    send(method, params = {}) {
-      sequence += 1
-      const id = sequence
-      return new Promise((resolveRequest, rejectRequest) => {
-        pending.set(id, { resolve: resolveRequest, reject: rejectRequest })
-        socket.send(JSON.stringify({ id, method, params }))
-      })
-    },
-    close() {
-      socket.close()
-    },
-  }
-}
-
-/** 等待子进程退出；超时后由调用方决定是否强制终止。 */
-async function waitForExit(child, timeoutMs = 5_000) {
-  if (!child || child.exitCode !== null) return true
-  return Promise.race([
-    new Promise((resolveExit) => child.once('exit', () => resolveExit(true))),
-    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout(false), timeoutMs)),
-  ])
-}
-
-/** 执行页面表达式，并把异常转换为 Node 错误。 */
-async function evaluate(page, expression, awaitPromise = true) {
-  const response = await page.send('Runtime.evaluate', {
-    expression,
-    awaitPromise,
-    returnByValue: true,
-  })
-  if (response.exceptionDetails) {
-    throw new Error(response.exceptionDetails.exception?.description ?? 'Page evaluation failed')
-  }
-  return response.result.value
-}
-
-/** 读取 CDP Performance 指标并按名称组织。 */
-async function performanceMetrics(page) {
-  const response = await page.send('Performance.getMetrics')
-  return Object.fromEntries(response.metrics.map((metric) => [metric.name, metric.value]))
-}
 
 /** 读取可选的 NVIDIA 设备清单；非 NVIDIA 环境不应因此中止基准。 */
 async function readNvidiaInventory() {
@@ -226,25 +160,6 @@ function beginGpuSampling(processIds) {
       await waitForExit(sampler, 2_000)
     },
   }
-}
-
-/** 计算分位数，输入会复制排序。 */
-function percentile(values, quantile) {
-  if (values.length === 0) return null
-  const sorted = [...values].sort((left, right) => left - right)
-  const index = (sorted.length - 1) * quantile
-  const lower = Math.floor(index)
-  const upper = Math.ceil(index)
-  if (lower === upper) return sorted[lower]
-  return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower)
-}
-
-/** 计算样本标准差，用于衡量连续帧间隔的离散程度。 */
-function standardDeviation(values) {
-  if (values.length < 2) return null
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
-  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1)
-  return Math.sqrt(variance)
 }
 
 /** 统计超过帧预算的最长连续卡顿段。 */
@@ -361,18 +276,6 @@ function toCsv(results) {
   return `${columns.join(',')}\n${rows.join('\n')}\n`
 }
 
-/** 运行完整矩阵并保证所有临时进程与目录被清理。 */
-/** 输出阶段日志；长等待期间用户必须知道当前卡在哪一步。 */
-function logPhase(message) {
-  process.stderr.write(`[bench] ${message}\n`)
-}
-
-/** 等待期间每秒打一个点，避免单场景跑十几秒时界面完全静默。 */
-function heartbeat() {
-  const timer = setInterval(() => process.stderr.write('.'), 1000)
-  return () => clearInterval(timer)
-}
-
 /** 在页面里跑一个场景；执行期间持续打点，长场景也不会看起来卡死。 */
 async function runPageScenario(page, options) {
   const stopHeartbeat = heartbeat()
@@ -383,94 +286,34 @@ async function runPageScenario(page, options) {
   }
 }
 
+/** 运行完整矩阵并保证所有临时进程与目录被清理。 */
 async function main() {
   const profileDir = await mkdtemp(resolve(tmpdir(), 'kline-render-bench-'))
   logPhase('starting Vite dev server…')
-  const vite = spawn(
-    process.execPath,
-    [vitePath, '--config', resolve(benchDir, 'vite.config.ts')],
-    {
-      cwd: repoDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    },
-  )
+  const vite = spawnVite(repoDir, ['--config', resolve(benchDir, 'vite.config.ts')])
   let chrome
   let browser
   let page
   let gpuSampler
 
   try {
-    await waitFor(
-      async () => {
-        const response = await fetch(`http://127.0.0.1:${port}/`)
-        return response.ok
-      },
-      20_000,
-      'Vite server',
-    )
+    await waitForHttp(`http://127.0.0.1:${port}/`, 'Vite server')
     logPhase('launching headless Chrome…')
 
-    const chromeArgs = [
-      '--headless=new',
-      '--enable-gpu',
-      '--force_high_performance_gpu',
-      '--enable-unsafe-webgpu',
-      '--ignore-gpu-blocklist',
-      '--disable-software-rasterizer',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      '--enable-precise-memory-info',
-      `--remote-debugging-port=${remoteDebugPort}`,
-      `--user-data-dir=${profileDir}`,
-      `--window-size=${width},${height}`,
-      `--force-device-scale-factor=${dpr}`,
-      '--no-first-run',
-      '--no-default-browser-check',
-      'about:blank',
-    ]
-    chrome = spawn(chromePath, chromeArgs, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-
-    const version = await waitFor(
-      async () => {
-        const response = await fetch(`http://127.0.0.1:${remoteDebugPort}/json/version`)
-        return response.ok ? response.json() : null
-      },
-      20_000,
-      'Chrome DevTools',
-    )
-    browser = createCdpClient(version.webSocketDebuggerUrl)
-    await browser.ready()
-
-    const target = await fetch(
-      `http://127.0.0.1:${remoteDebugPort}/json/new?${encodeURIComponent(`http://127.0.0.1:${port}/`)}`,
-      { method: 'PUT' },
-    ).then((response) => response.json())
-    page = createCdpClient(target.webSocketDebuggerUrl)
-    await page.ready()
-    await page.send('Runtime.enable')
-    await page.send('Performance.enable')
-    await waitFor(
-      () => evaluate(page, "document.body.dataset.ready === 'true'"),
-      20_000,
-      'benchmark page',
-    )
+    const chromeArgs = benchChromeArgs({ remoteDebugPort, profileDir, width, height, dpr })
+    chrome = launchChrome(chromePath, chromeArgs)
+    ;({ browser, page } = await openBenchPage({
+      remoteDebugPort,
+      url: `http://127.0.0.1:${port}/`,
+      readyExpression: "document.body.dataset.ready === 'true'",
+    }))
     logPhase('checking GPU identity…')
 
-    const systemInfo = await browser.send('SystemInfo.getInfo')
-    const browserVersion = await browser.send('Browser.getVersion')
-    const pageGpu = await evaluate(page, 'window.renderBench.inspectGpu()')
-    const identityText = JSON.stringify({ systemInfo, pageGpu }).toLowerCase()
-    if (/swiftshader|llvmpipe|software only/.test(identityText)) {
-      throw new Error('Software GPU backend detected; benchmark rejected')
-    }
-    if (!pageGpu.webgpuAvailable || !pageGpu.webglRenderer) {
-      throw new Error('Hardware WebGL/WebGPU unavailable in headless Chrome')
-    }
+    const { systemInfo, browserVersion, pageGpu } = await assertHardwareGpu(
+      browser,
+      page,
+      'window.renderBench.inspectGpu()',
+    )
 
     const processInfo = await browser.send('SystemInfo.getProcessInfo')
     const chromeProcessIds = processInfo.processInfo.map((process) => Number(process.id))
@@ -681,22 +524,7 @@ async function main() {
     process.stdout.write(`Results: ${jsonPath}\n`)
   } finally {
     await gpuSampler?.stop()
-    page?.close()
-    try {
-      await browser?.send('Browser.close')
-    } catch {
-      chrome?.kill()
-    }
-    browser?.close()
-    if (!(await waitForExit(chrome))) chrome?.kill()
-    vite.kill()
-    await waitForExit(vite)
-    await rm(profileDir, {
-      recursive: true,
-      force: true,
-      maxRetries: 10,
-      retryDelay: 200,
-    })
+    await closeBenchSession({ page, browser, chrome, server: vite, profileDir })
   }
 }
 

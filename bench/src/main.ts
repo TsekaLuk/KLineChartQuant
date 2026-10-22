@@ -12,6 +12,13 @@ import { createCanvas2DRenderer } from '../../packages/core/src/rendering/render
 import { createWebGLRenderer } from '../../packages/core/src/rendering/render/backend/createWebGLRenderer'
 import { createWebGPURenderer } from '../../packages/core/src/rendering/render/backend/createWebGPURenderer'
 import type { Renderer } from '../../packages/core/src/rendering/render/Renderer'
+import {
+  inspectGpu,
+  inspectWebGlRenderer,
+  jsHeapUsed,
+  measureRefreshIntervals,
+  nextAnimationFrame,
+} from './probe'
 
 type BackendName = 'canvas2d' | 'webgl2' | 'webgpu'
 type LineProfile = 'lines3' | 'lines12' | 'ichimoku'
@@ -279,26 +286,6 @@ function mountCanvas(width: number, height: number, dpr: number): HTMLCanvasElem
   return canvas
 }
 
-/** 读取 WebGL 实例 renderer 字符串，用于拒绝软件光栅。 */
-function inspectWebGlRenderer(canvas: HTMLCanvasElement): string | null {
-  const gl = canvas.getContext('webgl2')
-  if (!gl) return null
-  const extension = gl.getExtension('WEBGL_debug_renderer_info')
-  if (!extension) return gl.getParameter(gl.RENDERER) as string
-  return gl.getParameter(extension.UNMASKED_RENDERER_WEBGL) as string
-}
-
-/** 等待下一帧 rAF 回调时间。 */
-function nextAnimationFrame(): Promise<number> {
-  return new Promise((resolve) => requestAnimationFrame(resolve))
-}
-
-/** 读取页面当前 JS heap；Chrome 之外返回 null。 */
-function jsHeapUsed(): number | null {
-  const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory
-  return memory?.usedJSHeapSize ?? null
-}
-
 /** 创建指定后端；WebGPU 使用项目自己的渲染器与默认设备。 */
 async function createRenderer(backend: BackendName): Promise<Renderer> {
   if (backend === 'webgpu') {
@@ -445,40 +432,6 @@ async function runScenario(options: ScenarioOptions): Promise<ScenarioResult> {
     surface?.dispose()
     renderer.dispose()
   }
-}
-
-/** 显式检查当前机器上的 WebGL/WebGPU 设备信息。 */
-async function inspectGpu(): Promise<Record<string, unknown>> {
-  const canvas = document.createElement('canvas')
-  const webglRenderer = inspectWebGlRenderer(canvas)
-  const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'high-performance' })
-  return {
-    userAgent: navigator.userAgent,
-    devicePixelRatio: window.devicePixelRatio,
-    webglRenderer,
-    webgpuAvailable: Boolean(adapter),
-    webgpuAdapter: adapter
-      ? {
-          vendor: adapter.info.vendor,
-          architecture: adapter.info.architecture,
-          device: adapter.info.device,
-          description: adapter.info.description,
-          isFallbackAdapter: adapter.info.isFallbackAdapter ?? false,
-        }
-      : null,
-  }
-}
-
-/** 在空闲页面上测量显示刷新间隔，用于判断掉帧阈值。 */
-async function measureRefreshIntervals(frames: number): Promise<number[]> {
-  const intervals: number[] = []
-  let previous = await nextAnimationFrame()
-  for (let index = 0; index < frames; index += 1) {
-    const current = await nextAnimationFrame()
-    intervals.push(current - previous)
-    previous = current
-  }
-  return intervals
 }
 
 window.renderBench = { inspectGpu, measureRefreshIntervals, runScenario }

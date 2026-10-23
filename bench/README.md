@@ -82,12 +82,14 @@ uv run bench/promo.py --profile=ichimoku  # 宣传图：只画 Ichimoku
 `bench/compare.mjs` 与上面的后端基准互补：它挂载**完整图表**，把 KCQ（WebGL2 / WebGPU / Canvas2D）与 Lightweight Charts、Apache ECharts、KLineChart 放进同一个页面、同一个无头 Chrome，各自经公开 API 绘制同一份数据并逐帧滚动。
 
 ```bash
-pnpm bench:compare                         # 默认 150,500,1000 根、3 轮、每轮 600 帧
+pnpm bench:compare                         # 默认 150,500,1000 根 × 5/12 条均线、3 轮、每轮 600 帧
 node bench/compare.mjs --rounds=5
-node bench/compare.mjs --bars=500 --subjects=kcq-webgl,lightweight-charts
+node bench/compare.mjs --bars=500 --lines=12 --subjects=kcq-webgl,lightweight-charts
 ```
 
-- **同一份数据**：`src/compare/impl/scene.ts` 是唯一事实来源，50,000 根固定种子的一分钟 K 线 + MA 5/10/20/30/60；各库都以 Vite 生产构建参测，KCQ 走工作区源码，MA 由内置脚本服务注册（与应用同一路径）。
+- **同一份数据**：`src/compare/impl/scene.ts` 是唯一事实来源，50,000 根固定种子的一分钟 K 线；`MA_LINE_SETS` 登记均线档位：5 条（5/10/20/30/60，与内置 MA 默认参数一致）与 12 条（再加 90/120/150/180/200/250/300）。各库都以 Vite 生产构建参测，KCQ 走工作区源码，按同一份周期表生成一个均线脚本指标，经脚本服务以信任模式注册（与内置 MA 同一执行引擎）；竞品用各自的折线或内置 MA。四家均线配色相同。
+- **均线条数是负载维度**：`--lines=5,12` 决定每个库主图叠加几条均线，场景与 CSV 都带 `maLines` 列，截图命名为 `<subject>-<lines>ma-<bars>.png`。
+- **KCQ 每个场景从干净布局开始**：控制器会从 IndexedDB 恢复并自动保存布局，适配器在添加指标前关闭自动保存，避免上一个场景的指标被带入；挂载阶段等均线的 Worker 计算结果落地（图例行带出数值）后才开始预热和采样，计算不会混进滚动帧。因此 KCQ 的 `mountMsP50` 含指标计算，竞品接收的是页面预先算好的 SMA，挂载耗时不可横向比较。
 - **同一个窗口**：KCQ 的 K 线宽度按整数物理像素取整，可见根数是离散的。运行器先用 `kcq-canvas` 把请求档位换成 KCQ 实际能取到的根数，其他库再缩放到同一根数；报告里 `requestedVisibleBars` 与 `visibleBars` 分别记录请求与实际档位。
 - **同一个动作**：挂载后静置 30 帧、预热若干帧，再每帧向历史滚动一根；采样后核验实际滚动根数，偏差超过 3 根直接判无效。
 - **主指标是 `mainThreadMsPerFrame`**：CDP `TaskDuration` 除以帧数，覆盖脚本、样式、布局与 GC；`mainThreadMsPerFrameRounds` 是逐轮值，轮间差异即本机噪声。GPU 进程的工作不计入。

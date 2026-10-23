@@ -1,12 +1,12 @@
 /**
- * KLineChart（klinecharts）适配器：DataLoader 一次性喂入整份数据，内置 MA 指标叠加在主图，
- * 按 bar 间距换算可见根数，用 scrollByDistance 滚动。
+ * KLineChart（klinecharts）适配器：DataLoader 一次性喂入整份数据，内置 MA 指标按数据集周期叠加在主图
+ * （每个 calcParam 生成一条线，线色按序号循环取 indicator.lines），按 bar 间距换算可见根数，用 scrollByDistance 滚动。
  */
 
 import { type Chart, dispose, init } from 'klinecharts'
 
 import type { ChartSubject, VisibleRange } from '../types'
-import { MA_PERIODS, SCENE_COLORS } from './scene'
+import { maColor, SCENE_COLORS } from './scene'
 
 const CANDLE_PANE_ID = 'candle_pane'
 /** 放宽最小 bar 间距，使千根级可见窗口可达。 */
@@ -43,6 +43,15 @@ export function createKLineChartsSubject(): ChartSubject {
               downWickColor: SCENE_COLORS.down,
             },
           },
+          indicator: {
+            lines: SCENE_COLORS.ma.map((_, line) => ({
+              style: 'solid',
+              smooth: false,
+              size: 1,
+              dashedValue: [2, 2],
+              color: maColor(line),
+            })),
+          },
         },
       })
       if (!created) throw new Error('KLineChart init returned null')
@@ -58,7 +67,10 @@ export function createKLineChartsSubject(): ChartSubject {
           },
         })
       })
-      created.createIndicator({ name: 'MA', calcParams: [...MA_PERIODS], paneId: CANDLE_PANE_ID }, true)
+      created.createIndicator(
+        { name: 'MA', calcParams: [...dataset.maPeriods], paneId: CANDLE_PANE_ID },
+        true,
+      )
       const plot = created.getSize(CANDLE_PANE_ID, 'main')
       if (!plot) throw new Error('KLineChart candle pane has no size')
       barSpace = plot.width / visibleBars

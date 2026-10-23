@@ -1,7 +1,13 @@
-/** 确定性数据集：固定种子的几何随机游走分钟线，并预先计算各周期收盘价 SMA。 */
+/** 确定性数据集：固定种子的几何随机游走分钟线，按均线档位预先计算各周期收盘价 SMA。 */
 
-import type { BenchBar, BenchDataset } from '../types'
-import { BAR_INTERVAL_MS, DATASET_SEED, FIRST_BAR_TIMESTAMP, MA_PERIODS, TOTAL_BARS } from './scene'
+import type { BenchBar, BenchDataset, MaLineCount } from '../types'
+import {
+  BAR_INTERVAL_MS,
+  DATASET_SEED,
+  FIRST_BAR_TIMESTAMP,
+  MA_LINE_SETS,
+  TOTAL_BARS,
+} from './scene'
 
 /** 单根 K 线收盘价的最大相对变动；几何游走保证五万根后价格仍为正。 */
 const STEP_RANGE = 0.004
@@ -38,11 +44,11 @@ function simpleMovingAverage(bars: readonly BenchBar[], period: number): (number
 }
 
 /**
- * 生成对比基准使用的整份数据。
+ * 生成对比基准使用的整份 K 线；各均线档位共用同一份。
  *
- * @returns 五万根分钟 K 线与五条 SMA；同一种子每次结果完全一致
+ * @returns 五万根分钟 K 线；同一种子每次结果完全一致
  */
-export function createBenchDataset(): BenchDataset {
+export function createBenchBars(): BenchBar[] {
   const random = mulberry32(DATASET_SEED)
   const bars: BenchBar[] = []
   let close = 100
@@ -58,9 +64,22 @@ export function createBenchDataset(): BenchDataset {
       volume: Math.round(1_000 + random() * 9_000),
     })
   }
+  return bars
+}
+
+/**
+ * 在给定 K 线上组装某个均线档位的数据集。
+ *
+ * @param bars - createBenchBars 生成的 K 线
+ * @param maLines - 均线条数档位
+ * @returns K 线与该档位全部周期的 SMA
+ */
+export function createBenchDataset(bars: readonly BenchBar[], maLines: MaLineCount): BenchDataset {
+  const maPeriods = MA_LINE_SETS[maLines]
   return {
     bars,
-    maPeriods: MA_PERIODS,
-    ma: MA_PERIODS.map((period) => simpleMovingAverage(bars, period)),
+    maLines,
+    maPeriods,
+    ma: maPeriods.map((period) => simpleMovingAverage(bars, period)),
   }
 }

@@ -4,12 +4,14 @@
  */
 
 import { inspectGpu, jsHeapUsed, measureRefreshIntervals, nextAnimationFrame } from '../probe'
-import { createBenchDataset } from './impl/dataset'
+import { createBenchBars, createBenchDataset } from './impl/dataset'
 import { SCENE_COLORS } from './impl/scene'
 import { findSubject, SUBJECTS } from './impl/subjects'
 import type {
+  BenchDataset,
   ChartSubject,
   CompareScenarioOptions,
+  MaLineCount,
   PreparedScenario,
   SampledScenario,
   SubjectInfo,
@@ -37,8 +39,19 @@ const TAIL_FRAMES = 2
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) throw new Error('#app is missing')
 const root = app
-const dataset = createBenchDataset()
+const bars = createBenchBars()
+// 各均线档位的数据集按需计算一次，同档位的所有场景共用同一份对象。
+const datasets = new Map<MaLineCount, BenchDataset>()
 let active: { subject: ChartSubject; options: CompareScenarioOptions } | null = null
+
+/** 返回某个均线档位的数据集；首次请求时计算 SMA。 */
+function datasetFor(maLines: MaLineCount): BenchDataset {
+  const cached = datasets.get(maLines)
+  if (cached) return cached
+  const created = createBenchDataset(bars, maLines)
+  datasets.set(maLines, created)
+  return created
+}
 
 /** 等待若干帧。 */
 async function waitFrames(count: number): Promise<void> {
@@ -58,6 +71,7 @@ async function prepare(options: CompareScenarioOptions): Promise<PreparedScenari
   container.style.cssText = `position:relative;width:${options.width}px;height:${options.height}px;background:${SCENE_COLORS.background}`
   root.replaceChildren(container)
   const subject = findSubject(options.subject).create()
+  const dataset = datasetFor(options.maLines)
   const started = performance.now()
   await subject.mount(container, dataset, options.visibleBars)
   const mountMs = performance.now() - started
@@ -79,7 +93,9 @@ async function prepare(options: CompareScenarioOptions): Promise<PreparedScenari
  * @param scroll - 本帧要执行的滚动；为 null 时只测空帧开销
  * @returns 本帧工作量与该帧的 rAF 时间戳
  */
-async function measureFrame(scroll: (() => void) | null): Promise<{ workMs: number; timestamp: number }> {
+async function measureFrame(
+  scroll: (() => void) | null,
+): Promise<{ workMs: number; timestamp: number }> {
   const started = performance.now()
   scroll?.()
   const scrollMs = performance.now() - started

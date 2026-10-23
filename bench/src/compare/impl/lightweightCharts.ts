@@ -7,14 +7,14 @@ import {
   CandlestickSeries,
   createChart,
   type IChartApi,
-  LineSeries,
   type LineData,
+  LineSeries,
   type UTCTimestamp,
   type WhitespaceData,
 } from 'lightweight-charts'
 
 import type { ChartSubject, VisibleRange } from '../types'
-import { SCENE_COLORS } from './scene'
+import { maColor, SCENE_COLORS } from './scene'
 
 /** 允许的最小 bar 间距（CSS px）；默认 0.5 会限制千根级可见窗口。 */
 const MIN_BAR_SPACING = 0.05
@@ -66,7 +66,7 @@ export function createLightweightChartsSubject(): ChartSubject {
       )
       dataset.ma.forEach((values, line) => {
         const series = mounted().addSeries(LineSeries, {
-          color: SCENE_COLORS.ma[line],
+          color: maColor(line),
           lineWidth: 1,
           priceLineVisible: false,
           lastValueVisible: false,

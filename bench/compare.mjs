@@ -1,7 +1,7 @@
 /**
  * 图表库对比基准运行器。
- * 同一台机器、同一个无头 Chrome、同一份生产构建里，各库通过公开 API 绘制同一份 K 线与 MA，
- * 并逐帧向历史滚动一根。
+ * 同一台机器、同一个无头 Chrome、同一份生产构建里，各库通过公开 API 绘制同一份 K 线与同一组 MA
+ * （均线条数分档，见 --lines），并逐帧向历史滚动一根。
  *
  * 无头 Chrome 的 rAF 跟随显示刷新封顶（macOS 上解除帧率上限的开关不生效），所以帧间隔只用来统计掉帧；
  * 成本来自两路互相印证的读数：页面内逐帧测得的「滚动调用 + 本帧 rAF 工作」分布，以及 CDP TaskDuration
@@ -57,6 +57,8 @@ const csv = (value) =>
 const port = 4173
 const remoteDebugPort = Number(process.env.KLINE_BENCH_DEBUG_PORT ?? 9223)
 const requestedVisibleBars = csv(argument('bars') ?? '150,500,1000').map(Number)
+/** 均线条数档位，取值必须在页面 MA_LINE_SETS 中登记。 */
+const maLineSets = csv(argument('lines') ?? '5,12').map(Number)
 const requestedSubjects = argument('subjects')
 const warmupFrames = Number(process.env.KLINE_BENCH_WARMUP ?? 60)
 const sampleFrames = Number(process.env.KLINE_BENCH_FRAMES ?? 600)
@@ -74,6 +76,8 @@ const CALIBRATION_FRAMES = 240
 const FORWARDED_CONSOLE_TYPES = new Set(['warning', 'error'])
 /** KCQ 的 K 线宽度按物理像素取整，可见根数是离散的；由它定档，其他库对齐到同一根数。三个后端共用同一套缩放网格。 */
 const TIER_PROBE_SUBJECT = 'kcq-canvas'
+/** 定档只看缩放网格，与均线条数无关，固定用最轻的档位。 */
+const TIER_PROBE_MA_LINES = 5
 
 /** 读取参测包的版本；KCQ 取工作区源码版本。 */
 async function packageVersion(packageName) {
@@ -123,7 +127,7 @@ function assertScrolled(subjectId, sampled) {
 }
 
 /** 合并多轮样本：逐帧数据全部汇总后取百分位，主线程时间按总帧数平均。 */
-function summarize(info, visibleBars, measured, refreshIntervalMs) {
+function summarize(info, visibleBars, maLines, measured, refreshIntervalMs) {
   const work = measured.flatMap((round) => round.sampled.frameWorkMs)
   const intervals = measured.flatMap((round) => round.sampled.frameIntervalsMs)
   const taskMs = measured.reduce((sum, round) => sum + round.taskSeconds * 1000, 0)
@@ -137,6 +141,7 @@ function summarize(info, visibleBars, measured, refreshIntervalMs) {
     library: info.library,
     renderer: info.renderer,
     visibleBars,
+    maLines,
     actualVisibleBars: percentile(
       measured.map((round) => round.prepared.actualVisibleBars),
       0.5,
@@ -166,6 +171,7 @@ function toCsv(scenarios) {
     'library',
     'renderer',
     'visibleBars',
+    'maLines',
     'actualVisibleBars',
     'mountMsP50',
     'frameWorkP50Ms',
@@ -198,7 +204,15 @@ function toCsv(scenarios) {
 async function resolveVisibleBarTiers(page) {
   const tiers = []
   for (const visibleBars of requestedVisibleBars) {
-    const options = { subject: TIER_PROBE_SUBJECT, visibleBars, width, height, warmupFrames: 0, sampleFrames: 0 }
+    const options = {
+      subject: TIER_PROBE_SUBJECT,
+      visibleBars,
+      maLines: TIER_PROBE_MA_LINES,
+      width,
+      height,
+      warmupFrames: 0,
+      sampleFrames: 0,
+    }
     const prepared = await evaluate(page, `window.compareBench.prepare(${JSON.stringify(options)})`)
     await evaluate(page, 'window.compareBench.teardown()')
     const tier = Math.round(prepared.actualVisibleBars)
@@ -253,9 +267,10 @@ async function main() {
       if (!info) throw new Error(`Unknown subject ${id}`)
       return info
     })
-    const total = subjects.length * visibleBarSets.length
+    const total = subjects.length * maLineSets.length * visibleBarSets.length
     process.stderr.write(
       `Plan: ${total} scenarios × ${rounds} rounds, ${sampleFrames} frames each, tiers ${visibleBarSets.join('/')} bars, ` +
+        `MA lines ${maLineSets.join('/')}, ` +
         `refresh ${refreshIntervalMs.toFixed(2)} ms, empty-frame overhead ${frameOverheadP50Ms.toFixed(3)} ms\n`,
     )
 
@@ -263,34 +278,49 @@ async function main() {
     const scenarios = []
     let index = 0
     for (const info of subjects) {
-      for (const visibleBars of visibleBarSets) {
-        index += 1
-        const options = { subject: info.id, visibleBars, width, height, warmupFrames, sampleFrames }
-        const measured = []
-        for (let round = 1; round <= rounds; round += 1) {
-          process.stderr.write(`[${index}/${total}] r${round}/${rounds} ${info.id} ${visibleBars}b `)
-          const prepared = await evaluateWithHeartbeat(
-            page,
-            `window.compareBench.prepare(${JSON.stringify(options)})`,
-          )
-          if (round === 1) {
-            await captureScreenshot(page, resolve(screenshotDir, `${info.id}-${visibleBars}.png`))
+      for (const maLines of maLineSets) {
+        for (const visibleBars of visibleBarSets) {
+          index += 1
+          const options = {
+            subject: info.id,
+            visibleBars,
+            maLines,
+            width,
+            height,
+            warmupFrames,
+            sampleFrames,
           }
-          const before = await performanceMetrics(page)
-          const sampled = await evaluateWithHeartbeat(page, 'window.compareBench.sample()')
-          const after = await performanceMetrics(page)
-          await evaluate(page, 'window.compareBench.teardown()')
-          assertScrolled(info.id, sampled)
-          const taskSeconds = Math.max(0, after.TaskDuration - before.TaskDuration)
-          measured.push({ prepared, sampled, taskSeconds })
-          process.stderr.write(
-            ` visible ${prepared.actualVisibleBars.toFixed(0)}, ` +
-              `work P50 ${percentile(sampled.frameWorkMs, 0.5).toFixed(2)} ms, ` +
-              `P99 ${percentile(sampled.frameWorkMs, 0.99).toFixed(2)} ms, ` +
-              `main ${((taskSeconds * 1000) / sampled.frameIntervalsMs.length).toFixed(2)} ms/frame\n`,
-          )
+          const measured = []
+          for (let round = 1; round <= rounds; round += 1) {
+            process.stderr.write(
+              `[${index}/${total}] r${round}/${rounds} ${info.id} ${maLines}ma ${visibleBars}b `,
+            )
+            const prepared = await evaluateWithHeartbeat(
+              page,
+              `window.compareBench.prepare(${JSON.stringify(options)})`,
+            )
+            if (round === 1) {
+              await captureScreenshot(
+                page,
+                resolve(screenshotDir, `${info.id}-${maLines}ma-${visibleBars}.png`),
+              )
+            }
+            const before = await performanceMetrics(page)
+            const sampled = await evaluateWithHeartbeat(page, 'window.compareBench.sample()')
+            const after = await performanceMetrics(page)
+            await evaluate(page, 'window.compareBench.teardown()')
+            assertScrolled(info.id, sampled)
+            const taskSeconds = Math.max(0, after.TaskDuration - before.TaskDuration)
+            measured.push({ prepared, sampled, taskSeconds })
+            process.stderr.write(
+              ` visible ${prepared.actualVisibleBars.toFixed(0)}, ` +
+                `work P50 ${percentile(sampled.frameWorkMs, 0.5).toFixed(2)} ms, ` +
+                `P99 ${percentile(sampled.frameWorkMs, 0.99).toFixed(2)} ms, ` +
+                `main ${((taskSeconds * 1000) / sampled.frameIntervalsMs.length).toFixed(2)} ms/frame\n`,
+            )
+          }
+          scenarios.push(summarize(info, visibleBars, maLines, measured, refreshIntervalMs))
         }
-        scenarios.push(summarize(info, visibleBars, measured, refreshIntervalMs))
       }
     }
 
@@ -301,7 +331,8 @@ async function main() {
     const git = async (...args) =>
       (await execFileAsync('git', args, { cwd: repoDir })).stdout.trim()
     const report = {
-      schemaVersion: 1,
+      // v2：场景新增 maLines 维度。
+      schemaVersion: 2,
       kind: 'library-comparison',
       generatedAt: new Date().toISOString(),
       // dirty 为真表示实测代码 = commit + 未提交改动，发布前应提交后重跑。
@@ -332,6 +363,7 @@ async function main() {
         requestedVisibleBars,
         visibleBarTierProbe: TIER_PROBE_SUBJECT,
         visibleBars: visibleBarSets,
+        maLines: maLineSets,
         refreshIntervalMs,
         frameOverheadP50Ms,
         droppedFrameMultiplier: DROPPED_FRAME_MULTIPLIER,
@@ -341,7 +373,10 @@ async function main() {
       subjects,
       scenarios,
     }
-    await writeFile(resolve(resultsDir, 'compare-local.json'), `${JSON.stringify(report, null, 2)}\n`)
+    await writeFile(
+      resolve(resultsDir, 'compare-local.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+    )
     await writeFile(resolve(resultsDir, 'compare-local.csv'), toCsv(scenarios))
     process.stdout.write(`Results: ${resolve(resultsDir, 'compare-local.json')}\n`)
   } finally {

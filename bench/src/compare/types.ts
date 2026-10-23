@@ -35,10 +35,14 @@ export type BenchBar = {
 
 export interface BenchDataset {
   readonly bars: readonly BenchBar[]
+  readonly maLines: MaLineCount
   readonly maPeriods: readonly number[]
   /** 与 maPeriods 一一对应的收盘价简单移动平均；窗口未满处为 null。 */
   readonly ma: readonly (readonly (number | null)[])[]
 }
+
+/** 主图叠加的均线条数档位；周期表见 impl/scene.ts 的 MA_LINE_SETS。 */
+export type MaLineCount = 5 | 12
 
 /** 当前可见的逻辑索引区间；各库端点约定略有差异，只用于计数与滚动核验。 */
 export interface VisibleRange {
@@ -65,6 +69,7 @@ export interface SubjectEntry {
 export interface CompareScenarioOptions {
   subject: SubjectId
   visibleBars: number
+  maLines: MaLineCount
   width: number
   height: number
   warmupFrames: number

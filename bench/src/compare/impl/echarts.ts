@@ -9,7 +9,7 @@ import { type ECharts, init, use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 
 import type { ChartSubject, VisibleRange } from '../types'
-import { AXIS_SPACE, SCENE_COLORS } from './scene'
+import { AXIS_SPACE, maColor, SCENE_COLORS } from './scene'
 
 use([CandlestickChart, LineChart, DataZoomComponent, GridComponent, CanvasRenderer])
 
@@ -80,7 +80,7 @@ export function createEChartsSubject(): ChartSubject {
             data: values.map((value) => value ?? '-'),
             showSymbol: false,
             silent: true,
-            lineStyle: { width: 1, color: SCENE_COLORS.ma[line] },
+            lineStyle: { width: 1, color: maColor(line) },
           })),
         ],
       })

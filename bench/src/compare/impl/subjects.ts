@@ -10,15 +10,30 @@ const KCQ_PACKAGE = '@363045841yyt/klinechart-core'
 
 export const SUBJECTS: readonly SubjectEntry[] = [
   {
-    info: { id: 'kcq-webgl', library: 'KLineChartQuant', packageName: KCQ_PACKAGE, renderer: 'WebGL2' },
+    info: {
+      id: 'kcq-webgl',
+      library: 'KLineChartQuant',
+      packageName: KCQ_PACKAGE,
+      renderer: 'WebGL2',
+    },
     create: () => createKcqSubject('webgl'),
   },
   {
-    info: { id: 'kcq-webgpu', library: 'KLineChartQuant', packageName: KCQ_PACKAGE, renderer: 'WebGPU' },
+    info: {
+      id: 'kcq-webgpu',
+      library: 'KLineChartQuant',
+      packageName: KCQ_PACKAGE,
+      renderer: 'WebGPU',
+    },
     create: () => createKcqSubject('webgpu'),
   },
   {
-    info: { id: 'kcq-canvas', library: 'KLineChartQuant', packageName: KCQ_PACKAGE, renderer: 'Canvas2D' },
+    info: {
+      id: 'kcq-canvas',
+      library: 'KLineChartQuant',
+      packageName: KCQ_PACKAGE,
+      renderer: 'Canvas2D',
+    },
     create: () => createKcqSubject('canvas'),
   },
   {
@@ -31,11 +46,21 @@ export const SUBJECTS: readonly SubjectEntry[] = [
     create: createLightweightChartsSubject,
   },
   {
-    info: { id: 'echarts', library: 'Apache ECharts', packageName: 'echarts', renderer: 'Canvas2D' },
+    info: {
+      id: 'echarts',
+      library: 'Apache ECharts',
+      packageName: 'echarts',
+      renderer: 'Canvas2D',
+    },
     create: createEChartsSubject,
   },
   {
-    info: { id: 'klinecharts', library: 'KLineChart', packageName: 'klinecharts', renderer: 'Canvas2D' },
+    info: {
+      id: 'klinecharts',
+      library: 'KLineChart',
+      packageName: 'klinecharts',
+      renderer: 'Canvas2D',
+    },
     create: createKLineChartsSubject,
   },
 ]

@@ -78,6 +78,8 @@ describe.each(['test', 'auto'])('live bars with %s selection', (source) => {
             period: 'daily',
             barAggregation: 'original',
             instrumentId: instrument.id,
+            exchange: instrument.exchange,
+            adjustment: 'none',
           })
           expect(stream.connect).toHaveBeenCalledOnce()
         }

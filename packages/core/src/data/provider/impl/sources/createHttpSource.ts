@@ -26,16 +26,8 @@ export function createHttpSource(
     ...(options.liveBars
       ? {
           liveBars: {
-            createStream({ symbol, period, barAggregation, instrumentId }) {
-              return new BarsLiveSource(
-                source.id,
-                symbol,
-                period,
-                barAggregation,
-                baseUrl(),
-                undefined,
-                instrumentId,
-              )
+            createStream(request) {
+              return new BarsLiveSource(source.id, request, baseUrl())
             },
           },
         }

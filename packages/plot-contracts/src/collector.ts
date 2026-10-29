@@ -5,6 +5,7 @@
  * Plot 按首次出现的 name 建立条目，类型取调用处，缺省为折线；
  * 填充按名称登记边界，颜色写入对应 bar 的序列。
  */
+import { Color } from './color.js'
 import type {
   ArrowPlotDeclaration,
   CharPlotDeclaration,
@@ -20,6 +21,7 @@ import type {
   StepLineBRPlotDeclaration,
   StepLinePlotDeclaration,
 } from './declaration.js'
+import type { HLine, HLineFill } from './hline.js'
 import {
   type ArrowPlot,
   type CharPlot,
@@ -43,8 +45,8 @@ import {
 } from './plots.js'
 import { ShapeLocation, ShapeSize, ShapeStyle } from './shape.js'
 
-/** Plot 默认颜色。 */
-export const DEFAULT_PLOT_COLOR = '#2196f3'
+/** Plot 默认颜色：跟随主题的蓝，脚本不写颜色时由宿主解析成当前主题色值。 */
+export const DEFAULT_PLOT_COLOR: Color = Color.Blue
 /** 折线默认虚线样式（实线）。 */
 const DEFAULT_LINE_DASH: readonly number[] = []
 /** 柱状图默认基线。 */
@@ -63,6 +65,8 @@ export class PlotCollector {
   private readonly barCount: number
   private readonly fills = new Map<string, CollectedFill>()
   private readonly entries = new Map<string, CollectedPlot | CollectedOhlcPlot>()
+  private readonly hlines: HLine[] = []
+  private readonly hlineFills: HLineFill[] = []
 
   /** 登记 bar 数量；Plot 条目在首次输出时按 name 建立，填充由 onFill 登记。 */
   constructor(options: PlotCollectorOptions) {
@@ -119,6 +123,31 @@ export class PlotCollector {
     entry.data[barIndex] = point !== null && Number.isFinite(point.value) ? point : undefined
   }
 
+  /** 登记图表级水平线并返回本轮运行内的句柄 id；hline 只在文件顶层声明。 */
+  onHLine(line: Omit<HLine, 'id'>): string {
+    const id = String(this.hlines.length)
+    this.hlines.push({ ...line, id })
+    return id
+  }
+
+  /**
+   * 登记两条水平线之间的整幅填充。
+   * id 缺省按 from/to 生成；颜色为 null 表示显式不绘制。
+   */
+  onHLineFill(
+    from: string,
+    to: string,
+    color: string | null,
+    title: string | undefined,
+    visible: boolean,
+  ): void {
+    const ids = new Set(this.hlines.map((line) => line.id))
+    if (!ids.has(from) || !ids.has(to))
+      throw new TypeError(`Unknown hline fill source: ${title ?? `${from}-${to}`}`)
+    if (color === null) return
+    this.hlineFills.push({ id: title ?? `${from}-${to}`, from, to, color, visible })
+  }
+
   /** 产出 PlotCollection：Plot 按首次出现顺序输出，再补齐填充。 */
   collect(): PlotCollection {
     const plots = [...this.entries.values()].map(
@@ -131,7 +160,7 @@ export class PlotCollector {
       createFill(declaration, colors),
     )
     validatePlotFills(plots, fills)
-    return { plots, fills }
+    return { plots, fills, hlines: this.hlines, hlineFills: this.hlineFills }
   }
 
   /** 采集完整 OHLC；颜色写入逐点数据，整列元数据在一次运行内固定。 */

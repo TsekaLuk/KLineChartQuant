@@ -9,24 +9,22 @@ pane 只拥有可随时重建的渲染投影。
 ```text
 instances/
 ├── domain/     # 纯模型与纯派生，只依赖 foundation
-├── api/        # 实例 CRUD 与 pane 原子协调
+├── api/        # 实例身份、CRUD 与渲染绑定契约
 ├── execution/  # 计算计划执行、版本门控与结果池提交
-├── worker/     # 去重任务的传输协议与 Worker 入口
 └── assembly/   # 注册表装配与链路接线
 ```
 
 依赖方向单向向下，禁止反向：
 
 ```text
-assembly -> api/execution/worker -> domain
+assembly -> api/execution -> domain
 ```
 
 | 目录        | 职责                                             | 关键文件                                                                 |
 | ----------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
-| `domain/`   | 领域类型、`calculationKey`、任务计划、渲染投影   | `instanceModel.ts`、`instanceCalculationPlan.ts`、`instanceProjection.ts` |
-| `api/`      | 实例 create/update/remove 与 pane 同事务协调     | `indicatorInstanceApi.ts`、`indicatorPaneCoordinator.ts`                 |
-| `execution/`| 计划执行、Worker/inline 执行器、结果池提交       | `instanceCalculationRuntime.ts`、`instanceCalculationExecutors.ts`、`instanceCalculationScheduler.ts` |
-| `worker/`   | 跨线程协议与 Worker 入口                         | `instanceWorkerProtocol.ts`、`instanceIndicator.worker.ts`               |
+| `domain/`   | 领域类型、`calculationKey`、任务计划             | `instanceModel.ts`、`instanceCalculationPlan.ts`                         |
+| `api/`      | 实例身份、create/update/remove 与渲染绑定契约    | `indicatorInstanceApi.ts`、`instanceIdentity.ts`、`indicatorRenderBinding.ts` |
+| `execution/`| 调用定义计算端口、计划执行与结果池提交           | `instanceCalculationRuntime.ts`、`instanceCalculationExecutors.ts`、`instanceCalculationScheduler.ts` |
 | `assembly/` | metadata 到计算定义的装配、链路接线              | `instanceDefinitionCatalog.ts`、`indicatorInstancePipeline.ts`           |
 
 ## 身份模型
@@ -39,7 +37,7 @@ assembly -> api/execution/worker -> domain
 | `instanceId`      | 图表上的一次启用实例                       | 否                  |
 | `paneId`          | 实例所在绘图区                             | 否                  |
 
-`calculationKey` 不含 `paneId`、样式或 `instanceId`，因此同一 `MA(20)` 放在两个 pane 只计算一次，
+`calculationKey` 不含 `paneId`、样式或 `instanceId`，因此同一组参数放在两个 pane 只计算一次，
 但仍是两个独立实例，拥有各自的渲染投影。
 
 ## 版本语义
@@ -52,7 +50,7 @@ assembly -> api/execution/worker -> domain
 ```text
 实例 CRUD 快照
   -> IndicatorCalculationPlan（按 calculationKey 去重）
-  -> Worker / inline 共用 IndicatorInstanceExecutionRuntime
+  -> IndicatorInstanceExecutionRuntime 调用定义的计算端口
   -> 任务输出展开为 instanceId 结果池
   -> paneId / instanceId 渲染投影
 ```

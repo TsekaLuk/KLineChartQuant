@@ -17,6 +17,8 @@
  * host app. The contract is the chart canvas surface.
  */
 
+import type { ScriptColorAlias } from '@363045841yyt/klinechart-plot-contracts'
+
 /**
  * Concrete color value. Always a CSS color string — `#rrggbb`, `#rrggbbaa`,
  * `rgb(...)`, `rgba(...)`, or named CSS color. Themes typically use 6- or
@@ -60,6 +62,14 @@ export interface IndicatorPalette {
   readonly i10: ColorValue
   readonly indicatorAtr: ColorValue
 }
+
+/**
+ * 脚本 `Color` 枚举别名的主题取值。
+ *
+ * 键集合直接取自 plot-contracts 的别名联合：每个别名都必须有值，多一个少一个
+ * 都会在编译期暴露。脚本写入别名，宿主在投影渲染状态时换成这里的色值。
+ */
+export type ScriptColorPalette = Record<ScriptColorAlias, ColorValue>
 
 /**
  * Semantic color roles every renderable surface element claims.
@@ -254,26 +264,6 @@ export interface FootprintCellColors {
   readonly text: ColorValue
 }
 
-/** Structure (SMC) indicator — HH/HL/LH/LL/CHoCH/BOS. */
-export interface StructureColors {
-  readonly hh: ColorValue
-  readonly hl: ColorValue
-  readonly lh: ColorValue
-  readonly ll: ColorValue
-  readonly choch: ColorValue
-  readonly bos: ColorValue
-}
-
-/** Zones / FVG / Order-Block indicator colours. */
-export interface ZonesColors {
-  readonly fvgBullFill: ColorValue
-  readonly fvgBearFill: ColorValue
-  readonly fvgBullBorder: ColorValue
-  readonly fvgBearBorder: ColorValue
-  readonly obBullFill: ColorValue
-  readonly obBearFill: ColorValue
-}
-
 /** 通用 UI 颜色：表面、输入、边框、文字与状态色，框架与业务组件共用。 */
 export interface UiColors {
   readonly background: ColorValue
@@ -374,9 +364,6 @@ export interface ColorTokens {
   // Footprint / heatmap / volume profile (specialised components)
   readonly heatmapColdest: ColorValue
   readonly heatmapHottest: ColorValue
-  readonly volumeProfileFill: ColorValue
-  readonly volumeProfilePoc: ColorValue
-  readonly volumeProfileValueArea: ColorValue
   /** 足迹图横条与数字的专用配色；使用独立红/灰约定，不随涨跌方向翻转。 */
   readonly footprintCell: FootprintCellColors
 
@@ -401,6 +388,9 @@ export interface ColorTokens {
   // Indicator palette (composes ColorTokens)
   readonly palette: IndicatorPalette
 
+  // 脚本 Color 枚举别名的主题取值
+  readonly scriptPalette: ScriptColorPalette
+
   // ── Legacy indicator colours (from engine/theme/colors) ──
   readonly text: TextColors
   readonly price: PriceColors
@@ -423,8 +413,6 @@ export interface ColorTokens {
   readonly pivot: PivotColors
   readonly label: LabelColors
   readonly lastPriceLabel: LastPriceLabelColors
-  readonly structure: StructureColors
-  readonly zones: ZonesColors
   readonly referenceLine: ReferenceLineColors
   readonly wmsrGrid: ColorValue
   readonly ui: UiColors

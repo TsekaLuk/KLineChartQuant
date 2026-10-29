@@ -14,8 +14,8 @@ import {
 } from '@/engine/__tests__/helpers/renderTestKit.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
-import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
 import type { PaintPrimitive } from '@/rendering/primitives/types.js'
+import { createCanvas2DRenderer } from '@/rendering/render/backend/createCanvas2DRenderer.js'
 import { paintPlots } from '../impl/plotRenderer.js'
 import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
@@ -50,32 +50,89 @@ function paint(
 }
 
 describe('Plot renderer', () => {
+  it('有数据变换时仍在上层将折线价格投影为屏幕坐标', () => {
+    const submit = vi.fn(() => true)
+    const transform = { offsetX: 10, yScale: 10, yOffset: 0 }
+    const { ctx } = paint(
+      { series: [{ id: 'comparison', color: () => 'yellow' }] },
+      [4.25, 4.5],
+      {},
+      {
+        dataTransform: transform,
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+      },
+    )
+    expect(submit).toHaveBeenCalledExactlyOnceWith(
+      ctx,
+      [
+        expect.objectContaining({
+          kind: 'stroke',
+          paths: [
+            [
+              { x: 5, y: 42.5 },
+              { x: 15, y: 45 },
+            ],
+          ],
+          offsetX: 10,
+        }),
+      ],
+      1,
+      transform,
+    )
+  })
+
+  it.each([
+    { values: [10, 100], min: 0, max: 105 },
+    { values: [-100, -10], min: -105, max: 0 },
+    { values: [-100, 100], min: -110, max: 110 },
+  ])('柱体基线边界保留单侧留白：$values', ({ values, min, max }) => {
+    const { state } = paint(
+      { series: [{ id: 'vol', kind: 'columns', color: () => 'blue' }] },
+      values,
+    )
+    expect(state.valueMin).toBe(min)
+    expect(state.valueMax).toBe(max)
+  })
+
   it('submits fill, line and points in one ordered backend batch', () => {
     const submit = vi.fn(() => true)
-    const { ctx } = paint({
-      series: [
-        { id: 'a', field: 'a', color: () => 'red' },
-        { id: 'b', field: 'b', kind: 'points', color: () => 'blue' },
-      ],
-      fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
-    }, [{ a: 1, b: 3 }, { a: 2, b: 4 }], {}, {
-      sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
-    })
-    expect(submit).toHaveBeenCalledExactlyOnceWith(ctx, [
-      expect.objectContaining({ kind: 'fill', offsetX: 10 }),
-      expect.objectContaining({
-        kind: 'stroke',
-        paths: [
-          [
-            { x: 5, y: 10 },
-            { x: 15, y: 20 },
-          ],
+    const { ctx } = paint(
+      {
+        series: [
+          { id: 'a', field: 'a', color: () => 'red' },
+          { id: 'b', field: 'b', kind: 'points', color: () => 'blue' },
         ],
-        offsetX: 10,
-      }),
-      expect.objectContaining({ kind: 'circle', x: -5, y: 30 }),
-      expect.objectContaining({ kind: 'circle', x: 5, y: 40 }),
-    ], 1, undefined)
+        fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
+      },
+      [
+        { a: 1, b: 3 },
+        { a: 2, b: 4 },
+      ],
+      {},
+      {
+        sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
+      },
+    )
+    expect(submit).toHaveBeenCalledExactlyOnceWith(
+      ctx,
+      [
+        expect.objectContaining({ kind: 'fill', offsetX: 10 }),
+        expect.objectContaining({
+          kind: 'stroke',
+          paths: [
+            [
+              { x: 5, y: 10 },
+              { x: 15, y: 20 },
+            ],
+          ],
+          offsetX: 10,
+        }),
+        expect.objectContaining({ kind: 'circle', x: -5, y: 30 }),
+        expect.objectContaining({ kind: 'circle', x: 5, y: 40 }),
+      ],
+      1,
+      undefined,
+    )
     expect(ctx.stroke).not.toHaveBeenCalled()
     expect(ctx.fill).not.toHaveBeenCalled()
   })
@@ -95,7 +152,9 @@ describe('Plot renderer', () => {
       [15, 20],
     ]
     expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
-      screenPoints(kind === 'steplinebr' ? firstStep : [...firstStep, [30, 20], [30, 50], [45, 50]]),
+      screenPoints(
+        kind === 'steplinebr' ? firstStep : [...firstStep, [30, 20], [30, 50], [45, 50]],
+      ),
     )
   })
 
@@ -118,19 +177,23 @@ describe('Plot renderer', () => {
         },
         [1, 3, 3, 0],
       )
-      expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([
-        [15, 10],
-        [35, 30],
-      ]))
-      expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(screenPoints([
-        [20, 10],
-        [20, 30],
-        [25, 30],
-        [35, 30],
-        [40, 30],
-        [40, 0],
-        [45, 0],
-      ]))
+      expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(
+        screenPoints([
+          [15, 10],
+          [35, 30],
+        ]),
+      )
+      expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
+        screenPoints([
+          [20, 10],
+          [20, 30],
+          [25, 30],
+          [35, 30],
+          [40, 30],
+          [40, 0],
+          [45, 0],
+        ]),
+      )
       expect(ctx.setLineDash).toHaveBeenCalledWith([4, 2])
       expect(ctx.lineWidth).toBe(3)
       expect(ctx.strokeStyle).toBe('blue')
@@ -144,18 +207,22 @@ describe('Plot renderer', () => {
       series: [{ id: 'step', kind: 'steplinebr', color: () => 'blue' }],
     }
     const { ctx } = paint(definition, [1, 2, null, 4, 5])
-    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([
-      [5, 10],
-      [35, 40],
-    ]))
-    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(screenPoints([
-      [10, 10],
-      [10, 20],
-      [15, 20],
-      [40, 40],
-      [40, 50],
-      [45, 50],
-    ]))
+    expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(
+      screenPoints([
+        [5, 10],
+        [35, 40],
+      ]),
+    )
+    expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
+      screenPoints([
+        [10, 10],
+        [10, 20],
+        [15, 20],
+        [40, 40],
+        [40, 50],
+        [45, 50],
+      ]),
+    )
     expect(paint(definition, [NaN, 1, null]).ctx.stroke).not.toHaveBeenCalled()
   })
 
@@ -170,12 +237,14 @@ describe('Plot renderer', () => {
     expect(state.plots[0]).toMatchObject({ kind: kind ?? 'line' })
     expect(vi.mocked(ctx.moveTo).mock.calls).toEqual(screenPoints([[5, 10]]))
     expect(vi.mocked(ctx.lineTo).mock.calls).toEqual(
-      screenPoints(kind === 'linebr'
-        ? [[15, 20]]
-        : [
-            [15, 20],
-            [45, 50],
-          ]),
+      screenPoints(
+        kind === 'linebr'
+          ? [[15, 20]]
+          : [
+              [15, 20],
+              [45, 50],
+            ],
+      ),
     )
   })
 
@@ -594,7 +663,13 @@ describe('Plot renderer', () => {
           },
         ],
       },
-      [{ a: 1, b: 5 }, { a: 2, b: 4 }, { a: 3, b: 3 }, { a: 4, b: 2 }, { a: 5, b: 1 }],
+      [
+        { a: 1, b: 5 },
+        { a: 2, b: 4 },
+        { a: 3, b: 3 },
+        { a: 4, b: 2 },
+        { a: 5, b: 1 },
+      ],
       {},
       {
         range: { start: 0, end: 8 },
@@ -602,12 +677,12 @@ describe('Plot renderer', () => {
         sceneRenderer: { ...createCanvas2DRenderer(), primitives: { paint: submit, dispose() {} } },
       },
     )
-    const spans = submit.mock.calls[0]![1]
-      .filter((command) => command.kind === 'fill')
-      .map((command) => {
+    const spans = submit.mock.calls[0]![1].filter((command) => command.kind === 'fill').map(
+      (command) => {
         const xs = command.paths.flat().map((point) => point.x)
         return [command.color, Math.min(...xs), Math.max(...xs)]
-      })
+      },
+    )
     // 源 bar 2 处相交，显示位置后移 2 格：绿色到 35，红色从 35 一直续到未来槽位 55。
     expect(spans).toEqual([
       ['green', 15, 35],
@@ -615,7 +690,7 @@ describe('Plot renderer', () => {
     ])
   })
 
-  it('填充图层在数据空间投影，提交 band 与 dataSpace 标记', () => {
+  it('填充与折线共享屏幕投影，数据变换不会重复应用', () => {
     const submit = vi.fn<
       (context: unknown, commands: readonly PaintPrimitive[], dpr: number) => boolean
     >(() => true)
@@ -627,7 +702,10 @@ describe('Plot renderer', () => {
         ],
         fills: [{ id: 'cloud', from: 'a', to: 'b', color: () => 'green' }],
       },
-      [{ a: 1, b: 3 }, { a: 2, b: 4 }],
+      [
+        { a: 1, b: 3 },
+        { a: 2, b: 4 },
+      ],
       {},
       {
         dataTransform: { offsetX: 10, yScale: 2, yOffset: 5 },
@@ -636,9 +714,12 @@ describe('Plot renderer', () => {
     )
     const fill = submit.mock.calls[0]![1].find((command) => command.kind === 'fill')
     if (!fill || fill.kind !== 'fill') throw new Error('缺少填充原语')
-    expect(fill).toMatchObject({ band: true, dataSpace: true })
-    // y 保留价格，未预先乘 yScale / 加 yOffset。
-    expect(fill.paths[0]!.map((point) => point.y)).toEqual([1, 2, 4, 3])
+    expect(fill).toMatchObject({ band: true, offsetX: 10 })
+    expect(fill).not.toHaveProperty('dataSpace')
+    expect(fill.paths[0]!.map((point) => point.y)).toEqual([10, 20, 40, 30])
+    const strokes = submit.mock.calls[0]![1].filter((command) => command.kind === 'stroke')
+    expect(strokes).toHaveLength(2)
+    for (const stroke of strokes) expect(stroke).not.toHaveProperty('dataSpace')
   })
 
   it.each(['char', 'arrow'] as const)('%s 相对标记不能作为 fill 端点', (kind) => {
@@ -821,6 +902,9 @@ describe('Plot renderer', () => {
     const { ctx, state } = paint(
       { series: [{ id: 'bar', kind: 'columns', color: () => 'red' }] },
       [-2, 3],
+      {},
+      // 柱宽与基线断言不验证滚动：几何留在视口内，避免被 Canvas 矩形剔除。
+      { scrollLeft: 0 },
     )
     expect(ctx.fillRect).toHaveBeenCalledTimes(2)
     expect(state.visibleMin).toBe(-2)
@@ -833,7 +917,7 @@ describe('Plot renderer', () => {
         { series: [{ id: 'bar', kind: 'columns', size: ShapeSize.Huge, color: () => 'red' }] },
         [1],
         {},
-        { kBarRects: [{ x: 0, width: barWidth }] },
+        { kBarRects: [{ x: 0, width: barWidth }], scrollLeft: 0 },
       )
       return vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)
     }
@@ -847,7 +931,7 @@ describe('Plot renderer', () => {
         { series: [{ id: 'bar', kind: 'histogram', size: 3, color: () => 'red' }] },
         [1],
         {},
-        { kBarRects: [{ x: 0, width: barWidth }] },
+        { kBarRects: [{ x: 0, width: barWidth }], scrollLeft: 0 },
       )
       return vi.mocked(ctx.fillRect).mock.calls.map(([, , width]) => width)
     }
@@ -860,6 +944,8 @@ describe('Plot renderer', () => {
       const { ctx } = paint(
         { series: [{ id: 'bar', kind: 'histogram', size, color: () => 'red' }] },
         [1],
+        {},
+        { scrollLeft: 0 },
       )
       return vi.mocked(ctx.fillRect).mock.calls[0]?.[2]
     }
@@ -896,5 +982,37 @@ describe('Plot renderer', () => {
     expect(ctx.fill).toHaveBeenCalledTimes(1)
     expect(ctx.fillRect).not.toHaveBeenCalled()
     expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 15)).toBe(true)
+  })
+
+  it('hline 带状填充按价格区间铺满整幅宽度', () => {
+    const { ctx } = paint(
+      { source: 'collection', series: [] },
+      {
+        plots: [
+          {
+            kind: 'line',
+            id: 'value',
+            label: 'VALUE',
+            color: '#ffffff',
+            data: [{ value: 10 }, { value: 20 }],
+            visible: true,
+            offset: 0,
+            size: ShapeSize.Auto,
+            dash: [],
+          },
+        ],
+        fills: [],
+        hlines: [
+          { id: '0', price: 12, color: 'gray', dash: [], width: 1 },
+          { id: '1', price: 18, color: 'gray', dash: [], width: 1 },
+        ],
+        hlineFills: [{ id: 'zone', from: '0', to: '1', color: 'teal', visible: true }],
+      },
+    )
+    const rects = vi.mocked(ctx.fillRect).mock.calls
+    expect(rects).toHaveLength(1)
+    expect(rects[0]?.[0]).toBe(0)
+    expect(rects[0]?.[2]).toBeGreaterThan(0)
+    expect(rects[0]?.[3]).toBeGreaterThan(0)
   })
 })

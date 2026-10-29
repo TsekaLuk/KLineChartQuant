@@ -4,6 +4,8 @@ import { beforeEach, expect, it } from 'vitest'
 import { allIndicatorDefinitions } from '../../../controllers/indicatorDefinitionCatalog.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
 import type { DrawingObject } from '../../drawing/types.js'
+import { registerIndicatorDescriptor } from '../../indicators/indicatorDefinitionRegistry.js'
+import { IndicatorKind } from '../../indicators/indicatorMetadata.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager, readActiveLayoutSettings } from '../impl/layoutManager.js'
@@ -50,8 +52,15 @@ function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createM
 }
 
 it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
+  registerIndicatorDescriptor({
+    name: 'layout-test',
+    displayName: 'Layout test',
+    kind: IndicatorKind.Indicator,
+    category: 'main',
+    defaultPaneId: 'main',
+  })
   const definition = allIndicatorDefinitions()[0]
-  if (!definition) throw new Error('内置指标目录为空')
+  if (!definition) throw new Error('测试指标未注册')
   const first = createManager()
   await first.manager.initialize()
   const unsubscribe = first.kernel.indicator.readonly.favoriteIndicatorIds.subscribe(() =>
@@ -122,7 +131,7 @@ function createDrawing(): DrawingObject {
       { id: 'end', type: 'point', time: 1_700_086_400_000, price: 12 },
     ],
     params: {},
-    style: {},
+    style: { stroke: '#2962ff' },
   }
 }
 

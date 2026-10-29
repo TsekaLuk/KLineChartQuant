@@ -18,6 +18,10 @@ export type {
   CharPlot,
   CharPlotDeclaration,
   HistogramPlot,
+  HLine,
+  HLineFill,
+  HLineOptions,
+  HLineRef,
   InputSchema,
   LineBRPlot,
   LineBRPlotDeclaration,
@@ -46,6 +50,7 @@ export type {
 export {
   Color,
   DataSource,
+  HLineStyle,
   PlotCollector,
   type PlotCollectorOptions,
   PlotKind,
@@ -59,8 +64,9 @@ export * from './contracts/library.js'
 export * from './contracts/output.js'
 export { ScriptExecutionError } from './errors.js'
 export type { TechnicalAnalysisLibrary } from './Library/types.js'
+export { inspectScript, resolveScriptLibraries } from './language/impl/scriptLibraries.js'
 export { builtinScriptSources } from './quickjs/generated/builtinScripts.js'
-export { builtinLibraries } from './quickjs/impl/builtinLibraries.js'
+export { type BuiltinLibrary, builtinLibraries } from './quickjs/impl/builtinLibraries.js'
 export {
   preloadQuickJS,
   prepareQuickJSScript,

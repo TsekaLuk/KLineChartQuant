@@ -45,6 +45,15 @@ export type TechnicalAnalysisLibrary = {
    */
   sum(source: Series, length: number): Series
   /**
+   * 最近 length 根内累计值最大的连续区间（最大子段和，Kadane）。
+   * @summary 最大子段和
+   * @param source 有符号数据序列，如对数收益、价格差分或带符号成交量。
+   * @param length 窗口长度，正整数，包含当前根。
+   * @returns [子段和, 起点偏移, 终点偏移]；偏移为相对当前根的负值（与 highestbars 一致），
+   *          完整窗口之前或窗口内含 NaN 时三者均为 NaN。
+   */
+  maxsum(source: Series, length: number): readonly [Series, Series, Series]
+  /**
    * 最近 length 根 K 线的最高值，包含当前 K 线。
    * @summary 窗口最高值
    * @param source 数据序列，如 high。
@@ -60,6 +69,10 @@ export type TechnicalAnalysisLibrary = {
    * @returns 最低值序列；[0] 取当前窗口的结果。
    */
   lowest(source: Series, length: number): Series
+  /** 确认后的摆动高点；结果出现在右侧窗口完成的 bar，无摆点为 NaN。 */
+  pivothigh(source: Series, leftbars: number, rightbars: number): Series
+  /** 确认后的摆动低点；并列极值取更靠右的 bar。 */
+  pivotlow(source: Series, leftbars: number, rightbars: number): Series
   /**
    * 最近 length 根 K 线最高值相对当前 K 线的偏移，负值或 0。
    * @summary 最高值偏移

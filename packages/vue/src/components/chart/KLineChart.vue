@@ -86,6 +86,7 @@
           @clear-indicators="clearAllIndicators"
           @set-global-drawing-lock="onSetGlobalDrawingLock"
           @set-all-drawings-visible="onSetAllDrawingsVisible"
+          @open-command-palette="paletteOpen = true"
         />
         <div ref="chartMainRef" class="chart-main">
           <a
@@ -346,7 +347,20 @@
       @confirm="handleSettingsChange({ ...chartSettings, ...$event }); footprintSettingsOpen = false"
     />
     <CommandPalette v-model:open="paletteOpen" @open-shortcuts="openChartSettings('shortcuts')" />
-    <ScriptEditorDialog
+    <ScriptEditorHost
+      mode="dialog"
+      :tabs="scriptEditorSession.tabs.value"
+      :active-tab-id="scriptEditorSession.activeTabId.value"
+      @select-tab="scriptEditorSession.selectTab($event)"
+      @close-tab="scriptEditorSession.closeTab($event)"
+      @move-tab="scriptEditorSession.moveTab"
+      :kind="scriptEditorSession.kind.value"
+      :documents="scriptEditorSession.documents.value"
+      :folders="scriptEditorSession.folders.value"
+      :libraries="scriptEditorSession.libraries.value"
+      @tree-action="scriptEditorSession.applyTreeAction"
+      @open-script="scriptEditorSession.openFor($event)"
+      @refresh-documents="scriptEditorSession.refreshDocuments()"
       v-model:open="scriptEditorOpen"
       v-model:source="scriptEditorSource"
       v-model:trusted="scriptEditorTrusted"
@@ -356,9 +370,13 @@
       :saved="scriptEditorSaved"
       :identity="scriptEditorIdentity"
       :saving="scriptEditorSaving"
+      :executing="scriptEditorSession.executing.value"
+      @run="scriptEditorSession.run()"
+      @add-to-chart="scriptEditorSession.addToChart()"
       @create-copy="createScriptCopy"
       :title="scriptEditorTitle"
       :detachable="scriptEditorWindowSupported"
+      :theme="chartTheme"
       @save="saveScriptEditor"
       @open-window="openScriptEditorWindow"
     />
@@ -434,7 +452,7 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  import ScriptEditorDialog from '@vue-src/components/script/ScriptEditorDialog.vue'
+  import ScriptEditorHost from '@vue-src/components/script/ScriptEditorHost.vue'
   import BatchStockDialog from '@vue-src/components/symbol/BatchStockDialog.vue'
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
@@ -1061,7 +1079,10 @@
   /** 使用各 Pane 实际轴画布的位置，把独立入口放在对应轴底部。 */
   const paneAxisItems = usePaneAxisItems(rightAxisLayerRef, paneLayout, paneAxisLayoutEpoch)
 
-  const scriptEditorSession = useScriptEditor(inject(SCRIPT_SOURCE_STORE_KEY, undefined))
+  const scriptEditorSession = useScriptEditor(
+    inject(SCRIPT_SOURCE_STORE_KEY, undefined),
+    controller,
+  )
   const {
     open: scriptEditorOpen,
     source: scriptEditorSource,
@@ -1079,7 +1100,7 @@
   } = scriptEditorSession
 
   const { supported: scriptEditorWindowSupported, open: detachScriptEditorWindow } =
-    useScriptEditorWindow(scriptEditorSession, chartWrapperRef)
+    useScriptEditorWindow(scriptEditorSession, chartWrapperRef, chartTheme)
 
   const scriptEditorTitle = computed(() =>
     scriptEditorSession.name.value ? `编辑脚本 · ${scriptEditorSession.name.value}` : '新建脚本',

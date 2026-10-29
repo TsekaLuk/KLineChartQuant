@@ -6,20 +6,31 @@ import {
   isOhlcPlot,
   isPricePlot,
   ohlcPlotStart,
+  type PlotCollection,
   PlotKind,
   type ShapeSize,
   validatePlotFills,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { VisibleRange } from '@/engine/viewport/viewport.js'
-import type { ColorTokens } from '@/foundation/tokens/index.js'
+import {
+  type ColorTokens,
+  createScriptColorResolver,
+  type ScriptColorResolver,
+} from '@/foundation/tokens/index.js'
 import type {
+  ArrowPlot,
+  CharPlot,
   IndicatorPlotDefinition,
+  OhlcPlot,
+  OhlcPlotPoint,
   Plot,
   PlotFill,
   PlotPoint,
   PlotRenderState,
   PlotSpec,
+  ShapePlot,
 } from '../types.js'
+import { queryPlotBounds } from './plotBoundsIndex.js'
 import { isPlotCollection } from './readPlotState.js'
 
 /** 读取计算结果的具名字段，不猜测或转换数值。 */
@@ -54,8 +65,10 @@ export function projectPlots(
   colors: ColorTokens,
 ): PlotRenderState {
   const collection = definition.source === 'collection'
-  const { plots, fills } = collection
-    ? readCollectionPlots(raw)
+  const rawCollection = collection ? readCollection(raw) : undefined
+  const resolveColor = createScriptColorResolver(colors)
+  const { plots, fills } = rawCollection
+    ? readCollectionPlots(rawCollection, resolveColor)
     : buildSeriesPlots(definition, raw, params, colors)
   // 生产端与投影端各校验一次填充边界，绘制端不再重复。
   validatePlotFills(plots, fills)
@@ -65,28 +78,151 @@ export function projectPlots(
     params,
     plots,
     fills,
-    drawings: collection && isPlotCollection(raw) ? raw.drawings : undefined,
-    ...plotRange(
-      definition,
-      plots,
-      fills,
-      range,
-      collection && isPlotCollection(raw) ? raw.drawings : undefined,
-    ),
-    guides: collection
-      ? []
+    drawings: rawCollection?.drawings,
+    ...plotRange(definition, plots, fills, range, rawCollection?.drawings),
+    guides: rawCollection
+      ? readCollectionHlines(rawCollection, resolveColor)
       : (definition.guides ?? []).map((guide) => ({
           value: guide.value,
           color: guide.color(colors),
           dash: guide.dash ?? [4, 4],
+          width: guide.width ?? 1,
         })),
+    guideFills: rawCollection ? readCollectionGuideFills(rawCollection, resolveColor) : [],
   }
 }
 
-/** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口。 */
-function readCollectionPlots(raw: unknown): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
+/** 集合里除 OHLC、箭头和标记之外的图形；颜色解析只关心公共色与逐点颜色。 */
+type ScalarColorPlot = Exclude<Plot, OhlcPlot | ShapePlot | CharPlot | ArrowPlot>
+
+/** 集合型指标必须返回合法 PlotCollection；非法结构在这里统一拒绝。 */
+function readCollection(raw: unknown): PlotCollection {
   if (!isPlotCollection(raw)) throw new TypeError('Expected PlotCollection')
-  return { plots: raw.plots, fills: raw.fills }
+  return raw
+}
+
+/** 读取脚本产出的完整 PlotCollection，外来的结构与填充引用在此收口，颜色同时换成主题色值。 */
+function readCollectionPlots(
+  collection: PlotCollection,
+  resolveColor: ScriptColorResolver,
+): { plots: readonly Plot[]; fills: readonly PlotFill[] } {
+  return {
+    plots: collection.plots.map((plot) => resolvePlotColors(plot, resolveColor)),
+    fills: collection.fills.map((fill) => resolveFillColors(fill, resolveColor)),
+  }
+}
+
+/** 脚本 hline 转为渲染层参考线：价格映射 value，颜色换成当前主题值。 */
+function readCollectionHlines(
+  collection: PlotCollection,
+  resolve: ScriptColorResolver,
+): { value: number; color: string; dash: readonly number[]; width: number }[] {
+  return (collection.hlines ?? []).map((line) => ({
+    value: line.price,
+    color: resolve(line.color),
+    dash: line.dash,
+    width: line.width,
+  }))
+}
+
+/** 水平线填充转为价格区间；引用的 id 必须指向本轮声明的水平线。 */
+function readCollectionGuideFills(
+  collection: PlotCollection,
+  resolve: ScriptColorResolver,
+): { from: number; to: number; color: string; visible: boolean }[] {
+  const prices = new Map((collection.hlines ?? []).map((line) => [line.id, line.price]))
+  return (collection.hlineFills ?? []).map((fill) => {
+    const from = prices.get(fill.from)
+    const to = prices.get(fill.to)
+    if (from === undefined || to === undefined)
+      throw new TypeError(`Unknown hline fill source: ${fill.id}`)
+    return { from, to, color: resolve(fill.color), visible: fill.visible }
+  })
+}
+
+/** 绘图点只替换显式给出的颜色，缺省继续沿用所在 Plot 的颜色。 */
+function resolvePointColors(point: PlotPoint, resolve: ScriptColorResolver): PlotPoint {
+  return {
+    value: point.value,
+    ...(point.color === undefined ? {} : { color: resolve(point.color) }),
+    ...(point.textColor === undefined ? {} : { textColor: resolve(point.textColor) }),
+  }
+}
+
+/** OHLC 点用 null 表示该 bar 不绘制，null 不参与颜色解析。 */
+function resolveOhlcPointColors(point: OhlcPlotPoint, resolve: ScriptColorResolver): OhlcPlotPoint {
+  return {
+    ...point,
+    color: point.color === null ? null : resolve(point.color),
+    wickColor: point.wickColor === null ? null : resolve(point.wickColor),
+    borderColor: point.borderColor === null ? null : resolve(point.borderColor),
+  }
+}
+
+/** 按图形类别分流：折线与柱状共用一套颜色字段，OHLC、箭头、标记各有专属字段。 */
+function resolvePlotColors(plot: Plot, resolve: ScriptColorResolver): Plot {
+  if (isOhlcPlot(plot)) return resolveOhlcColors(plot, resolve)
+  if (plot.kind === 'arrow') return resolveArrowColors(plot, resolve)
+  if (plot.kind === 'shape' || plot.kind === 'char') return resolveMarkerColors(plot, resolve)
+  return resolveScalarColors(plot, resolve)
+}
+
+/** OHLC 只有图形色，逐 bar 的实体、影线和边框色各自独立。 */
+function resolveOhlcColors(plot: OhlcPlot, resolve: ScriptColorResolver): OhlcPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolveOhlcPointColors(point, resolve),
+    ),
+  }
+}
+
+/** 箭头的上下方向色决定图形颜色，公共色供图例使用。 */
+function resolveArrowColors(plot: ArrowPlot, resolve: ScriptColorResolver): ArrowPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    colorUp: resolve(plot.colorUp),
+    colorDown: resolve(plot.colorDown),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolvePointColors(point, resolve),
+    ),
+  }
+}
+
+/** 形状与字符标记额外带文字色。 */
+function resolveMarkerColors(
+  plot: ShapePlot | CharPlot,
+  resolve: ScriptColorResolver,
+): ShapePlot | CharPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    textColor: resolve(plot.textColor),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolvePointColors(point, resolve),
+    ),
+  }
+}
+
+/** 折线、阶梯线、柱状与散点只有公共色与逐点颜色。 */
+function resolveScalarColors(plot: ScalarColorPlot, resolve: ScriptColorResolver): ScalarColorPlot {
+  return {
+    ...plot,
+    color: resolve(plot.color),
+    data: plot.data.map((point) =>
+      point === undefined ? undefined : resolvePointColors(point, resolve),
+    ),
+  }
+}
+
+/** 填充按 bar 存色，null 表示该 bar 不填充。 */
+function resolveFillColors(fill: PlotFill, resolve: ScriptColorResolver): PlotFill {
+  return {
+    ...fill,
+    colors: fill.colors.map((color) => (color === null ? null : resolve(color))),
+  }
 }
 
 /** 从计算结果的数组字段构建 Plot 与填充；样式与填充默认值统一由契约补齐。 */
@@ -259,35 +395,19 @@ function isRangeSource(plot: Plot, fillSources: ReadonlySet<string>): boolean {
 /**
  * 取一根 Plot 在可见范围内的价格上下界；范围内没有有效数值时返回 undefined。
  * histogram / columns 从 baseline 起算，基线一并计入边界。
+ *
+ * 区间极值走块索引（`queryPlotBounds`），滚动时不逐根扫描；offset 与 OHLC 的
+ * `showLast` 裁剪仍在这里换算成数据下标。
  */
 function plotValueBounds(plot: Plot, range: VisibleRange): PriceBounds | undefined {
   const start = Math.max(isOhlcPlot(plot) ? ohlcPlotStart(plot) : 0, range.start - plot.offset)
   const end = Math.min(plot.data.length, range.end - plot.offset)
-  let min = Infinity
-  let max = -Infinity
-  let hasValues = false
-  if (isOhlcPlot(plot)) {
-    for (let index = start; index < end; index++) {
-      const point = plot.data[index]
-      if (!point) continue
-      hasValues = true
-      min = Math.min(min, point.low)
-      max = Math.max(max, point.high)
-    }
-    return hasValues ? { min, max } : undefined
-  }
-  for (let index = start; index < end; index++) {
-    const value = plot.data[index]?.value
-    if (value === undefined || !Number.isFinite(value)) continue
-    hasValues = true
-    min = Math.min(min, value)
-    max = Math.max(max, value)
-  }
-  if (!hasValues) return undefined
+  const bounds = queryPlotBounds(plot, start, end)
+  if (!bounds) return undefined
   if (plot.kind === 'histogram' || plot.kind === 'columns') {
-    return { min: Math.min(min, plot.baseline), max: Math.max(max, plot.baseline) }
+    return { min: Math.min(bounds.min, plot.baseline), max: Math.max(bounds.max, plot.baseline) }
   }
-  return { min, max }
+  return bounds
 }
 
 /** 缺省边界直接采用值域，否则按声明模式应用边界。 */
@@ -370,17 +490,32 @@ function plotRange(
   accumulateDrawingBounds(bounds, drawings, range)
   const padding =
     bounds.min <= bounds.max ? (bounds.max - bounds.min) * (definition.padding ?? 0.05) : 0
+  // 柱体基线构成可见值域边界时固定该侧；跨基线的数据仍在两侧正常留白。
+  const baselines = plots.filter(
+    (plot) =>
+      isRangeSource(plot, fillSources) &&
+      (plot.kind === 'histogram' || plot.kind === 'columns') &&
+      plotValueBounds(plot, range) !== undefined,
+  )
+  const pinMin = baselines.some(
+    (plot) =>
+      (plot.kind === 'histogram' || plot.kind === 'columns') && plot.baseline === bounds.min,
+  )
+  const pinMax = baselines.some(
+    (plot) =>
+      (plot.kind === 'histogram' || plot.kind === 'columns') && plot.baseline === bounds.max,
+  )
   return {
     visibleMin: bounds.min,
     visibleMax: bounds.max,
     valueMin: resolveBound(
-      bounds.min - padding,
+      bounds.min - (pinMin ? 0 : padding),
       definition.range?.min,
       definition.range?.mode,
       'min',
     ),
     valueMax: resolveBound(
-      bounds.max + padding,
+      bounds.max + (pinMax ? 0 : padding),
       definition.range?.max,
       definition.range?.mode,
       'max',

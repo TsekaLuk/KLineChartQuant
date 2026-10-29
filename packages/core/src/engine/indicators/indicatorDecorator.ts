@@ -53,7 +53,6 @@ export type IndicatorDefinitionConfig<T = unknown> = {
   getRendererName?: IndicatorRendererNameResolver
   /** 覆盖默认的副图坐标轴 plugin 命名规则。 */
   getScaleRendererName?: IndicatorAuxiliaryRendererNameResolver
-  customState?: IndicatorMetadata['customState']
   runtime?: IndicatorRuntimeDescriptor<T>
   presentation?: IndicatorPresentationDescriptor
   getTitleInfo?: GetTitleInfoFn
@@ -71,9 +70,9 @@ export type IndicatorDefinitionClass = {
  * 标准类装饰器：只声明元数据，类初始化不修改全局目录；装配入口负责注册。
  *
  * 使用方式：
- * @Indicator({ name: 'ma', ... })
- * class MADefinition {
- *   static rendererFactory = plotRenderer('ma')
+ * @Indicator({ name: 'customOverlay', ... })
+ * class CustomOverlayDefinition {
+ *   static rendererFactory = createOverlayLayer
  * }
  */
 export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
@@ -107,17 +106,11 @@ export function Indicator<C>(config: IndicatorDefinitionConfig<C>) {
               ? `${config.scale?.indicatorKey ?? config.name}Scale_${paneId}`
               : null)
 
-        // runtime.configKey 默认等于 name
-        const runtime = config.runtime && {
-          ...config.runtime,
-          configKey: config.runtime.configKey ?? config.name,
-        }
-
         metadata = {
           ...config,
           getRendererName,
           getScaleRendererName,
-          runtime,
+          runtime: config.runtime,
           rendererFactory,
           scaleRendererFactory: value.scaleRendererFactory ?? config.scaleRendererFactory,
           paneIdField: config.paneIdField,

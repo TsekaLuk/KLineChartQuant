@@ -61,9 +61,6 @@ export const lightTheme: Theme = {
     tooltipBorder: lightInterfaceColors.border,
     heatmapColdest: '#F0F4F8',
     heatmapHottest: '#1F3A5F',
-    volumeProfileFill: '#9CA3AF66',
-    volumeProfilePoc: '#F97316',
-    volumeProfileValueArea: '#2D7FF933',
     // 足迹图专用红/灰配色：Bid 红、Ask 中性灰，不随涨跌约定翻转。
     footprintCell: {
       bid: '#d64b4b',
@@ -100,6 +97,28 @@ export const lightTheme: Theme = {
       i9: '#2D7FF9', // blue
       i10: '#6E6E6E', // neutral gray
       indicatorAtr: '#d97706',
+    },
+    // 脚本 Color 枚举别名的主题取值。18 个别名按浅色画布单独调亮度，与 chartBackground 的非文字对比度均不低于 3:1；脚本侧只写别名，具体色值由宿主解析。
+    scriptPalette: {
+      red: '#DF453B', // 红
+      deepOrange: '#D05711', // 深橙
+      orange: '#BA680A', // 橙
+      amber: '#9D7704', // 琥珀
+      yellow: '#8D7D07', // 黄
+      lime: '#6C8621', // 青柠
+      lightGreen: '#588934', // 浅绿
+      green: '#298E43', // 绿
+      teal: '#148B7E', // 蓝绿
+      cyan: '#168999', // 青
+      lightBlue: '#0F84BF', // 浅蓝
+      blue: '#177AEC', // 蓝
+      indigo: '#6574D9', // 靛蓝
+      purple: '#A85BCF', // 紫
+      pink: '#E23680', // 粉
+      brown: '#A17257', // 棕
+      blueGray: '#668093', // 蓝灰
+      gray: '#7C7C7C', // 灰
+      foreground: lightInterfaceColors.text, // 前景：浅色主题为深色文字
     },
     // ── Legacy indicator colours (from engine/theme/colors) ──
     text: {
@@ -218,22 +237,6 @@ export const lightTheme: Theme = {
     },
     lastPriceLabel: {
       bg: 'rgba(255, 247, 248, 0.98)',
-    },
-    structure: {
-      hh: '#16a34a',
-      hl: '#22c55e',
-      lh: '#dc2626',
-      ll: '#ef4444',
-      choch: '#8b5cf6',
-      bos: '#f59e0b',
-    },
-    zones: {
-      fvgBullFill: 'rgba(34, 197, 94, 0.15)',
-      fvgBearFill: 'rgba(239, 68, 68, 0.15)',
-      fvgBullBorder: 'rgba(34, 197, 94, 0.6)',
-      fvgBearBorder: 'rgba(239, 68, 68, 0.6)',
-      obBullFill: 'rgba(34, 197, 94, 0.25)',
-      obBearFill: 'rgba(239, 68, 68, 0.25)',
     },
     referenceLine: {
       neutral: 'rgba(0, 0, 0, 0.3)',

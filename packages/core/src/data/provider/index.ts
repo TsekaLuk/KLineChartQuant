@@ -1,5 +1,7 @@
 /** 统一行情领域模型公共入口。 */
 
+export { BarsLiveSource } from '../live/impl/barsLive.js'
+export type { LiveBarsDataSource, LiveBarsRequest } from '../live/types.js'
 export type {
   MarketConnection,
   MarketDataConfiguration,
@@ -7,9 +9,6 @@ export type {
   MarketRegistryState,
 } from '../management/index.js'
 export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
-
-export { BarsLiveSource } from '../live/impl/barsLive.js'
-export type { LiveBarsDataSource, LiveBarsRequest } from '../live/types.js'
 export { createTradeDataSource } from '../trades/impl/tradeSource.js'
 export type { InstrumentLookupRequest, InstrumentSearchRequest } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'

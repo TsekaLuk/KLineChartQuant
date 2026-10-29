@@ -11,7 +11,7 @@ import {
 import { releaseProxy, wrap } from 'comlink'
 import { SCRIPT_EDITOR_FILE, type ScriptLanguageWorker } from './types.js'
 import { renderScriptHover } from './renderScriptHover.js'
-import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker&inline'
+import ScriptLanguageWorkerConstructor from './scriptLanguage.worker?worker'
 import { scriptSignatureHelp } from './scriptSignatureHelp.js'
 
 /** 为当前编辑器创建服务；dispose 在初始化尚未结束时也能终止 Worker。 */
@@ -40,16 +40,33 @@ export function createScriptLanguageSupport(onFailure: (error: Error) => void) {
   innerWorker.addEventListener('error', handleError)
   innerWorker.addEventListener('messageerror', handleMessageError)
   return {
+    /** 标签切换后同步当前文件，保留同一个语言 Worker。 */
+    updateSource(source: string) {
+      return worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: source })
+    },
+    /** 库保存后更新类型，后续查询仍走原有语言服务。 */
+    async setLibraries(libraries: readonly { name: string; source: string }[]) {
+      await worker.setLibraries(libraries)
+    },
+    /** 显式携带原文，避免同步插件的防抖使查询落在旧版本上。 */
+    getNavigation(source: string, position: number, kind: 'definition' | 'declaration' | 'typeDefinition' | 'implementation') {
+      return worker.getNavigation(SCRIPT_EDITOR_FILE, source, position, kind)
+    },
+    /** 返回原文上的全部改名编辑，由宿主以一次可撤销事务写入。 */
+    renameSymbol(source: string, position: number, name: string) {
+      return worker.renameSymbol(SCRIPT_EDITOR_FILE, source, position, name)
+    },
     /** 复用独立语言 Worker 格式化当前原文。 */
     formatDocument(source: string) {
       return worker.formatDocument(SCRIPT_EDITOR_FILE, source)
     },
     /** 初始化后返回服务扩展，现有文档由调用方在挂载前传入。 */
-    async initialize(getSource: () => string): Promise<Extension> {
+    async initialize(getSource: () => string, libraries: readonly { name: string; source: string }[] = []): Promise<Extension> {
       await Promise.race([
         (async () => {
           await worker.initialize()
           if (disposed) return
+          await worker.setLibraries(libraries)
           await worker.updateFile({ path: SCRIPT_EDITOR_FILE, code: getSource() })
         })(),
         failed,

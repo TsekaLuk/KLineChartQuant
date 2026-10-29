@@ -30,9 +30,9 @@ import {
 import type { IndicatorMarketData } from '@/engine/indicators/instances/execution/marketDataTypes.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
-  supportsRawTradeStream,
   type MarketRuntimeDependencies,
   type ReadyMarketSession,
+  supportsRawTradeStream,
 } from '../types.js'
 import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
 
@@ -98,6 +98,24 @@ export class MarketRuntime implements IndicatorMarketData {
   >()
   private readonly requestAborts = new Map<string, AbortController>()
   private requestRevision = 0
+  private readonly temporaryOwners = new Set<string>()
+  private retainedOwners: ReadonlySet<string> = new Set()
+  private temporarySequence = 0
+
+  /** 临时计算共享图表行情需求，结束后释放自己的订阅与请求。 */
+  async withContext<T>(
+    bars: readonly KLineData[],
+    compute: (market: IndicatorMarketContext) => Promise<T>,
+  ): Promise<T> {
+    const owner = `temporary_${++this.temporarySequence}`
+    this.temporaryOwners.add(owner)
+    try {
+      return await compute(this.context(owner, bars))
+    } finally {
+      this.temporaryOwners.delete(owner)
+      this.retain(this.retainedOwners)
+    }
+  }
 
   /** 行情依赖版本参与现有指标缓存身份。 */
   get revision(): number {
@@ -165,13 +183,15 @@ export class MarketRuntime implements IndicatorMarketData {
 
   /** 计算计划移除最后使用者时取消查询并关闭连接。 */
   retain(owners: ReadonlySet<string>): void {
+    this.retainedOwners = owners
+    const activeOwners = new Set([...owners, ...this.temporaryOwners])
     for (const [owner, abort] of this.requestAborts) {
-      if (owners.has(owner)) continue
+      if (activeOwners.has(owner)) continue
       abort.abort()
       this.requestAborts.delete(owner)
     }
     for (const demand of this.barDemands.values())
-      for (const owner of demand.owners) if (!owners.has(owner)) demand.owners.delete(owner)
+      for (const owner of demand.owners) if (!activeOwners.has(owner)) demand.owners.delete(owner)
     this.releaseUnusedBars()
     this.reconcileBarStreams()
   }
@@ -302,20 +322,20 @@ export class MarketRuntime implements IndicatorMarketData {
       binding.stream.destroy()
     }
     for (const [key, target] of targets) {
-      if (
-        this.live.has(key) ||
-        !target.capabilities.liveBars ||
-        target.instrument.capabilities.liveBars === false
-      )
-        continue
-      const provider = this.registry.get(target.instrument.sourceId)
-      if (provider?.liveBars === undefined)
-        throw new Error(`数据源声明实时 K 线但没有提供接口：${target.instrument.sourceId}`)
-      const stream = provider.liveBars.createStream({
+      // 源声明是前提，品种可显式关闭（Connector 只对部分市场提供实时流）。
+      if (this.live.has(key) || target.capabilities.liveBars !== true) continue
+      if (target.instrument.capabilities.liveBars === false) continue
+      // 能力位已在 probe 入库时与实现对齐；这里只做绑定，失败不得抛穿状态通知链。
+      const liveBars = this.registry.get(target.instrument.sourceId)?.liveBars
+      if (liveBars === undefined) continue
+      const stream = liveBars.createStream({
         symbol: target.instrument.symbol,
-        instrumentId: target.instrument.id,
         period: target.selection.period,
         barAggregation: target.selection.barAggregation,
+        // 与 /bars 使用同一份已解析身份，避免服务端按裸 symbol 猜测或静默降级复权。
+        instrumentId: target.instrument.id,
+        exchange: target.instrument.exchange,
+        adjustment: target.selection.adjustment,
       })
       const connector = new RealtimeBarsConnector(
         {

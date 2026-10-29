@@ -5,17 +5,9 @@
  * 透明度、合成模式、阴影与滤镜属于目标级状态，变化前必须先落盘，否则后画的原语
  * 会被套上错误的坐标系或透明度。
  */
-import type { PaintPrimitive, PrimitivePaint, PrimitiveSink } from '../types.js'
-import type { DataTransform } from '@/foundation/plugin/types.js'
 
-export interface PrimitiveComposer {
-  /** 交给纯增量图层的提交入口：目标由 Scene 选定，且不允许改动目标状态。 */
-  readonly submit: PrimitivePaint
-  /** 带目标的提交入口，保留给仍持有 ctx 的图层。 */
-  readonly sink: PrimitiveSink
-  /** 立即合成待提交内容；Scene 在帧末与非合批层前后调用。 */
-  flush(): void
-}
+import type { DataTransform } from '@/foundation/plugin/types.js'
+import type { PaintPrimitive, PrimitiveComposer, PrimitiveSink } from '../types.js'
 
 /** 影响整批原语解释结果的目标状态快照。 */
 interface ComposedState {
@@ -41,7 +33,7 @@ function readState(target: CanvasRenderingContext2D): ComposedState {
   }
 }
 
-/** 两个快照是否可以用同一批合成。 */
+/** 两个快照是否可以用同一批合成, 若改变则需 flush 上屏 */
 function sameState(left: ComposedState, right: ComposedState): boolean {
   return (
     left.transform.a === right.transform.a &&
@@ -61,6 +53,10 @@ function sameState(left: ComposedState, right: ComposedState): boolean {
 
 /**
  * 为一个绘制目标建立合成器。
+ *
+ * 用闭包而不是 class：`submit` 会被 Scene 当作裸函数放进 Layer 上下文
+ * （`primitives: composer.submit`），随后由图层以 `context.primitives(...)` 调用。
+ * 闭包里没有 this，这种脱钩调用天然安全，也不需要靠注释或测试去维持。
  *
  * @param submit 真实后端提交器，负责 GPU 与 Canvas 的分派
  * @param target 本帧该绘制目标的上下文
@@ -120,11 +116,5 @@ export function createPrimitiveComposer(
     }
   }
 
-  return {
-    flush,
-    submit: compose,
-    sink(_target, primitives, dpr, transform) {
-      compose(primitives, dpr, transform)
-    },
-  }
+  return { flush, submit: compose }
 }

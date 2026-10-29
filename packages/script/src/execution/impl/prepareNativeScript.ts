@@ -9,15 +9,21 @@ import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/output.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import {
+  DRAWING_API_PRELUDE,
   DRAWING_PRELUDE,
   INDICATOR_PRELUDE,
   LIBRARY_PRELUDE,
-  LINE_API_PRELUDE,
+  PIVOT_PRELUDE,
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
 } from '../../quickjs/generated/runtime.js'
-import { readDefinition, readFillCall, readPlotCall } from '../../quickjs/impl/readDefinition.js'
+import {
+  readDefinition,
+  readFillCall,
+  readHLineCall,
+  readPlotCall,
+} from '../../quickjs/impl/readDefinition.js'
 import { SCRIPT_ENUM_GLOBALS } from '../../quickjs/impl/scriptEnumGlobals.js'
 import {
   type PreparedQuickJSScript,
@@ -78,8 +84,9 @@ export function prepareNativeScript(
         ${REQUEST_PRELUDE}
         ${ROLLING_PRELUDE}
         ${INDICATOR_PRELUDE}
-        ${LINE_API_PRELUDE}
+        ${DRAWING_API_PRELUDE}
         ${DRAWING_PRELUDE}
+        ${PIVOT_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
         ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()) }
@@ -116,6 +123,7 @@ export function prepareNativeScript(
       },
       /** 当前已经处理的行情数量。 */
       __count: () => index + 1,
+      __barCount: () => bars.length,
       /** 采集数值点；保留与 QuickJS 相同的无穷值诊断。 */
       __plot(kind: unknown, value: unknown, name: unknown, options: unknown) {
         requireBar('plot')
@@ -137,10 +145,21 @@ export function prepareNativeScript(
           declaration,
         )
       },
-      /** 采集填充，复用共享的边界与颜色校验。 */
+      /** 采集填充：Plot 之间按 bar 取色，水平线之间是整幅单色。 */
       __fill(from: unknown, to: unknown, color: unknown, title: unknown, options: unknown) {
-        requireBar('fill')
-        collector.onFill(readFillCall(from, to, color, title, options), index)
+        const call = readFillCall(from, to, color, title, options)
+        if (call.kind === 'plot') {
+          requireBar('fill')
+          collector.onFill(call.declaration, index)
+          return
+        }
+        if (index >= 0) throw new ScriptExecutionError('compile', 'hline 填充只能在文件顶层声明')
+        collector.onHLineFill(call.from, call.to, call.color, call.title, call.visible)
+      },
+      /** 采集图表级水平线；与 plot 相反，只允许在文件顶层声明。 */
+      __hline(price: unknown, options: unknown): string {
+        if (index >= 0) throw new ScriptExecutionError('compile', 'hline 只能在文件顶层声明')
+        return collector.onHLine(readHLineCall(price, options))
       },
     }
     // 保留原生全局能力的读取，运行库写入仍归本次 scope 所有；这里不做安全隔离。

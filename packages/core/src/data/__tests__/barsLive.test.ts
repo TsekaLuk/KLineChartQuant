@@ -6,7 +6,6 @@ import {
   BarsLiveSource,
   type LiveBar,
   type LiveBarsRequest,
-  type LiveBarsStream,
   RealtimeBarsConnector,
 } from '../live/impl/barsLive'
 
@@ -42,13 +41,11 @@ class FakeEventSource {
   }
 }
 
-function createSource() {
+function createSource(request: Partial<LiveBarsRequest> = {}) {
   const instances: FakeEventSource[] = []
   const source = new BarsLiveSource(
     'mt5',
-    'XAUUSD',
-    '4h',
-    'original',
+    { symbol: 'XAUUSD', period: '4h', barAggregation: 'original', ...request },
     'http://127.0.0.1:8090',
     (url) => {
       const es = new FakeEventSource(url)
@@ -78,6 +75,24 @@ describe('BarsLiveSource', () => {
 
     expect(statuses).toEqual(['connecting', 'connected'])
     expect(frames).toEqual([{ type: 'snapshot', symbol: 'XAUUSD', period: '4h', bars: [] }])
+    source.disconnect()
+  })
+
+  it('forwards exact instrument identity and adjustment', () => {
+    const { source, instances } = createSource({
+      symbol: '000001',
+      period: 'daily',
+      instrumentId: 'gotdx:index:1:000001',
+      exchange: 'SH',
+      adjustment: 'hfq',
+    })
+    source.connect()
+    // 裸 symbol 可能歧义；身份与复权必须原样到达 connector。
+    const url = new URL(instances[0]!.url)
+    expect(url.searchParams.get('instrumentId')).toBe('gotdx:index:1:000001')
+    expect(url.searchParams.get('exchange')).toBe('SH')
+    expect(url.searchParams.get('adjustment')).toBe('hfq')
+    expect(url.searchParams.get('symbol')).toBe('000001')
     source.disconnect()
   })
 
@@ -255,41 +270,5 @@ describe('RealtimeBarsConnector', () => {
 
     expect(writes).toEqual([[{ timestamp: 1000, close: 2 }]])
     expect(instances[0]!.closed).toBe(true)
-  })
-})
-
-describe('BarsLiveSource instrumentId', () => {
-  /** 以假 EventSource 连接一次，返回实际订阅地址。 */
-  function connectUrl(instrumentId?: string): string {
-    let url = ''
-    const source = new BarsLiveSource(
-      'gotdx',
-      '000001',
-      'daily',
-      'original',
-      'https://example.test',
-      (target) => {
-        url = target
-        return new FakeEventSource(target) as unknown as EventSource
-      },
-      instrumentId,
-    )
-    source.connect()
-    source.destroy()
-    return url
-  }
-
-  it('appends the encoded instrumentId when the instrument is resolved', () => {
-    expect(connectUrl('gotdx:SZ:000001')).toBe(
-      'https://example.test/api/v1/market-data/sources/gotdx/stream?symbol=000001&period=daily&barAggregation=original&instrumentId=gotdx%3ASZ%3A000001',
-    )
-  })
-
-  it('omits instrumentId when it is unknown', () => {
-    const url = connectUrl()
-    expect(url).toBe(
-      'https://example.test/api/v1/market-data/sources/gotdx/stream?symbol=000001&period=daily&barAggregation=original',
-    )
-    expect(url).not.toContain('instrumentId')
   })
 })

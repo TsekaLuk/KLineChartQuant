@@ -7,8 +7,14 @@
     "packages/react/src/index.ts",
     "packages/angular/src/index.ts",
     "packages/vue/preview/main.ts",
+    "packages/script/src/quickjs/runtime/library.ts",
+    "packages/script/src/quickjs/runtime/series.ts",
+    "packages/script/src/quickjs/runtime/request.ts",
+    "packages/script/src/quickjs/runtime/rolling.ts",
     "packages/script/src/quickjs/runtime/indicator.ts",
     "packages/script/src/quickjs/runtime/drawing.ts",
+    "packages/script/src/quickjs/runtime/ta.ts",
+    "packages/script/src/quickjs/runtime/pivot.ts",
     "packages/script/src/quickjs/runtime/plotKind.ts",
     "examples/scripts/drawing-line.ts"
   ],
@@ -49,6 +55,21 @@
     "policy-violation": "off",
     "css-dead-surface": "off",
     "css-selector-complexity": "off"
+  },
+  "health": {
+    "thresholdOverrides": [
+      {
+        "files": [
+          "packages/script/src/__tests__/**",
+          "packages/script/src/**/__tests__/**",
+          "packages/script/scripts/__tests__/**"
+        ],
+        "maxCyclomatic": 30,
+        "maxCognitive": 60,
+        "maxCrap": 100,
+        "reason": "参考实现与表驱动断言属于测试基础设施，不进运行时复杂度预算；产品代码仍按原阈值"
+      }
+    ]
   },
   "rulePacks": [],
   "boundaries": {

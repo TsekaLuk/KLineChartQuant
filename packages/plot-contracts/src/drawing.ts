@@ -1,4 +1,7 @@
 /** 手绘与脚本共用的对象、坐标、样式和 Pine 风格 line API 契约。 */
+import type { Color } from './color.js'
+
+/** 线型：实线、虚线与箭头；手绘和 line API 共用。 */
 export const LineStyle = {
   /** @summary 实线 */
   style_solid: 'solid',
@@ -41,13 +44,16 @@ export const xloc = {
 } as const
 export type LineXLoc = (typeof xloc)[keyof typeof xloc]
 export type DrawingStyle = {
-  stroke?: string
+  /** 线条颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。 */
+  stroke: Color | (string & {})
   strokeWidth?: number
   strokeStyle?: LineStyle
-  fill?: string
+  /** 填充颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。 */
+  fill?: Color | (string & {})
   fillOpacity?: number
   pointRadius?: number
-  textColor?: string
+  /** 标签文字颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。 */
+  textColor?: Color | (string & {})
   fontSize?: number
 }
 export type DrawingLabelPosition = 'start' | 'center' | 'end'
@@ -67,6 +73,7 @@ export type DrawingKind =
   | 'extended-line'
   | 'fib-retracement'
   | 'rectangle'
+  | 'label'
   | 'arrow'
   | 'horizontal-line'
   | 'horizontal-ray'
@@ -101,6 +108,230 @@ export type DrawingObject<TParams = Record<string, unknown>> = {
   /** line API 声明的绝对坐标单位；手绘的 bar 身份锚点由 anchors 自身表达。 */
   xloc?: LineXLoc
   extend?: LineExtend
+  /** Box 和 Label 的文字由公共 Text 图元绘制。 */
+  text?: DrawingText
+}
+
+/**
+ * 对象文字内容与排版；颜色和字号属于图元样式，统一放在 DrawingStyle.textColor / fontSize。
+ *
+ * 文字是绘制结果的一部分，不再保留自己的颜色与字号，避免同一属性存两份、
+ * 让主题色解析只能覆盖其中一份。
+ */
+export interface DrawingText {
+  value: string
+  align: 'left' | 'center' | 'right'
+  verticalAlign: 'top' | 'middle' | 'bottom'
+  /** 垂直像素偏移；正数向上，0 表示贴合锚点。点标签与 Box 文字消费。 */
+  offsetY?: number
+}
+
+/** Box 的边框不包含箭头。 */
+export type BoxBorderStyle = 'solid' | 'dashed' | 'dotted'
+/** Box 对象引用，仅在所属运行中有效。 */
+export interface BoxRef {
+  readonly id: string
+}
+/** Label 对象引用，仅在所属运行中有效。 */
+export interface LabelRef {
+  readonly id: string
+}
+/** Box 的选项对象形态；只写需要的字段，省略只接受单一取值的参数。 */
+export interface BoxOptions {
+  /** 左边界；按 xloc 读取索引或时间戳。 */
+  readonly left: number
+  /** 上边界价格。 */
+  readonly top: number
+  /** 右边界；规则同 left。 */
+  readonly right: number
+  /** 下边界价格。 */
+  readonly bottom: number
+  /** 边框颜色，缺省 Color.Blue。 */
+  readonly borderColor?: Color | (string & {})
+  /** 边框宽度，逻辑像素；0 表示不画边框。 */
+  readonly borderWidth?: number
+  /** 边框线型，缺省 solid。 */
+  readonly borderStyle?: BoxBorderStyle
+  /** 延伸方向，缺省不延伸。 */
+  readonly extend?: LineExtend
+  /** X 坐标单位，缺省 bar_index。 */
+  readonly xloc?: LineXLoc
+  /** 填充颜色；缺省与边框同色。 */
+  readonly backgroundColor?: Color | (string & {})
+  /** 框内文字，缺省为空。 */
+  readonly text?: string
+  /** 文字字号，缺省 12。 */
+  readonly textSize?: number
+  /** 文字颜色；缺省跟随边框颜色。 */
+  readonly textColor?: Color | (string & {})
+}
+/** Pine 风格 Box 创建重载；可选参数顺序与 Pine 相同。 */
+export interface BoxFactory {
+  (
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+    border_color?: Color | (string & {}),
+    border_width?: number,
+    border_style?: BoxBorderStyle,
+    extend?: LineExtend,
+    xloc?: LineXLoc,
+    bgcolor?: Color | (string & {}),
+    text?: string,
+    text_size?: number,
+    text_color?: Color | (string & {}),
+  ): BoxRef
+  (
+    top_left: ChartPoint,
+    bottom_right: ChartPoint,
+    border_color?: Color | (string & {}),
+    border_width?: number,
+    border_style?: BoxBorderStyle,
+    extend?: LineExtend,
+    xloc?: LineXLoc,
+    bgcolor?: Color | (string & {}),
+    text?: string,
+    text_size?: number,
+    text_color?: Color | (string & {}),
+  ): BoxRef
+  /**
+   * 选项对象形态：字段与位置参数等价，未写的字段取默认值。
+   * @summary 绘制矩形
+   */
+  (options: BoxOptions): BoxRef
+}
+/** 跨 bar 保留的矩形对象；复用手绘 rectangle 模型。 */
+export interface DrawingBoxApi {
+  readonly new: BoxFactory
+  readonly all: readonly BoxRef[]
+  set_left(id: BoxRef, left: number): void
+  set_top(id: BoxRef, top: number): void
+  set_right(id: BoxRef, right: number): void
+  set_bottom(id: BoxRef, bottom: number): void
+  set_lefttop(id: BoxRef, left: number, top: number): void
+  set_rightbottom(id: BoxRef, right: number, bottom: number): void
+  set_top_left_point(id: BoxRef, point: ChartPoint): void
+  set_bottom_right_point(id: BoxRef, point: ChartPoint): void
+  set_xloc(id: BoxRef, left: number, right: number, xloc: LineXLoc): void
+  set_extend(id: BoxRef, extend: LineExtend): void
+  set_bgcolor(id: BoxRef, color: Color | (string & {})): void
+  set_border_color(id: BoxRef, color: Color | (string & {})): void
+  set_border_width(id: BoxRef, width: number): void
+  set_border_style(id: BoxRef, style: BoxBorderStyle): void
+  set_text(id: BoxRef, text: string): void
+  set_text_color(id: BoxRef, color: Color | (string & {})): void
+  set_text_size(id: BoxRef, size: number): void
+  set_text_halign(id: BoxRef, align: DrawingText['align']): void
+  set_text_valign(id: BoxRef, align: DrawingText['verticalAlign']): void
+  get_left(id: BoxRef): number
+  get_top(id: BoxRef): number
+  get_right(id: BoxRef): number
+  get_bottom(id: BoxRef): number
+  copy(id: BoxRef): BoxRef | null
+  delete(id: BoxRef | null): void
+}
+/** Label 的选项对象形态；只写需要的字段，省略 yloc/style 这类只有一个取值的参数。 */
+export interface LabelOptions {
+  /** 锚点 X；按 xloc 读取索引或时间戳。 */
+  readonly x: number
+  /** 锚点价格。 */
+  readonly y: number
+  /** 文字，缺省为空字符串。 */
+  readonly text?: string
+  /** X 坐标单位，缺省 bar_index。 */
+  readonly xloc?: LineXLoc
+  /** 文字颜色；同时作为标签颜色。 */
+  readonly color?: Color | (string & {})
+  /** 文字颜色覆盖；缺省跟随 color。 */
+  readonly textColor?: Color | (string & {})
+  /** 字号，逻辑像素，缺省 12。 */
+  readonly size?: number
+  /** 水平对齐，缺省 center。 */
+  readonly align?: DrawingText['align']
+  /** 垂直偏移，逻辑像素，正数向上，缺省 0。 */
+  readonly offsetY?: number
+}
+/** Pine 风格 Label 创建重载：位置参数与选项对象等价。 */
+export interface LabelFactory {
+  /**
+   * 位置参数形态，顺序与 Pine 相同。
+   * @summary 绘制标签
+   *
+   * | 参数 | 含义 |
+   * | --- | --- |
+   * | `x` / `y` | 锚点；x 按 xloc 读取，y 为价格 |
+   * | `text` | 文本，默认空字符串 |
+   * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根 |
+   * | `yloc` | 目前只支持价格锚点（yloc.price） |
+   * | `color` | 标签颜色，默认 Color.Blue |
+   * | `style` | 只支持无背景样式（label.style_none） |
+   * | `textcolor` | 文字颜色，缺省跟随 `color` |
+   * | `size` | 字号，正整数逻辑像素，默认 12 |
+   * | `textalign` | 水平对齐，默认 center |
+   * | `offsetY` | 垂直偏移，逻辑像素，正数向上，默认 0 |
+   */
+  (
+    x: number,
+    y: number,
+    text?: string,
+    xloc?: LineXLoc,
+    yloc?: 'price',
+    color?: Color | (string & {}),
+    style?: 'none',
+    textcolor?: Color | (string & {}),
+    size?: number,
+    textalign?: DrawingText['align'],
+    offsetY?: number,
+  ): LabelRef
+  /**
+   * 选项对象形态：字段与位置参数等价，未写的字段取默认值。
+   * @summary 绘制标签
+   */
+  (options: LabelOptions): LabelRef
+}
+/** 第一版 Label 使用价格锚点和纯文字样式，与 Pine style_none 对应。 */
+export interface DrawingLabelApi {
+  readonly style_none: 'none'
+  /**
+   * 绘制价格锚点标签，位置参数或选项对象二选一。
+   * @summary 绘制标签
+   *
+   * 返回标签引用；超过 max_labels_count 时最旧的标签被回收。
+   */
+  readonly new: LabelFactory
+  readonly all: readonly LabelRef[]
+  set_x(id: LabelRef, x: number): void
+  set_y(id: LabelRef, y: number): void
+  set_xy(id: LabelRef, x: number, y: number): void
+  set_text(id: LabelRef, text: string): void
+  set_textcolor(id: LabelRef, color: Color | (string & {})): void
+  set_size(id: LabelRef, size: number): void
+  set_textalign(id: LabelRef, align: DrawingText['align']): void
+  /**
+   * 设置垂直偏移；逻辑像素，正数向上。
+   * @summary 设置垂直偏移
+   */
+  set_yoffset(id: LabelRef, offsetY: number): void
+  get_x(id: LabelRef): number
+  get_y(id: LabelRef): number
+  get_text(id: LabelRef): string | null
+  /**
+   * 读取垂直偏移；标签已删除返回 0。
+   * @summary 垂直偏移
+   */
+  get_yoffset(id: LabelRef): number
+  copy(id: LabelRef): LabelRef | null
+  delete(id: LabelRef | null): void
+}
+/** 价格文字锚点；其他定位方式待公共绘图模型支持后再开放。 */
+export const yloc = { price: 'price' } as const
+/** Box 和 Label 的运行上下文，限额在声明时归一化。 */
+export interface DrawingObjectContext {
+  readonly paneId: string
+  readonly ownerId?: string
+  readonly barCount: number
+  readonly maxObjects: number
 }
 /**
  * 声明式修改：undefined 表示不修改，style 按字段合并而不是整体替换。
@@ -133,6 +364,27 @@ export interface LineRef {
   /** 对象标识；同一对象在 line.all 与创建结果中是同一个引用。 */
   readonly id: string
 }
+/** Line 的选项对象形态；只写需要的字段，等价于位置参数。 */
+export interface LineOptions {
+  /** 起点 X；按 xloc 读取索引或时间戳。 */
+  readonly x1: number
+  /** 起点价格。 */
+  readonly y1: number
+  /** 终点 X；规则同 x1。 */
+  readonly x2: number
+  /** 终点价格。 */
+  readonly y2: number
+  /** X 坐标单位，缺省 bar_index。 */
+  readonly xloc?: LineXLoc
+  /** 延伸方向，缺省不延伸。 */
+  readonly extend?: LineExtend
+  /** 颜色，缺省 Color.Blue。 */
+  readonly color?: Color | (string & {})
+  /** 线型或箭头，缺省实线。 */
+  readonly style?: LineStyle
+  /** 线宽，逻辑像素，缺省 1。 */
+  readonly width?: number
+}
 /** line.new 的重载：用 chart.point 端点或直接给出起止点的 X / Y 绘制线段。 */
 export interface LineFactory {
   /**
@@ -145,7 +397,7 @@ export interface LineFactory {
    * | `second_point` | 终点；规则同起点 |
    * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.bar_index） |
    * | `extend` | 延伸方向，默认 extend.none |
-   * | `color` | CSS 颜色，默认 Color.Blue |
+   * | `color` | 颜色，默认 Color.Blue；可用 Color 枚举或任意 CSS 颜色值 |
    * | `style` | 线型或箭头，默认 line.style_solid |
    * | `width` | 线宽，正整数逻辑像素，默认 1 |
    *
@@ -158,7 +410,7 @@ export interface LineFactory {
     second_point: ChartPoint,
     xloc?: LineXLoc,
     extend?: LineExtend,
-    color?: string,
+    color?: Color | (string & {}),
     style?: LineStyle,
     width?: number,
   ): LineRef
@@ -174,7 +426,7 @@ export interface LineFactory {
    * | `y2` | 终点价格 |
    * | `xloc` | 决定 X 是第几根 K 线还是毫秒时间戳，默认第几根（xloc.bar_index） |
    * | `extend` | 延伸方向，默认 extend.none |
-   * | `color` | CSS 颜色，默认 Color.Blue |
+   * | `color` | 颜色，默认 Color.Blue；可用 Color 枚举或任意 CSS 颜色值 |
    * | `style` | 线型或箭头，默认 line.style_solid |
    * | `width` | 线宽，正整数逻辑像素，默认 1 |
    *
@@ -189,10 +441,15 @@ export interface LineFactory {
     y2: number,
     xloc?: LineXLoc,
     extend?: LineExtend,
-    color?: string,
+    color?: Color | (string & {}),
     style?: LineStyle,
     width?: number,
   ): LineRef
+  /**
+   * 选项对象形态：字段与位置参数等价，未写的字段取默认值。
+   * @summary 绘制线段
+   */
+  (options: LineOptions): LineRef
 }
 /**
  * 脚本和原生调用方共用的完整 line API。
@@ -211,17 +468,17 @@ export interface LineFactory {
  */
 export interface DrawingLineApi {
   /** @summary 实线 */
-  readonly style_solid: LineStyle
+  readonly style_solid: typeof LineStyle.style_solid
   /** @summary 虚线 */
-  readonly style_dashed: LineStyle
+  readonly style_dashed: typeof LineStyle.style_dashed
   /** @summary 点线 */
-  readonly style_dotted: LineStyle
+  readonly style_dotted: typeof LineStyle.style_dotted
   /** @summary 左箭头 */
-  readonly style_arrow_left: LineStyle
+  readonly style_arrow_left: typeof LineStyle.style_arrow_left
   /** @summary 右箭头 */
-  readonly style_arrow_right: LineStyle
+  readonly style_arrow_right: typeof LineStyle.style_arrow_right
   /** @summary 双箭头 */
-  readonly style_arrow_both: LineStyle
+  readonly style_arrow_both: typeof LineStyle.style_arrow_both
   /**
    * 绘制线段；两个重载分别接受 chart.point 端点与起止点的 X / Y。
    * @summary 绘制线段
@@ -263,10 +520,10 @@ export interface DrawingLineApi {
    */
   set_y2(id: LineRef, y: number): void
   /**
-   * 设置线段颜色，支持 CSS 颜色值。
+   * 设置线段颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举。
    * @summary 设置颜色
    */
-  set_color(id: LineRef, color: string): void
+  set_color(id: LineRef, color: Color | (string & {})): void
   /**
    * 设置线型，包括实线、虚线和箭头。
    * @summary 设置线型
@@ -343,12 +600,14 @@ export interface DrawingObjectStore {
   list(): readonly DrawingObject[]
   /** 完整快照原子提交；用户文档和 VM 都不暴露零散的写入路径。 */
   replace(drawings: readonly DrawingObject[]): void
+  /** 原子追加一批对象并删除指定 ID；文档一次快照提交，VM 原地写入。 */
+  append(drawings: readonly DrawingObject[], removeIds: readonly string[]): void
   nextId(): string
 }
 export interface DrawingLineContext {
   readonly paneId: string
   readonly ownerId?: string
-  readonly defaultColor: string
+  readonly defaultColor: Color | (string & {})
   readonly maxLines: number
   /** 当前已执行的 K 线根数（bar_index + 1）；用于校验 bar_index 坐标的范围。 */
   readonly barCount: number

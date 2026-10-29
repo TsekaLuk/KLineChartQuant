@@ -7,6 +7,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import ScriptEditorWorkspace from './ScriptEditorWorkspace.vue'
+import { createEditorTabState } from '../../composables/chart/scriptEditor/__tests__/helpers/editorTabState.js'
 
 const language = vi.hoisted(() => ({
   create: vi.fn(),
@@ -22,26 +23,53 @@ vi.mock('@363045841yyt/klinechart-script-server', () => ({
   },
 }))
 
+let isCoarsePointer = false
+const pointer = {
+  get matches(): boolean {
+    return isCoarsePointer
+  },
+  media: '(pointer: coarse)',
+  onchange: null,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  addListener: vi.fn(),
+  removeListener: vi.fn(),
+  dispatchEvent: vi.fn(() => false),
+} satisfies MediaQueryList
+
 /** 通过浏览器设备信息驱动共享状态，编辑器不接收测试专用开关。 */
-function setDevice(userAgent: string): void {
+function setDevice(userAgent: string, touches = 0, coarse = false): void {
+  isCoarsePointer = coarse
   vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(userAgent)
+  Object.defineProperty(window.navigator, 'maxTouchPoints', { configurable: true, value: touches })
   window.dispatchEvent(new Event('resize'))
 }
 
 /** 创建具有真实编辑视图的用户脚本工作区。 */
 function mountEditor() {
   return mount(ScriptEditorWorkspace, {
-    props: { source: 'const value = 1', identity: 'user', trusted: false },
+    props: { ...createEditorTabState(), source: 'const value = 1', identity: 'user', trusted: false, theme: 'dark' },
     attachTo: document.body,
   })
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  isCoarsePointer = false
   language.initialize.mockResolvedValue([])
+  Reflect.deleteProperty(window.navigator, 'userAgentData')
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => pointer),
+  )
 })
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  Reflect.deleteProperty(window.navigator, 'maxTouchPoints')
+  Reflect.deleteProperty(window.navigator, 'userAgentData')
+})
 
 describe('Script 编辑器设备策略', () => {
   it('问题 Tab 读取真实编辑器诊断，点击定位代码，诊断清除后同步归零', async () => {
@@ -67,22 +95,26 @@ describe('Script 编辑器设备策略', () => {
       view.dispatch(setDiagnostics(view.state, []))
       await nextTick()
       expect(wrapper.find('.script-problems__item').exists()).toBe(false)
-      expect(wrapper.get('[role="tabpanel"]').text()).toContain('未发现问题')
+      expect(wrapper.findAll('[role="tabpanel"]').some((panel) => panel.text().includes('未发现问题'))).toBe(true)
     } finally {
       wrapper.unmount()
     }
   })
-  it.each(['Mozilla/5.0 (iPhone) Mobile', 'Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPad)'])(
-    '移动设备 %s 保留编辑并跳过语言服务',
-    async (ua) => {
-      setDevice(ua)
+  it.each([
+    ['Mozilla/5.0 (iPhone) Mobile', 5, false],
+    ['Mozilla/5.0 (Linux; Android 14)', 5, false],
+    ['Mozilla/5.0 (iPad)', 5, false],
+    ['Mozilla/5.0 (X11; Linux x86_64) Chrome/126 Safari/537.36', 5, true],
+  ])(
+    '非桌面设备 %s 保留编辑并跳过语言服务',
+    async (ua, touches, coarse) => {
+      setDevice(ua, touches, coarse)
       const wrapper = mountEditor()
       try {
         await flushPromises()
         expect(wrapper.find('.cm-content').attributes('contenteditable')).toBe('true')
         expect(wrapper.find('.cm-content').text()).toBe('const value = 1')
         expect(language.create).not.toHaveBeenCalled()
-        expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
         expect(wrapper.find('.script-workspace__spinner').exists()).toBe(false)
         expect(wrapper.find('[role="alert"]').exists()).toBe(false)
         await wrapper.setProps({ source: 'const value = 2' })
@@ -99,7 +131,6 @@ describe('Script 编辑器设备策略', () => {
     try {
       await flushPromises()
       expect(language.create).toHaveBeenCalledOnce()
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeUndefined()
       const content = wrapper.find('.cm-content').element
       await wrapper.setProps({ source: 'const draft = 42' })
       setDevice('Mozilla/5.0 (iPhone) Mobile')
@@ -107,7 +138,6 @@ describe('Script 编辑器设备策略', () => {
       expect(language.dispose).toHaveBeenCalledOnce()
       expect(wrapper.find('.cm-content').element).toBe(content)
       expect(wrapper.find('.cm-content').text()).toBe('const draft = 42')
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
     } finally {
       wrapper.unmount()
     }
@@ -131,7 +161,6 @@ describe('Script 编辑器设备策略', () => {
       expect(language.dispose).toHaveBeenCalledOnce()
       complete([])
       await flushPromises()
-      expect(wrapper.find('button[aria-label="格式化"]').attributes('disabled')).toBeDefined()
       expect(wrapper.find('.script-workspace__spinner').exists()).toBe(false)
     } finally {
       wrapper.unmount()

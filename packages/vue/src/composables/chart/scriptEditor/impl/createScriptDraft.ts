@@ -6,14 +6,18 @@ import type { ScriptSourceStore } from '../types.js'
 type SourceEdit = { start: number; end: number; text: string }
 
 /** 为新建脚本或官方副本生成不与现有文档冲突的名称。 */
-export function uniqueScriptName(store: ScriptSourceStore, base: string): string {
+export function uniqueScriptName(
+  store: Pick<ScriptSourceStore, 'read'> | undefined,
+  base: string,
+  reserved: readonly string[] = [],
+): string {
   let name = base
   let suffix = 2
-  while (store.read(name)) name = `${base} ${suffix++}`
+  while (store?.read(name) || reserved.includes(name)) name = `${base} ${suffix++}`
   return name
 }
 
-/** 修改 defineIndicator 对象中的 name，保持剩余源码原样。 */
+/** 修改 defineIndicator 的 name 或 defineLibrary 的首个名称参数，保持剩余源码原样。 */
 export async function createCopySource(source: string, name: string): Promise<string> {
   const ts = await import('typescript')
   const file = ts.createSourceFile(
@@ -36,6 +40,20 @@ export async function createCopySource(source: string, name: string): Promise<st
     return declaration
   }
 
+  /** 库名称是 defineLibrary 的首个字符串参数。 */
+  function libraryEdit(node: Node): SourceEdit | null {
+    if (
+      !ts.isCallExpression(node) ||
+      !ts.isIdentifier(node.expression) ||
+      node.expression.text !== 'defineLibrary'
+    )
+      return null
+    const argument = node.arguments[0]
+    if (!argument || !ts.isStringLiteral(argument))
+      throw new Error('无法创建副本：库名称必须是字符串字面量')
+    return { start: argument.getStart(file), end: argument.end, text: JSON.stringify(name) }
+  }
+
   /** 收集声明对象里 name 初始值的改写编辑。 */
   function identityEdits(declaration: ObjectLiteralExpression): SourceEdit[] {
     const found: SourceEdit[] = []
@@ -52,18 +70,23 @@ export async function createCopySource(source: string, name: string): Promise<st
     return found
   }
 
-  /** 递归遍历语法树，只处理指标声明的身份属性，不修改其他对象上的同名属性。 */
+  /** 递归遍历语法树，只处理指标与库声明的身份，不修改其他对象上的同名属性。 */
   function visit(node: Node): void {
     const declaration = readDeclaration(node)
     if (declaration) {
       edits.push(...identityEdits(declaration))
       return
     }
+    const library = libraryEdit(node)
+    if (library) {
+      edits.push(library)
+      return
+    }
     ts.forEachChild(node, visit)
   }
 
   visit(file)
-  if (!edits.length) throw new Error('无法创建副本：未找到指标名称声明')
+  if (!edits.length) throw new Error('无法创建副本：未找到脚本名称声明')
   return edits
     .sort((a, b) => b.start - a.start)
     .reduce((text, edit) => text.slice(0, edit.start) + edit.text + text.slice(edit.end), source)
@@ -72,4 +95,9 @@ export async function createCopySource(source: string, name: string): Promise<st
 /** 新建脚本提供可直接保存的独立声明。 */
 export function createBlankSource(name: string): string {
   return `// 用户自定义指标\ndefineIndicator({\n  name: ${JSON.stringify(name)},\n  position: Position.Sub,\n  onBar() {\n    const period = input.int(20, { title: '周期', min: 1 })\n    plot.Line(ta.sma(close, period), 'ma')\n  },\n})\n`
+}
+
+/** 库模板仅公开可复用函数，不生成指标或绘图入口。 */
+export function createLibrarySource(name: string): string {
+  return `// 用户自定义库\ndefineLibrary(${JSON.stringify(name)}, {\n  /** 平滑价格序列。 */\n  smooth(source: Series, length: number): Series {\n    return ta.sma(source, length)\n  },\n})\n`
 }

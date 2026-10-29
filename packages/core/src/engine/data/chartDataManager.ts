@@ -49,8 +49,8 @@ import type {
   BarAggregation,
   InstrumentDescriptor,
   KLineAdjustment,
-  SourceCapabilities,
   OlderDataStatus,
+  SourceCapabilities,
   TradingDate,
 } from '../../data/provider/types.js'
 import {
@@ -185,6 +185,16 @@ export class ChartDataManager {
   /** 跨周期行情复用市场运行模块。 */
   get indicatorMarketData(): import('../indicators/instances/execution/marketDataTypes.js').IndicatorMarketData {
     return this.marketRuntime
+  }
+
+  /** 临时计算的行情使用权也由唯一市场运行模块管理。 */
+  withIndicatorMarketContext<T>(
+    bars: readonly KLineData[],
+    compute: (
+      market: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
+    ) => Promise<T>,
+  ): Promise<T> {
+    return this.marketRuntime.withContext(bars, compute)
   }
 
   private deps: DataDependencies

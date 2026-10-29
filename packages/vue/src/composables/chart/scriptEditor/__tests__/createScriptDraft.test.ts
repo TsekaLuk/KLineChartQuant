@@ -15,22 +15,21 @@ defineIndicator({
 })`
 
 /** 只实现 read 的最小仓库；create/update 在本用例中不会被调用。 */
-function storeWith(names: readonly string[]): ScriptSourceStore {
+function storeWith(names: readonly string[]): Pick<ScriptSourceStore, 'read'> {
   return {
     read: (id) =>
       names.includes(id)
         ? {
+            kind: 'indicator',
             id,
             definition: { name: id },
             source: '',
             revision: 1,
             identity: 'user',
             trusted: false,
+            folder: '',
           }
         : undefined,
-    create: () => Promise.reject(new Error('unused')),
-    update: () => Promise.reject(new Error('unused')),
-    remove: () => Promise.reject(new Error('unused')),
   }
 }
 
@@ -46,7 +45,7 @@ describe('createScriptDraft', () => {
 
   it('声明不是对象或缺少 name 时明确失败', async () => {
     await expect(createCopySource('defineIndicator(42)', 'X')).rejects.toThrow('必须是对象')
-    await expect(createCopySource('const value = 1', 'X')).rejects.toThrow('未找到指标名称声明')
+    await expect(createCopySource('const value = 1', 'X')).rejects.toThrow('未找到脚本名称声明')
   })
 
   it('名称占用时递增后缀，新建草稿是可保存的完整声明', () => {

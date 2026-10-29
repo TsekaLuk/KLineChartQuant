@@ -16,7 +16,11 @@ import {
   type XAxisRange,
   type YAxisRange,
 } from '@/foundation/plugin/index.js'
-import { DEFAULT_DRAWING_STROKE, resolveThemeColors } from '@/foundation/tokens/index.js'
+import {
+  createScriptColorResolver,
+  resolveThemeColors,
+  type ScriptColorResolver,
+} from '@/foundation/tokens/index.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import { resolveAxisTimeLabel } from '@/foundation/utils/futureSlotLabel.js'
 import { createSelectionMarqueePrimitives } from '../../interaction/impl/selectionMarquee.js'
@@ -27,6 +31,7 @@ import type { DrawingStore } from '../../render/impl/DrawingStore.js'
 import type { DrawingPaintScope } from '../../render/types.js'
 import { PREVIEW_ID } from '../../session/impl/DrawingSessionOverlay.js'
 import type { DrawingKind, ResolvedDrawingAnchor, ResolvedDrawingObject } from '../../types.js'
+import { intersectsDrawingRange } from './drawingExtent.js'
 import { LINE_LABEL_BASELINE } from './labelLayout.js'
 import { getVerticalHandleLines } from './lines.js'
 import { drawingTimeIndex } from './timeCoordinate.js'
@@ -92,6 +97,16 @@ function resolveDrawingForFrame(
       // 时间锚点未落入当前数据时不可复用旧 index，否则会投影到错误的 bar。
       return { ...anchor, index: baseIndex === null ? -1 : baseIndex + (futureOffset ?? 0) }
     }),
+  }
+}
+
+/** 解析图元样式里的颜色：脚本别名换成当前主题色值，缺省的可选颜色保持缺省。 */
+function resolveDrawingStyle(style: DrawingStyle, resolve: ScriptColorResolver): DrawingStyle {
+  return {
+    ...style,
+    stroke: resolve(style.stroke),
+    ...(style.fill === undefined ? {} : { fill: resolve(style.fill) }),
+    ...(style.textColor === undefined ? {} : { textColor: resolve(style.textColor) }),
   }
 }
 
@@ -211,7 +226,7 @@ function projectAxisDecorations(
   output: MutableDrawingFrameProjection,
 ): void {
   if (context.pane.role !== 'price') return
-  const color = style.stroke ?? DEFAULT_DRAWING_STROKE
+  const color = style.stroke
   const priceLabelOnly = PRICE_LABEL_ONLY_KINDS.has(kind)
   const timeLabelOnly = TIME_LABEL_ONLY_KINDS.has(kind)
   const series = context.data
@@ -294,7 +309,7 @@ function projectAxisDecorations(
   if (left !== right) output.xAxisRanges.push({ leftX: left, rightX: right, color, opacity: 0.15 })
 }
 
-/** 按 scope 投影当前 Pane 图元并收集轴标签；缺省生成正式图元与会话覆盖的合成视图。 */
+/** 按 scope 投影当前 Pane 图元并收集轴标签；先按可见索引区间裁掉视口外图元。 */
 export function projectDrawingsForFrame(
   store: DrawingStore,
   definitions: DrawingDefinitionRegistry,
@@ -321,9 +336,17 @@ export function projectDrawingsForFrame(
     context.isAsiaMarket,
     context.colorPresetSettings,
   )
+  const resolveColor = createScriptColorResolver(themeColors)
   for (const storedDrawing of store.getVisibleByPane(context.pane.id, workspaceId, scope)) {
-    const drawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
+    const frameDrawing = resolveDrawingForFrame(storedDrawing, getLogicalIndexAtTimestamp, context)
+    // 图元颜色可能是脚本别名，投影成当前主题色值后再交给几何与渲染。
+    const drawing: ResolvedDrawingObject = {
+      ...frameDrawing,
+      style: resolveDrawingStyle(frameDrawing.style, resolveColor),
+    }
     if (!hasResolvableTimeAnchors(drawing)) continue
+    // 视口外图元不进入几何计算；无界图形由定义声明，不在这里猜 kind。
+    if (!intersectsDrawingRange(definitions.extent(drawing), context.range)) continue
     const geometry = definitions.compute(drawing, {
       pane: context.pane,
       visibleData,
